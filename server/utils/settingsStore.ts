@@ -1,16 +1,17 @@
-import { getCollection } from './db'
+import {
+  createSetting,
+  getSettingItem,
+  updateSettingValue
+} from '../modules/settings/settings.runtime.service'
 
-/** Upsert a settings row by key, or update when the value is empty is skipped by caller. */
-export function upsertSettingByKey(key: string, value: string | number | boolean, opts?: { secret?: boolean, group?: string }): void {
-  const rows = getCollection('settings') as Array<Record<string, unknown>>
-  const existing = rows.find(s => s.key === key)
+/** Upsert a settings row by key (value-only update when it exists). */
+export async function upsertSettingByKey(key: string, value: string | number | boolean, opts?: { secret?: boolean, group?: string }): Promise<void> {
+  const existing = await getSettingItem(key)
   if (existing) {
-    existing.value = value
+    await updateSettingValue(existing.id, value)
     return
   }
-  const maxId = rows.reduce((m, r) => Math.max(m, Number(r.id) || 0), 0)
-  rows.unshift({
-    id: maxId + 1,
+  await createSetting({
     key,
     value,
     type: opts?.secret ? 'secret' : 'string',
@@ -18,5 +19,4 @@ export function upsertSettingByKey(key: string, value: string | number | boolean
     public: false,
     description: `Managed via the Database settings panel (${key})`
   })
-  // keep the memory sequence in sync is not needed here: settings rows use stable ids
 }

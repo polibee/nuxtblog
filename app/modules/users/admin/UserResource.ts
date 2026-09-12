@@ -50,7 +50,12 @@ export default (t: Translator) => {
         grid(2, [
           selectInput('role', t('res.users.field.role'), roleOptions, { defaultValue: 'viewer' }),
           selectInput('status', t('res.users.field.status'), statusOptions, { defaultValue: 'active' })
-        ])
+        ]),
+        passwordInput('password', t('res.users.field.password'), {
+          helpText: t('res.users.field.passwordHint'),
+          placeholder: '••••••••',
+          colSpan: 2
+        })
       ])
     ],
 

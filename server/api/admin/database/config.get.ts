@@ -5,7 +5,7 @@ import { requirePermission } from '../../../utils/auth'
 /** GET /api/admin/database/config — current driver config (password never echoed) */
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'settings.edit')
-  const config = readDbConfig()
+  const config = await readDbConfig()
   return {
     driver: config.driver,
     hasUrl: config.url.length > 0,

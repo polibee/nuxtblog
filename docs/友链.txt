@@ -1,0 +1,2878 @@
+可以。这个功能我建议不要把“友链”做成普通 `Page` 的一段富文本，而是：**友链页面仍由通用 Pages 管理页面本身，但友链数据和申请审核单独做一个 Links/Friend Links 业务模块**。这样你的通用页面系统不被污染，同时后台仍然能在“页面”里创建和设置友链页。
+
+# Nuxt 全栈博客 Friend Links / Blogroll 设计
+
+## 1. 设计目标
+
+实现完整流程：
+
+```text
+后台创建 Friend Links 页面
+        ↓
+前台显示友链
+        ↓
+访客提交友链申请
+        ↓
+后台审核 / 编辑
+        ↓
+自动检测申请站点
+        ↓
+自动检测是否存在本站反向链接
+        ↓
+管理员批准
+        ↓
+正式进入 Friend Links
+        ↓
+前台自动显示
+        ↓
+后续定期重新检测反链
+```
+
+核心原则：
+
+> **Page 管页面，Friend Links Module 管友链数据。**
+
+不要把全部友链手动写进 Tiptap 页面正文。
+
+---
+
+# 2. 与通用 Pages 模块的关系
+
+现有 Pages 继续负责：
+
+```text
+标题
+Slug
+SEO
+页面状态
+页面正文
+多语言 Translation
+发布时间
+```
+
+例如：
+
+```text
+Page #18
+
+title:
+友情链接
+
+slug:
+friends
+
+template:
+friend_links
+```
+
+前端：
+
+```text
+/friends
+```
+
+英文：
+
+```text
+/en/friends
+```
+
+如果未来有对应 Translation。
+
+---
+
+# 3. Page Template
+
+给通用 Page 增加/使用：
+
+```text
+template = default
+template = friend_links
+```
+
+后台 Page Editor：
+
+```text
+页面模板：
+
+○ 默认页面
+● 友情链接
+```
+
+选择：
+
+```text
+friend_links
+```
+
+前端自动加载 Friend Links Module。
+
+因此页面结构：
+
+```text
+Page Translation
+├── 页面标题
+├── 页面介绍
+└── SEO
+
+Friend Links Module
+├── Friend Links
+└── Submission Form
+```
+
+---
+
+# 4. 前端页面设计
+
+推荐结构：
+
+```text
+Header
+
+Breadcrumb
+
+友情链接
+和一些值得访问的网站交换链接。
+
+[申请友链]
+
+────────────────────────
+
+推荐 / Featured
+
+[Friend Card]
+[Friend Card]
+[Friend Card]
+
+────────────────────────
+
+全部友链
+
+[Friend Card]
+[Friend Card]
+[Friend Card]
+...
+
+────────────────────────
+
+申请说明
+
+申请友链表单
+
+Footer
+```
+
+不建议做成很传统的纯文本：
+
+```text
+站点A | 站点B | 站点C
+```
+
+使用轻量 Card 更适合你现在整个博客设计。
+
+---
+
+# 5. Friend Link Card
+
+推荐：
+
+```text
+┌─────────────────────────────┐
+│ [Logo]  AMCIHUB             │
+│                             │
+│ AI 模型部署成本分析平台      │
+│                             │
+│ amcihub.com                 │
+│                             │
+│ AI · GPU                    │
+└─────────────────────────────┘
+```
+
+Card 信息建议只显示：
+
+```text
+Logo / Favicon
+站点名称
+一句简介
+域名
+可选分类
+```
+
+不要前台显示：
+
+```text
+反链状态
+最后检测时间
+管理员备注
+申请邮箱
+IP
+```
+
+这些属于后台信息。
+
+---
+
+# 6. Card 点击
+
+整张 Card：
+
+```text
+target="_blank"
+```
+
+外链：
+
+```html
+rel="noopener noreferrer"
+```
+
+是否加：
+
+```text
+nofollow
+```
+
+建议允许后台配置。
+
+真正双方友情链接通常可以允许：
+
+```text
+follow
+```
+
+如果你希望 SEO 更谨慎，可以站点级配置。
+
+---
+
+# 7. Logo 与 Favicon
+
+友链支持：
+
+```text
+logo_url
+```
+
+但不要强制要求。
+
+优先级：
+
+```text
+管理员上传 Logo
+↓
+申请者提供 Logo
+↓
+自动获取 favicon
+↓
+默认站点图标
+```
+
+不要因为对方没有 Logo 就不能申请。
+
+---
+
+# 8. Friend Link Category
+
+建议实现简单分类：
+
+```text
+个人博客
+开发
+AI
+Crypto
+工具
+其他
+```
+
+但不要做复杂 taxonomy。
+
+数据：
+
+```text
+friend_link_categories
+```
+
+或者第一版更简单：
+
+```text
+category varchar
+```
+
+但既然你已有后台系统，我更推荐独立分类表。
+
+---
+
+# 9. Friend Links 数据模型
+
+建议：
+
+```text
+friend_links
+├── id
+├── name
+├── url
+├── normalized_url
+├── domain
+├── description
+├── logo_media_id nullable
+├── external_logo_url nullable
+├── category_id nullable
+│
+├── status
+├── featured
+├── sort_order
+│
+├── backlink_required
+├── backlink_status
+├── backlink_url nullable
+├── backlink_last_checked_at nullable
+├── backlink_last_found_at nullable
+├── backlink_failure_count
+│
+├── nofollow
+├── open_in_new_tab
+│
+├── source
+├── submission_id nullable
+│
+├── created_at
+├── updated_at
+└── deleted_at nullable
+```
+
+---
+
+# 10. Friend Link Status
+
+正式友链状态：
+
+```text
+active
+disabled
+broken
+removed
+```
+
+不要把：
+
+```text
+pending
+rejected
+```
+
+放在这里。
+
+因为申请审核应该使用另外一张表。
+
+---
+
+# 11. 为什么申请和正式友链要分表
+
+不要：
+
+```text
+friend_links.status = pending
+```
+
+把垃圾申请和正式数据混到一个表里。
+
+应该：
+
+```text
+friend_link_submissions
+```
+
+专门承载外部提交。
+
+审核通过后：
+
+```text
+Submission
+↓
+Create FriendLink
+```
+
+然后：
+
+```text
+submission.status = approved
+```
+
+---
+
+# 12. 申请表
+
+```text
+friend_link_submissions
+├── id
+├── site_name
+├── site_url
+├── normalized_url
+├── domain
+├── description
+│
+├── logo_url nullable
+├── contact_name nullable
+├── contact_email nullable
+│
+├── backlink_url nullable
+│
+├── status
+│
+├── backlink_status
+├── backlink_checked_at nullable
+├── backlink_found_url nullable
+│
+├── site_status
+├── site_http_status nullable
+├── site_title_detected nullable
+│
+├── reviewer_id nullable
+├── reviewed_at nullable
+├── rejection_reason nullable
+├── admin_note nullable
+│
+├── submit_ip_hash nullable
+├── user_agent nullable
+│
+├── created_at
+└── updated_at
+```
+
+---
+
+# 13. Submission Status
+
+```text
+pending
+reviewing
+approved
+rejected
+spam
+```
+
+流程：
+
+```text
+pending
+   ↓
+reviewing
+   ├── approved
+   ├── rejected
+   └── spam
+```
+
+---
+
+# 14. 前台申请表
+
+推荐字段：
+
+```text
+站点名称 *
+站点地址 *
+站点简介 *
+Logo URL
+友情链接页面 URL
+联系人
+联系邮箱
+```
+
+其中：
+
+```text
+友情链接页面 URL
+```
+
+非常重要。
+
+例如：
+
+```text
+https://example.com/friends
+```
+
+方便系统准确检测。
+
+---
+
+# 15. 不要求申请人填写“本站反链 URL”也可以
+
+系统可以自动扫描：
+
+```text
+Homepage
+```
+
+和：
+
+```text
+Submitted Backlink Page
+```
+
+但我建议保留：
+
+```text
+backlink_url
+```
+
+字段。
+
+因为它能大幅提升：
+
+```text
+反链检测准确率
+```
+
+否则你不知道对方把友情链接放：
+
+```text
+首页
+/friends
+/links
+/about
+```
+
+哪个位置。
+
+---
+
+# 16. 申请页面说明
+
+表单前明确：
+
+```text
+申请要求：
+
+• 网站可以正常访问
+• 内容合法且持续维护
+• 非纯广告/采集/垃圾站
+• 建议已添加本站友情链接
+• 请填写放置本站链接的具体页面
+```
+
+如果你的策略是必须先反链：
+
+写成：
+
+```text
+申请前请先添加本站链接。
+```
+
+---
+
+# 17. 展示本站友链信息
+
+申请区域应该提供：
+
+```text
+本站名称：
+Coinowo
+
+本站地址：
+https://coinowo.com/
+
+本站简介：
+...
+
+本站 Logo：
+...
+
+友链页面：
+https://coinowo.com/friends
+```
+
+旁边：
+
+```text
+[复制名称]
+[复制 URL]
+[复制描述]
+```
+
+方便对方添加。
+
+---
+
+# 18. Backlink 自动检测核心
+
+这是整个模块最重要的部分。
+
+系统不能只检查：
+
+```text
+对方网页 HTML 中有没有字符串 coinowo.com
+```
+
+应该建立：
+
+```text
+BacklinkChecker
+```
+
+---
+
+# 19. Backlink Checker 输入
+
+```ts
+interface BacklinkCheckRequest {
+  friendLinkId?: string
+  siteUrl: string
+  backlinkUrl?: string
+  expectedDomain: string
+}
+```
+
+例如：
+
+```text
+siteUrl:
+https://example.com
+
+backlinkUrl:
+https://example.com/friends
+
+expectedDomain:
+coinowo.com
+```
+
+---
+
+# 20. 检测顺序
+
+如果申请者填写：
+
+```text
+backlink_url
+```
+
+优先：
+
+```text
+GET backlink_url
+```
+
+否则：
+
+```text
+Homepage
+```
+
+如果主页找不到，可以选择有限探测：
+
+```text
+/friends
+/links
+/link
+/blogroll
+```
+
+但是：
+
+> 不建议做无限全站爬虫。
+
+---
+
+# 21. 推荐第一版检测策略
+
+```text
+1. 检测 backlink_url
+2. 如果没有 backlink_url，检测 homepage
+3. 可选检测少量常见路径
+4. 找不到 → NOT_FOUND
+```
+
+这样成本低且可控。
+
+---
+
+# 22. 判定反链不能只检查文本
+
+需要解析 HTML：
+
+```html
+<a href="https://coinowo.com/">
+    Coinowo
+</a>
+```
+
+提取：
+
+```text
+href
+```
+
+解析：
+
+```text
+scheme
+host
+path
+```
+
+然后：
+
+```text
+normalized host == expected host
+```
+
+或允许：
+
+```text
+www.coinowo.com
+coinowo.com
+```
+
+视为同域。
+
+---
+
+# 23. Link Normalization
+
+建立：
+
+```text
+normalizeUrl()
+normalizeDomain()
+```
+
+例如以下应视情况等价：
+
+```text
+https://coinowo.com
+https://coinowo.com/
+https://www.coinowo.com/
+```
+
+但不能把：
+
+```text
+coinowo.com.evil.com
+```
+
+判断成本站。
+
+必须按照真正 hostname 比较。
+
+---
+
+# 24. Backlink Status
+
+推荐：
+
+```text
+unknown
+checking
+found
+not_found
+unreachable
+blocked
+error
+```
+
+比简单：
+
+```text
+true / false
+```
+
+好很多。
+
+因为：
+
+```text
+503
+```
+
+不代表对方没有反链。
+
+---
+
+# 25. Backlink Result
+
+例如：
+
+```text
+FOUND
+
+Found URL:
+https://example.com/friends
+
+Target:
+https://coinowo.com/
+
+Anchor:
+Coinowo
+
+rel:
+external
+
+HTTP:
+200
+
+Checked:
+2026-09-11 20:00
+```
+
+---
+
+# 26. rel 检测
+
+还可以解析：
+
+```text
+nofollow
+sponsored
+ugc
+```
+
+后台显示：
+
+```text
+Follow
+Nofollow
+Sponsored
+```
+
+但：
+
+> 不建议第一版因为 nofollow 自动拒绝。
+
+你可以把它当审核信息。
+
+---
+
+# 27. JavaScript 渲染页面
+
+这里需要明确：
+
+服务器普通 HTTP 获取只能可靠检测：
+
+```text
+SSR / Static HTML
+```
+
+如果友链是 JavaScript 加载：
+
+```text
+HTML 初始内容没有链接
+```
+
+普通 Fetch 可能检测不到。
+
+第一版建议：
+
+```text
+标记：
+BACKLINK_NOT_FOUND
+```
+
+然后允许：
+
+```text
+Manual Verify
+```
+
+不要为了这个功能一开始引入 Headless Chromium。
+
+以后如果需求明显，再增加：
+
+```text
+Browser Backlink Checker
+```
+
+---
+
+# 28. SSR Nuxt / Next / WordPress
+
+一般：
+
+```text
+SSR HTML
+```
+
+可以直接解析，因此大部分博客不会有问题。
+
+---
+
+# 29. SSRF 安全
+
+这个功能有一个非常重要的安全问题：
+
+> 用户可以提交任意 URL，而服务器会主动访问。
+
+所以必须防 SSRF。
+
+禁止访问：
+
+```text
+127.0.0.1
+localhost
+
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
+
+169.254.0.0/16
+
+::1
+fc00::/7
+fe80::/10
+```
+
+以及：
+
+```text
+file:
+ftp:
+gopher:
+data:
+javascript:
+```
+
+只允许：
+
+```text
+http
+https
+```
+
+---
+
+# 30. DNS Rebinding
+
+不能只：
+
+```text
+检查提交 URL 字符串
+```
+
+还需要：
+
+```text
+DNS Resolve
+↓
+检查解析出的 IP
+↓
+禁止 private / loopback / metadata IP
+```
+
+Redirect 后：
+
+```text
+每一次 Location
+```
+
+也重新检查。
+
+---
+
+# 31. Redirect
+
+限制：
+
+```text
+最多 5 次
+```
+
+每次：
+
+```text
+validate target
+```
+
+避免：
+
+```text
+正常域名
+↓ redirect
+127.0.0.1
+```
+
+绕过 SSRF 防护。
+
+---
+
+# 32. HTTP 限制
+
+Backlink Checker：
+
+```text
+Timeout:
+5~10 秒
+
+Max Response:
+1~2 MB
+
+Content-Type:
+text/html
+```
+
+避免有人提交：
+
+```text
+10GB 文件 URL
+```
+
+让你的服务器下载。
+
+---
+
+# 33. User-Agent
+
+使用明确：
+
+```text
+Coinowo-LinkChecker/1.0
+```
+
+而不是伪装 Googlebot。
+
+这样对方日志能知道是什么。
+
+---
+
+# 34. robots.txt
+
+是否严格遵循 robots 可以作为策略。
+
+因为这是：
+
+```text
+单 URL 验证
+```
+
+而不是搜索引擎爬虫。
+
+不过建议不要大规模抓取站点。
+
+---
+
+# 35. Site Availability 检查
+
+提交时顺便检测：
+
+```text
+site_url
+```
+
+得到：
+
+```text
+HTTP 200
+Final URL
+Page Title
+Response Time
+HTTPS
+```
+
+后台帮助审核。
+
+例如：
+
+```text
+Site Status:
+ONLINE
+
+HTTPS:
+YES
+
+HTTP:
+200
+
+Title:
+Example Blog
+
+Latency:
+438ms
+```
+
+---
+
+# 36. Site Status
+
+```text
+unknown
+online
+unreachable
+timeout
+invalid_ssl
+error
+```
+
+不要因为一次 timeout 自动拒绝申请。
+
+---
+
+# 37. 后台友链菜单
+
+建议：
+
+```text
+内容
+├── 页面
+└── 友情链接
+    ├── 友链列表
+    ├── 申请审核
+    └── 设置
+```
+
+因为它是内容类功能，不需要放“系统”。
+
+---
+
+# 38. 友链列表
+
+字段：
+
+```text
+Logo
+Name
+Domain
+Category
+Status
+Backlink
+Last Check
+Featured
+Sort
+```
+
+例如：
+
+```text
+AMCIHUB
+amcihub.com
+AI
+Active
+✓ Found
+2 hours ago
+★
+```
+
+---
+
+# 39. Filter
+
+支持：
+
+```text
+Status
+Category
+Backlink Status
+Featured
+Broken Link
+```
+
+特别需要：
+
+```text
+Backlink Lost
+```
+
+筛选。
+
+---
+
+# 40. Friend Link 编辑
+
+后台可编辑：
+
+```text
+Site Name
+URL
+Description
+Logo
+Category
+
+Featured
+Sort Order
+
+Require Backlink
+Backlink URL
+
+NoFollow
+Open New Window
+
+Enabled
+```
+
+下方显示：
+
+```text
+Backlink Status
+Last Checked
+Last Found
+Failure Count
+
+[Check Now]
+```
+
+---
+
+# 41. 申请审核列表
+
+建议：
+
+```text
+待审核          12
+
+Site
+Domain
+Backlink
+Site Status
+Submitted
+```
+
+例如：
+
+```text
+Example Blog
+example.com
+✓ Found
+✓ Online
+10 min ago
+```
+
+---
+
+# 42. 审核详情
+
+管理员看到：
+
+```text
+申请信息
+
+Site Name
+URL
+Description
+Logo
+Contact
+Email
+
+────────────────
+
+Automatic Checks
+
+Site:
+✓ Online
+
+HTTP:
+200
+
+HTTPS:
+✓
+
+Backlink:
+✓ Found
+
+Backlink URL:
+https://example.com/friends
+
+Anchor:
+Coinowo
+
+Rel:
+follow
+
+Checked:
+5 min ago
+```
+
+---
+
+# 43. 审核操作
+
+底部：
+
+```text
+[Reject]
+
+[Mark Spam]
+
+[Edit & Approve]
+
+[Approve]
+```
+
+这里非常重要：
+
+> 管理员应该能在批准之前编辑申请内容。
+
+例如用户提交：
+
+```text
+站点名称：
+我的超级超级超级Blog!!!
+
+描述：
+欢迎大家访问！！！！！
+```
+
+管理员可以改成：
+
+```text
+Example Blog
+
+技术与开发个人博客
+```
+
+然后批准。
+
+---
+
+# 44. Approve 流程
+
+```text
+Submission
+↓
+Validate
+↓
+Admin edits normalized data
+↓
+Create FriendLink
+↓
+Link submission_id
+↓
+Submission.status = approved
+↓
+Published on frontend
+```
+
+最好在：
+
+```text
+Transaction
+```
+
+中完成。
+
+---
+
+# 45. Duplicate Detection
+
+提交时检查：
+
+```text
+domain
+```
+
+已有：
+
+```text
+active friend link
+```
+
+则：
+
+```text
+该网站已经存在于友情链接中。
+```
+
+已有 pending：
+
+```text
+已有申请正在审核。
+```
+
+避免重复提交。
+
+---
+
+# 46. URL 唯一性
+
+不要只：
+
+```text
+UNIQUE(url)
+```
+
+因为：
+
+```text
+https://example.com
+https://example.com/
+http://example.com
+```
+
+可能都是一个站。
+
+建议存：
+
+```text
+normalized_url
+domain
+```
+
+并对业务规则进行重复判断。
+
+---
+
+# 47. Spam 防护
+
+申请表是公开入口，必须：
+
+```text
+Rate Limit
+Honeypot
+CSRF
+```
+
+可以后续加：
+
+```text
+Turnstile
+```
+
+但个人博客第一版：
+
+```text
+Honeypot + IP rate-limit
+```
+
+通常够用。
+
+例如：
+
+```text
+每 IP：
+5 次 / 24h
+```
+
+---
+
+# 48. Email 验证要不要做？
+
+第一版：
+
+> 不需要。
+
+因为友链申请不是用户账户。
+
+Contact Email：
+
+```text
+optional
+```
+
+后台审核即可。
+
+以后垃圾申请变多，再增加：
+
+```text
+email verification
+```
+
+---
+
+# 49. 审核通知
+
+如果填写邮箱，可以：
+
+批准：
+
+```text
+你的友情链接申请已通过。
+```
+
+拒绝：
+
+```text
+你的申请未通过。
+```
+
+但这是可选功能。
+
+不要让 Email 成为 P0 依赖。
+
+---
+
+# 50. 自动反链检测
+
+不仅申请时检测。
+
+正式 Friend Link 应：
+
+```text
+定期重新检测
+```
+
+否则：
+
+```text
+申请时有反链
+↓
+通过
+↓
+第二天删除你
+```
+
+系统永远不知道。
+
+---
+
+# 51. 定期检查
+
+建议：
+
+```text
+每天
+```
+
+或者：
+
+```text
+每 3 天
+```
+
+对于个人博客：
+
+```text
+每 24h 一次
+```
+
+完全够了。
+
+不要每小时。
+
+---
+
+# 52. 检测 Job
+
+```text
+FriendLinkBacklinkCheckJob
+```
+
+每次：
+
+```text
+获取需要检测的 Active Friend Links
+↓
+分批
+↓
+BacklinkChecker
+↓
+更新状态
+```
+
+---
+
+# 53. 不要一次请求所有网站
+
+例如：
+
+```text
+1000 个友链
+```
+
+不要：
+
+```text
+Promise.all(1000)
+```
+
+设置：
+
+```text
+Concurrency = 3~10
+```
+
+个人博客推荐：
+
+```text
+5
+```
+
+避免：
+
+```text
+CPU/Socket/DNS
+```
+
+瞬间爆发。
+
+---
+
+# 54. Backlink Failure Count
+
+一旦检查不到：
+
+不要：
+
+```text
+立即自动下架
+```
+
+因为可能只是临时：
+
+```text
+502
+timeout
+DNS
+maintenance
+```
+
+增加：
+
+```text
+backlink_failure_count
+```
+
+---
+
+# 55. 推荐策略
+
+```text
+第一次失败
+→ Warning
+
+第二次连续失败
+→ Warning
+
+第三次连续失败
+→ backlink_status = missing
+
+连续 7 天 missing
+→ 后台提醒
+```
+
+是否自动下架：
+
+我建议默认：
+
+```text
+NO
+```
+
+由管理员决定。
+
+---
+
+# 56. 为什么不自动删除
+
+可能出现：
+
+```text
+Cloudflare challenge
+临时维护
+服务器故障
+页面改版
+JS 渲染
+```
+
+自动删除容易误伤。
+
+正确：
+
+```text
+检测
+↓
+标记
+↓
+管理员处理
+```
+
+---
+
+# 57. Dashboard 提醒
+
+后台 Dashboard 可以增加：
+
+```text
+友情链接
+
+待审核       5
+反链丢失     3
+站点失效     2
+```
+
+点击：
+
+进入筛选列表。
+
+---
+
+# 58. 友链健康状态
+
+可以组合：
+
+```text
+Healthy
+Warning
+Broken
+```
+
+规则例如：
+
+```text
+Healthy
+Site Online + Backlink Found
+
+Warning
+Backlink Missing
+或临时访问错误
+
+Broken
+连续多次 Site Unreachable
+```
+
+但数据库仍保存原始：
+
+```text
+site_status
+backlink_status
+```
+
+`Health` 可以运行时计算。
+
+---
+
+# 59. Broken Link 检测
+
+不仅反链。
+
+还应该定期检查：
+
+```text
+friend link 本身还能不能打开
+```
+
+例如：
+
+```text
+404
+410
+NXDOMAIN
+```
+
+否则你的友链页面会积累大量死链。
+
+---
+
+# 60. HTTP Status 策略
+
+```text
+200~399
+通常认为 reachable
+```
+
+```text
+404 / 410
+broken candidate
+```
+
+```text
+429 / 403
+blocked
+```
+
+不应直接判断网站死亡。
+
+```text
+500+
+temporary error
+```
+
+连续多次再提示。
+
+---
+
+# 61. 前台只显示
+
+```text
+status = active
+```
+
+并且最好：
+
+```text
+site_status != confirmed_broken
+```
+
+至于：
+
+```text
+backlink missing
+```
+
+是否隐藏，做成设置。
+
+---
+
+# 62. Friend Link Settings
+
+后台：
+
+```text
+友链设置
+```
+
+建议：
+
+```text
+friend_links.enabled
+
+friend_links.submissions_enabled
+
+friend_links.require_backlink
+
+friend_links.auto_check_backlink
+
+friend_links.check_interval_hours
+
+friend_links.auto_hide_broken
+
+friend_links.default_nofollow
+
+friend_links.open_external_new_tab
+
+friend_links.max_description_length
+```
+
+---
+
+# 63. require_backlink
+
+三种策略其实更好：
+
+```text
+none
+recommended
+required
+```
+
+比 boolean 更灵活。
+
+### none
+
+不检测作为审核条件。
+
+### recommended
+
+检测但没有也允许管理员批准。
+
+### required
+
+批准前必须：
+
+```text
+backlink_status = found
+```
+
+你想做真正互换友链的话：
+
+我建议：
+
+```text
+recommended
+```
+
+默认。
+
+管理员仍有最终判断权。
+
+---
+
+# 64. 前台申请状态查询要不要做？
+
+第一版我不建议做：
+
+```text
+申请编号
+查询状态页面
+```
+
+增加复杂度不大但价值有限。
+
+个人博客直接：
+
+```text
+提交成功
+→ 等待审核
+```
+
+够了。
+
+如果以后申请很多，再增加。
+
+---
+
+# 65. 多语言
+
+友链的：
+
+```text
+站点名称
+站点简介
+```
+
+本质上通常来自对方网站。
+
+我不建议一开始建立：
+
+```text
+friend_link_translations
+```
+
+因为你不是在翻译别人的网站。
+
+默认：
+
+```text
+原样展示
+```
+
+即可。
+
+但友链页面自身：
+
+```text
+Page title
+Page content
+Submission instructions
+```
+
+继续通过：
+
+```text
+page_translations
+UI i18n
+```
+
+实现。
+
+---
+
+# 66. Category 多语言
+
+如果 Category 是前台可见：
+
+建议：
+
+```text
+friend_link_categories
+```
+
++
+
+```text
+friend_link_category_translations
+```
+
+如果只是后台筛选：
+
+可以不翻译。
+
+考虑你 P20 会公开多语言，我建议：
+
+```text
+Category Entity + Translation
+```
+
+例如：
+
+```text
+Development
+开发
+開発
+```
+
+---
+
+# 67. SEO
+
+Friend Links Page：
+
+因为就是普通 Page：
+
+继续拥有：
+
+```text
+SEO Title
+SEO Description
+Canonical
+noindex
+```
+
+我建议默认：
+
+```text
+index
+```
+
+但申请表页面不需要独立 URL。
+
+---
+
+# 68. Friend Links 的链接 SEO
+
+可以支持站点设置：
+
+```text
+follow
+nofollow
+```
+
+以及单个覆盖：
+
+```text
+friend_links.nofollow
+```
+
+优先级：
+
+```text
+FriendLink override
+↓
+Global setting
+```
+
+---
+
+# 69. 前端 Card 排序
+
+推荐：
+
+```text
+Featured DESC
+sort_order ASC
+name ASC
+```
+
+即：
+
+```text
+精选友链
+↓
+管理员排序
+↓
+名称
+```
+
+---
+
+# 70. 随机排序要不要做？
+
+不建议默认随机。
+
+每次刷新位置乱跳：
+
+```text
+UX
+缓存
+页面稳定性
+```
+
+都不好。
+
+如果未来想公平曝光，可以：
+
+```text
+按日稳定随机
+```
+
+但第一版没必要。
+
+---
+
+# 71. 前端布局
+
+Desktop：
+
+```text
+3 columns
+```
+
+或宽屏：
+
+```text
+4 columns
+```
+
+Tablet：
+
+```text
+2 columns
+```
+
+Mobile：
+
+```text
+1 column
+```
+
+由于你的主站整体是两栏博客：
+
+Friend Links 这种特殊 Page 我反而建议：
+
+```text
+Full Width Content
+```
+
+不要再加 Sidebar。
+
+因为 Friend Link Grid 本身需要横向空间。
+
+---
+
+# 72. 申请表位置
+
+不要一打开页面就放巨大 Form。
+
+推荐：
+
+顶部：
+
+```text
+[申请友链]
+```
+
+点击：
+
+```text
+Dialog / Drawer
+```
+
+或者页面底部：
+
+```text
+申请友链
+```
+
+我更推荐：
+
+> 页面底部完整 Form + 顶部按钮锚点跳转。
+
+SEO 和无 JS 体验也更好。
+
+---
+
+# 73. Form 成功状态
+
+提交后：
+
+```text
+申请已提交
+
+系统检测：
+✓ 网站可访问
+✓ 已检测到本站反向链接
+
+等待管理员审核。
+```
+
+或者：
+
+```text
+⚠ 暂未检测到反向链接
+
+申请仍已提交，管理员会进一步审核。
+```
+
+不要因为自动检测失败就让用户完全无法提交，除非设置明确是 `required`。
+
+---
+
+# 74. 实时检查
+
+表单填写：
+
+```text
+Site URL
+Backlink URL
+```
+
+后可以：
+
+```text
+[检测反链]
+```
+
+调用服务器：
+
+```text
+POST /api/friend-links/check
+```
+
+显示：
+
+```text
+✓ 已发现
+```
+
+这对用户体验很好。
+
+但最终提交后服务器必须：
+
+```text
+重新检测
+```
+
+不能信任客户端上一次结果。
+
+---
+
+# 75. API
+
+公共：
+
+```text
+POST /api/friend-links/submissions
+
+POST /api/friend-links/check-backlink
+```
+
+公开读取页面数据可以：
+
+```text
+SSR server service
+```
+
+不一定单独 REST。
+
+后台继续使用你当前 Nuxt Admin 的既有：
+
+```text
+Server Handler / Service
+```
+
+规范。
+
+---
+
+# 76. Service
+
+建议：
+
+```text
+server/services/friend-links/
+├── friend-link.service.ts
+├── submission.service.ts
+├── backlink-checker.service.ts
+├── site-checker.service.ts
+├── url-normalizer.ts
+└── friend-link-health.service.ts
+```
+
+不要拆：
+
+```text
+domain/usecase/repository/interactor
+```
+
+过多层。
+
+---
+
+# 77. 前端模块
+
+```text
+components/friend-links/
+├── FriendLinksPage.vue
+├── FriendLinkGrid.vue
+├── FriendLinkCard.vue
+├── FriendLinkCategoryFilter.vue
+├── FriendLinkSubmissionForm.vue
+├── BacklinkCheckStatus.vue
+└── SiteLinkInfo.vue
+```
+
+---
+
+# 78. 后台组件
+
+```text
+components/admin/friend-links/
+├── FriendLinkList.vue
+├── FriendLinkForm.vue
+├── SubmissionList.vue
+├── SubmissionReview.vue
+├── BacklinkStatus.vue
+└── HealthStatus.vue
+```
+
+---
+
+# 79. 数据库 Migration
+
+建议：
+
+```text
+create_friend_link_categories
+create_friend_link_category_translations
+create_friend_link_submissions
+create_friend_links
+```
+
+如果暂时不要前台分类：
+
+前两个可以延后。
+
+---
+
+# 80. 反链历史
+
+如果只保存：
+
+```text
+last_checked
+status
+```
+
+已经够第一版。
+
+如果你希望以后看：
+
+> 什么时候开始掉链？
+
+可以增加：
+
+```text
+friend_link_checks
+```
+
+---
+
+# 81. friend_link_checks
+
+```text
+id
+friend_link_id
+check_type
+status
+http_status
+found_url
+details_json
+checked_at
+```
+
+其中：
+
+```text
+check_type:
+site
+backlink
+```
+
+但这个表会持续增长。
+
+建议：
+
+```text
+保留最近 30~90 天
+```
+
+---
+
+# 82. 第一版是否需要 Checks History？
+
+我建议：
+
+```text
+YES，但做轻量版。
+```
+
+因为“自动检测反链”如果没有历史：
+
+管理员只知道：
+
+```text
+现在 missing
+```
+
+不知道：
+
+```text
+昨天还是 found
+```
+
+历史非常有价值。
+
+---
+
+# 83. Backlink Check Event
+
+例如：
+
+```text
+2026-09-01 FOUND
+2026-09-02 FOUND
+2026-09-03 FOUND
+2026-09-04 NOT_FOUND
+2026-09-05 NOT_FOUND
+```
+
+后台就可以明确：
+
+```text
+反链可能于 9 月 4 日移除。
+```
+
+---
+
+# 84. Audit Log
+
+你 P19 有 Audit Log，因此这些操作写入：
+
+```text
+friend_link.create
+friend_link.update
+friend_link.disable
+friend_link.delete
+
+friend_link_submission.approve
+friend_link_submission.reject
+friend_link_submission.spam
+
+friend_link.backlink_check
+```
+
+不过自动周期检查：
+
+不要每一次成功都产生大量管理员 Audit。
+
+更适合：
+
+```text
+Health Check History
+```
+
+Audit 只记录：
+
+```text
+状态发生关键变化
+```
+
+例如：
+
+```text
+FOUND → MISSING
+```
+
+---
+
+# 85. 与 Backup P14 集成
+
+Friend Links Module 必须注册：
+
+```text
+BackupProvider
+```
+
+备份：
+
+```text
+friend_links
+friend_link_categories
+friend_link_category_translations
+```
+
+申请数据：
+
+建议配置是否包含。
+
+默认：
+
+```text
+pending / approved submissions
+```
+
+可以备份。
+
+Health Check History：
+
+```text
+不必包含
+```
+
+因为属于可重新生成的监控数据。
+
+---
+
+# 86. 与 P20 多语言集成
+
+页面本体：
+
+```text
+Page Translation
+```
+
+分类：
+
+```text
+Category Translation
+```
+
+UI：
+
+```text
+friendLinks.apply
+friendLinks.website
+friendLinks.description
+friendLinks.submit
+```
+
+来自：
+
+```text
+zh-CN
+en-US
+```
+
+Friend Link 自己提交的 Name/Description 不自动翻译。
+
+---
+
+# 87. 缓存
+
+Friend Links Frontend：
+
+非常适合：
+
+```text
+public cache
+```
+
+例如：
+
+```text
+friend-links:{locale}
+```
+
+TTL：
+
+```text
+30min ~ 1h
+```
+
+管理员：
+
+```text
+Approve
+Update
+Disable
+Delete
+```
+
+立即：
+
+```text
+invalidate friend-links cache
+```
+
+---
+
+# 88. 自动检查不会影响页面缓存
+
+如果：
+
+```text
+backlink_status
+```
+
+只是后台状态：
+
+不需要每次 Check 都 purge 页面。
+
+只有：
+
+```text
+auto_hide_broken = true
+```
+
+且状态达到隐藏阈值，才：
+
+```text
+invalidate page
+```
+
+---
+
+# 89. 最终审核流程
+
+```text
+访客填写申请
+        │
+        ▼
+Normalize URL
+        │
+        ├── Duplicate?
+        │       └── Reject duplicate
+        │
+        ▼
+Site Check
+        │
+        ▼
+Backlink Check
+        │
+        ▼
+Store Submission
+        │
+        ▼
+Admin Review
+        │
+        ├── Edit
+        │
+        ├── Reject
+        │
+        ├── Spam
+        │
+        └── Approve
+                │
+                ▼
+           Create FriendLink
+                │
+                ▼
+        Invalidate Frontend Cache
+                │
+                ▼
+            Public Display
+```
+
+---
+
+# 90. 后续健康检测
+
+```text
+Scheduled Job
+     │
+     ▼
+Active Friend Links
+     │
+     ├── Check Site
+     │
+     └── Check Backlink
+             │
+             ▼
+       Update Health
+             │
+      ┌──────┴────────┐
+      ▼               ▼
+    Found           Missing
+      │               │
+ reset failures   failures + 1
+                      │
+               达到阈值后提醒
+```
+
+---
+
+# 91. 第一版必须实现 P0
+
+```text
+✓ Page template = friend_links
+
+✓ Friend Link 前台 Grid
+
+✓ Friend Link Category
+
+✓ 申请表
+
+✓ Submission 后台审核
+
+✓ 管理员审核前可编辑
+
+✓ Approve → Friend Link
+
+✓ Reject / Spam
+
+✓ URL Normalize
+
+✓ Duplicate Detection
+
+✓ Site Availability Check
+
+✓ Backlink Check
+
+✓ backlink_url 支持
+
+✓ SSRF Protection
+
+✓ Check Now
+
+✓ 定时反链检查
+
+✓ 连续失败计数
+
+✓ Broken Site 检测
+
+✓ Friend Links Cache
+
+✓ Audit integration
+
+✓ Backup integration
+```
+
+---
+
+# 92. 可以放到 P1
+
+```text
+邮件批准/拒绝通知
+
+Friend Link Check History 图表
+
+Headless Browser JS 页面检测
+
+Turnstile
+
+自动 Favicon 下载
+
+高级 Logo 抓取
+
+申请状态查询
+
+稳定随机排序
+```
+
+其中：
+
+```text
+自动 favicon 获取
+```
+
+我觉得可以很早做，因为成本不高，视觉提升明显。
+
+---
+
+# 93. 不建议做
+
+不要把 Friend Links 继续扩成：
+
+```text
+网站目录
+
+SEO 链接交易平台
+
+用户互相匹配换链
+
+站长账户系统
+
+积分换友链
+
+付费友链
+
+友情链接竞价
+
+DA/DR 自动评分
+
+大规模全站 SEO Crawler
+```
+
+你的定位还是：
+
+> **个人博客的友情链接模块。**
+
+---
+
+# 94. 最终推荐后台结构
+
+```text
+内容
+├── 文章
+├── 页面
+├── 评论
+├── 媒体
+└── 友情链接
+    ├── 友链
+    ├── 申请
+    ├── 分类
+    └── 设置
+```
+
+其中 Page 里：
+
+```text
+友情链接页面
+template = friend_links
+```
+
+Friend Links 后台只管理其动态数据。
+
+---
+
+# 95. 最终冻结原则
+
+### Rule 1
+
+友情链接页面属于 Pages，但友链记录不存进 Page Content。
+
+### Rule 2
+
+外部申请先进入 Submission，审核通过后才生成正式 FriendLink。
+
+### Rule 3
+
+管理员批准前必须能够编辑申请数据。
+
+### Rule 4
+
+反链检测以真实 `<a href>` 为依据，不做简单字符串匹配。
+
+### Rule 5
+
+反链检测必须防 SSRF、DNS Rebinding 和恶意 Redirect。
+
+### Rule 6
+
+一次反链检测失败绝不能直接删除友链。
+
+### Rule 7
+
+反链和网站健康检测定期执行，并记录连续失败次数。
+
+### Rule 8
+
+自动检测只负责提供证据，最终审核决定权属于管理员。
+
+### Rule 9
+
+公开页面不展示后台健康检测信息。
+
+### Rule 10
+
+Friend Links 是 Blog Core 的可选内容模块，不反向污染 Pages、Media、Users 等核心模块。
+
+---
+
+## 推荐默认策略
+
+我建议上线时直接使用：
+
+```text
+Friend Link Application:
+Enabled
+
+Backlink:
+Recommended
+
+Automatic Backlink Check:
+Enabled
+
+Check Interval:
+24 hours
+
+Missing Threshold:
+3 consecutive checks
+
+Auto Disable:
+OFF
+
+Broken Site Auto Disable:
+OFF
+
+Admin Notification:
+ON
+
+External Target:
+_blank
+
+Default rel:
+noopener noreferrer
+```
+
+也就是说：
+
+> **系统负责自动检测、持续监控和提醒，但不要让机器人替管理员自动删友链。**
+
+这样既能达到你想要的“自动检查对方有没有给我反链”，又不会因为对方网站临时 502、Cloudflare 阻挡或者页面 JS 渲染导致误判并自动下架。
+
+这里最容易被 AI Coding 忽略、但你一定要写进开发约束的是 **SSRF 防护**。因为“用户提交 URL → 你的 Nuxt 服务端主动 Fetch”本质上就是一个 SSRF 入口，必须在第一次实现 BacklinkChecker 时就把私网 IP、DNS 解析、Redirect 二次验证和响应大小限制一起完成，而不是等 P19 再补。

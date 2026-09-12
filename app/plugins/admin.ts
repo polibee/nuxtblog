@@ -12,8 +12,24 @@ import contentTypesModule from '~/modules/content-types/module'
 import revisionsModule from '~/modules/revisions/module'
 import webhooksModule from '~/modules/webhooks/module'
 import taxonomyModule from '~/modules/taxonomy/module'
-import menusModule from '~/modules/menus/module'
+import menusModule from '~/modules/navigation/module'
 import settingsModule from '~/modules/settings/module'
+import sidebarModule from '~/modules/sidebar/module'
+import localesModule from '~/modules/locales/module'
+import pagesModule from '~/modules/pages/module'
+import commentsModule from '~/modules/comments/module'
+import storeModule from '~/modules/store/module'
+import analyticsModule from '~/modules/analytics/module'
+import paymentsModule from '~/modules/payments/module'
+import exportsModule from '~/modules/exports/module'
+import membershipModule from '~/modules/membership/module'
+import advertisingModule from '~/modules/advertising/module'
+import sliderModule from '~/modules/slider/module'
+import backupModule from '~/modules/backup/module'
+import aiModule from '~/modules/ai/module'
+import authorModule from '~/modules/author/module'
+import friendLinksModule from '~/modules/friend-links/module'
+import notificationsModule from '~/modules/notifications/module'
 
 /**
  * Application composition root.
@@ -27,7 +43,10 @@ export default defineNuxtPlugin(async () => {
     dashboardModule, usersModule, postsModule, ordersModule,
     mediaModule, rolesModule, contentTypesModule,
     revisionsModule, webhooksModule,
-    taxonomyModule, menusModule, settingsModule
+    taxonomyModule, menusModule, sidebarModule, localesModule,
+    pagesModule, commentsModule, analyticsModule, storeModule, settingsModule,
+    paymentsModule, exportsModule, membershipModule, advertisingModule,
+    sliderModule, backupModule, aiModule, authorModule, friendLinksModule, notificationsModule
   ]
   for (const module of modules) {
     registerModule(module)

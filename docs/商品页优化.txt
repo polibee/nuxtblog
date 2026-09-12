@@ -1,0 +1,2462 @@
+可以。商品列表已经按“4 列、中等密度、4:3 图片”收紧以后，商品详情页也应该同步从“营销页式大 Hero”改成**紧凑但完整的购买详情页**，否则用户从列表点击进去会突然感觉页面又被放大。
+
+# Nuxt 博客商城商品详情页排版优化方案
+
+## 1. 优化目标
+
+商品详情页重点解决：
+
+```text
+图片太大
+首屏过高
+商品信息过散
+购买区域不聚焦
+价格 / 会员价 / 优惠信息层级混乱
+移动端操作不方便
+详情正文太宽
+相关推荐卡片尺寸和列表页不一致
+```
+
+整体定位：
+
+> 博客里的轻商城详情页，而不是大型电商平台 PDP。
+
+---
+
+# 2. 推荐整体页面结构
+
+Desktop：
+
+```text
+Header
+
+Breadcrumb
+
+┌───────────────────────────────────────────────────────┐
+│                                                       │
+│ ┌──────────────────────┐ ┌──────────────────────────┐ │
+│ │                      │ │ Category / Badge         │ │
+│ │                      │ │                          │ │
+│ │   Product Gallery    │ │ Product Title            │ │
+│ │                      │ │ Short Description        │ │
+│ │                      │ │                          │ │
+│ │                      │ │ Price                    │ │
+│ └──────────────────────┘ │ Member / Sale Info       │ │
+│                          │                          │ │
+│                          │ Variant / Quantity       │ │
+│                          │                          │ │
+│                          │ [Buy Now] [Add to Cart]  │ │
+│                          │                          │ │
+│                          │ Trust / Delivery Info    │ │
+│                          └──────────────────────────┘ │
+│                                                       │
+├───────────────────────────────────────────────────────┤
+│ Product Description / Content                         │
+│                                                       │
+│ Related Products                                      │
+└───────────────────────────────────────────────────────┘
+
+Footer
+```
+
+---
+
+# 3. 页面宽度
+
+继续和商城列表统一：
+
+```text
+max-width: 1280px
+```
+
+推荐：
+
+```text
+padding-inline:
+24px desktop
+16px mobile
+```
+
+不要为了详情页再扩大到：
+
+```text
+1440 / 1600px
+```
+
+否则商品图片区又会失控。
+
+---
+
+# 4. 首屏双栏比例
+
+推荐：
+
+```text
+Gallery:
+55%
+
+Product Info:
+45%
+```
+
+或者直接：
+
+```text
+grid-template-columns:
+minmax(0, 1.15fr)
+minmax(360px, 0.85fr)
+```
+
+例如 1280px 容器内：
+
+```text
+Gallery:
+约 650~700px
+
+Info:
+约 480~520px
+
+Gap:
+40px
+```
+
+这是比较稳妥的尺寸。
+
+---
+
+# 5. 不建议 70 / 30
+
+如果图库：
+
+```text
+70%
+```
+
+右侧购买区容易太窄。
+
+如果：
+
+```text
+50 / 50
+```
+
+又可能让图片过小。
+
+所以推荐：
+
+```text
+55 / 45
+```
+
+---
+
+# 6. 商品主图大小
+
+列表已经使用：
+
+```text
+4:3
+```
+
+详情页主图不需要无限放大。
+
+建议主图容器：
+
+```text
+aspect-ratio: 4 / 3
+```
+
+最大：
+
+```text
+max-height: 520px
+```
+
+例如：
+
+```text
+680 × 510
+```
+
+已经足够大。
+
+不要：
+
+```text
+700 × 800
+```
+
+或者直接按原始图片高度显示。
+
+---
+
+# 7. 主图保持固定比例
+
+详情页仍应该：
+
+```text
+width: 100%
+aspect-ratio: 4 / 3
+overflow: hidden
+```
+
+普通商品：
+
+```text
+object-cover
+```
+
+数字产品 / 软件 Logo：
+
+可以：
+
+```text
+object-contain
+```
+
+沿用商品的：
+
+```text
+image_fit
+```
+
+配置。
+
+---
+
+# 8. Gallery 推荐结构
+
+如果有多图：
+
+```text
+┌──────────────────────────┐
+│                          │
+│        Main Image        │
+│                          │
+└──────────────────────────┘
+
+[thumb] [thumb] [thumb] [thumb]
+```
+
+不要 Desktop 默认：
+
+```text
+左侧一列巨大缩略图
+```
+
+除非商品图非常多。
+
+博客轻商城采用底部缩略图更简洁。
+
+---
+
+# 9. Thumbnail
+
+推荐：
+
+```text
+72 × 72
+```
+
+或：
+
+```text
+80 × 80
+```
+
+统一：
+
+```text
+aspect-ratio: 1 / 1
+object-cover
+```
+
+如果是 `contain` 商品：
+
+缩略图也 `contain`。
+
+---
+
+# 10. 缩略图数量
+
+一行最多：
+
+```text
+5~6
+```
+
+超过：
+
+```text
+横向滚动
+```
+
+不要把 12 张图全部换行撑高首屏。
+
+---
+
+# 11. Lightbox
+
+主图点击：
+
+```text
+打开商品 Gallery Lightbox
+```
+
+继续复用你媒体库优化后的：
+
+```text
+90~95vw
+90~95vh
+object-contain
+```
+
+支持：
+
+```text
+Previous
+Next
+Zoom
+Fullscreen
+```
+
+详情页不要再开发另一套 Lightbox。
+
+---
+
+# 12. 首屏信息区
+
+右侧推荐顺序：
+
+```text
+Category / Badges
+
+Title
+
+Short Description
+
+Rating / Sales（如果启用）
+
+Price
+
+Promotion / Member Price
+
+Divider
+
+Variant Selection
+
+Quantity（实体商品需要）
+
+Purchase Actions
+
+Delivery / Product Type Info
+
+Secondary Info
+```
+
+顺序不要乱。
+
+---
+
+# 13. 商品标题
+
+推荐：
+
+```text
+font-size:
+28~32px desktop
+```
+
+最多：
+
+```text
+3 lines
+```
+
+一般：
+
+```text
+2 lines
+```
+
+最好。
+
+不要详情页标题：
+
+```text
+48px / 56px
+```
+
+太像营销 Landing Page。
+
+---
+
+# 14. Mobile 标题
+
+```text
+22~26px
+```
+
+保持紧凑。
+
+---
+
+# 15. Category 和 Badge
+
+标题上方：
+
+```text
+Digital Product   [Popular]
+```
+
+Category：
+
+```text
+12~14px muted
+```
+
+Badge 最多：
+
+```text
+2 个
+```
+
+仍然避免：
+
+```text
+热门 / 新品 / 精选 / 推荐 / 数字 / 限时
+```
+
+一起显示。
+
+---
+
+# 16. Short Description
+
+商品标题下面显示：
+
+```text
+short_description
+```
+
+推荐：
+
+```text
+15~16px
+line-height: 1.6
+```
+
+最多：
+
+```text
+3 lines
+```
+
+不要在首屏直接塞完整商品介绍。
+
+完整描述放下面详情区。
+
+---
+
+# 17. Price Area
+
+价格应该是右侧最明显的信息之一。
+
+推荐：
+
+```text
+Current Price:
+28~32px
+font-semibold / bold
+```
+
+例如：
+
+```text
+¥99
+```
+
+---
+
+# 18. 原价
+
+优惠时：
+
+```text
+¥99   ¥169
+```
+
+原价：
+
+```text
+14px
+muted
+line-through
+```
+
+折扣 Badge：
+
+```text
+-41%
+```
+
+放附近即可。
+
+---
+
+# 19. 免费商品
+
+继续统一：
+
+```text
+免费
+```
+
+不要：
+
+```text
+¥0.00
+```
+
+---
+
+# 20. 会员价
+
+推荐明确分层：
+
+```text
+¥99
+
+会员价 ¥69
+```
+
+或者：
+
+```text
+普通价 ¥99
+会员免费
+```
+
+会员信息用：
+
+```text
+small muted / accent panel
+```
+
+不要和主价格一样大。
+
+---
+
+# 21. Member Benefit 区
+
+例如：
+
+```text
+会员权益
+会员可享 ¥69
+```
+
+或者：
+
+```text
+会员免费领取
+```
+
+可以放轻背景：
+
+```text
+bg-muted
+rounded-md
+padding 12px
+```
+
+不要做巨大横幅。
+
+---
+
+# 22. Product Type
+
+数字商品很重要。
+
+例如：
+
+```text
+类型：数字商品
+交付：付款后立即获取
+库存：不限
+```
+
+实体商品：
+
+```text
+类型：实体商品
+库存：有货
+发货：1~3 个工作日
+```
+
+建议统一一个小：
+
+```text
+Product Facts
+```
+
+区域。
+
+---
+
+# 23. Variant Selection
+
+例如：
+
+```text
+版本
+
+[Standard]
+[Pro]
+[Lifetime]
+```
+
+使用：
+
+```text
+Button / Toggle Group
+```
+
+不要用默认 HTML Select，除非 Variant 很多。
+
+---
+
+# 24. Variant 数量多时
+
+如果：
+
+```text
+> 6
+```
+
+再使用：
+
+```text
+Select
+```
+
+否则可视按钮更直观。
+
+---
+
+# 25. Variant Card
+
+每个 Variant 可以：
+
+```text
+Standard
+¥49
+
+Pro
+¥99
+```
+
+但是不要做成大型卡片。
+
+推荐：
+
+```text
+height 44~52px
+```
+
+---
+
+# 26. Quantity
+
+只有真正需要数量的商品才显示：
+
+```text
+[-] 1 [+]
+```
+
+数字商品：
+
+```text
+隐藏 Quantity
+```
+
+软件 License 如果允许多份，也可以显示。
+
+---
+
+# 27. Purchase Actions
+
+推荐：
+
+```text
+[立即购买]
+[加入购物车]
+```
+
+两个按钮。
+
+优先级：
+
+```text
+Buy Now
+Primary
+
+Add to Cart
+Secondary / Outline
+```
+
+---
+
+# 28. Button 高度
+
+Desktop：
+
+```text
+44~48px
+```
+
+不要：
+
+```text
+56~64px
+```
+
+商城不是移动 App 大按钮风格。
+
+---
+
+# 29. 按钮布局
+
+Desktop：
+
+```text
+50 / 50
+```
+
+或者：
+
+```text
+Buy Now:
+60%
+
+Add Cart:
+40%
+```
+
+我推荐：
+
+```text
+flex
+gap 12px
+```
+
+两个按钮等宽即可。
+
+---
+
+# 30. 数字商品只有直接购买
+
+如果系统没有购物车需求：
+
+只显示：
+
+```text
+[立即购买]
+```
+
+可以占满右栏宽度。
+
+不要为了视觉硬塞一个：
+
+```text
+Add to Cart
+```
+
+---
+
+# 31. Secondary Actions
+
+可以在购买按钮下：
+
+```text
+♡ 收藏
+↗ 分享
+```
+
+使用 Icon Button / Ghost。
+
+不要与购买按钮抢视觉。
+
+---
+
+# 32. Trust / Product Info
+
+购买按钮下面适合：
+
+```text
+✓ 安全支付
+✓ 数字商品即时交付
+✓ 支持重新下载
+```
+
+但是只显示真实能力。
+
+不要写没有实现的：
+
+```text
+7 天无理由退款
+永久免费更新
+```
+
+---
+
+# 33. 右侧 Info Sticky
+
+Desktop 推荐：
+
+```text
+position: sticky
+top: 88~100px
+```
+
+只让：
+
+```text
+Product Info Column
+```
+
+在用户查看图库时轻微 Sticky。
+
+但前提：
+
+```text
+info height < viewport
+```
+
+如果右侧信息本身很长：
+
+不要强制 sticky。
+
+---
+
+# 34. 更稳妥的规则
+
+只 Sticky：
+
+```text
+Purchase Summary
+```
+
+而不是整个右栏。
+
+第一版如果复杂：
+
+完全不 Sticky 也可以。
+
+我倾向：
+
+```text
+Desktop sticky
+Tablet/Mobile normal
+```
+
+---
+
+# 35. 首屏高度控制
+
+理想首屏：
+
+用户打开详情页时应该同时看到：
+
+```text
+主图
+标题
+价格
+购买按钮
+```
+
+不能必须滚动才能看到购买按钮。
+
+这是本次优化最关键的验收之一。
+
+---
+
+# 36. Breadcrumb
+
+商品详情顶部：
+
+```text
+首页 / 商城 / 分类 / 商品名称
+```
+
+字体：
+
+```text
+13~14px
+```
+
+不要占很大高度。
+
+距离首屏：
+
+```text
+margin-bottom 20~24px
+```
+
+---
+
+# 37. 商品详情正文
+
+首屏之后：
+
+```text
+Description
+```
+
+不要直接撑满：
+
+```text
+1280px
+```
+
+正文阅读宽度应该：
+
+```text
+760~860px
+```
+
+最多：
+
+```text
+900px
+```
+
+---
+
+# 38. Detail Content Layout
+
+推荐：
+
+```text
+┌─────────────────────────────────────────┐
+│         Description Content             │
+│            max 820px                    │
+└─────────────────────────────────────────┘
+```
+
+居中：
+
+```text
+margin-inline: auto
+```
+
+让长文好读。
+
+---
+
+# 39. 如果详情信息很多
+
+可以用：
+
+```text
+Tabs
+```
+
+例如：
+
+```text
+商品介绍
+规格
+使用说明
+更新记录
+```
+
+但不要什么都 Tab。
+
+---
+
+# 40. 推荐 Tab 规则
+
+如果只有：
+
+```text
+商品描述
+```
+
+直接展示。
+
+只有当真实存在：
+
+```text
+Description
+Specifications
+Changelog
+FAQ
+```
+
+至少 3 类时，才考虑 Tabs。
+
+---
+
+# 41. 数字商品详情区
+
+数字产品建议内容顺序：
+
+```text
+商品介绍
+功能
+包含内容
+使用要求
+交付方式
+更新说明
+FAQ
+```
+
+---
+
+# 42. 实体商品详情区
+
+可以：
+
+```text
+介绍
+规格
+物流
+售后
+```
+
+---
+
+# 43. Product Specifications
+
+不要把规格做成巨大表格。
+
+推荐：
+
+```text
+┌───────────────┬─────────────────────┐
+│ 格式          │ ZIP                 │
+│ 文件大小      │ 28 MB               │
+│ 版本          │ 1.2.0               │
+│ 更新日期      │ 2026-09-11          │
+└───────────────┴─────────────────────┘
+```
+
+最大宽：
+
+```text
+820px
+```
+
+---
+
+# 44. 数字商品文件信息
+
+如果是下载型产品：
+
+详情页可以显示：
+
+```text
+文件格式
+文件大小
+当前版本
+最后更新时间
+```
+
+但不要公开：
+
+```text
+真实存储路径
+Download Token
+内部文件名
+```
+
+---
+
+# 45. Product Gallery 与正文图片
+
+正文中的商品截图：
+
+可以继续：
+
+```text
+max-width: 100%
+border-radius: 8~12px
+```
+
+点击打开 Lightbox。
+
+---
+
+# 46. Product Description Typography
+
+继续沿用博客文章正文系统：
+
+```text
+font-size:
+16~18px
+
+line-height:
+1.7~1.8
+```
+
+支持：
+
+```text
+Heading
+Paragraph
+List
+Code
+Quote
+Table
+Image
+Callout
+```
+
+这样不用再维护两套富文本样式。
+
+---
+
+# 47. 不要复用文章侧边栏
+
+商品详情页：
+
+```text
+不显示 Blog Sidebar
+```
+
+否则：
+
+```text
+Gallery + Info + Sidebar
+```
+
+三栏太拥挤。
+
+商品详情应该：
+
+```text
+Full Width Store Layout
+```
+
+---
+
+# 48. Related Products
+
+详情底部：
+
+```text
+相关商品
+```
+
+直接复用已经优化后的：
+
+```text
+ProductCard
+```
+
+Desktop：
+
+```text
+4 columns
+```
+
+Tablet：
+
+```text
+2~3
+```
+
+Mobile：
+
+```text
+2
+```
+
+---
+
+# 49. Related 数量
+
+建议：
+
+```text
+4
+```
+
+最多：
+
+```text
+8
+```
+
+不要详情页下面无限商品列表。
+
+---
+
+# 50. Related 算法
+
+第一版：
+
+```text
+同分类
++
+共享标签
+```
+
+然后排除当前商品。
+
+不需要 AI 推荐。
+
+---
+
+# 51. Recently Viewed 要不要做
+
+第一版：
+
+```text
+不需要
+```
+
+如果以后商城规模大，再加：
+
+```text
+最近浏览
+```
+
+否则首页、相关推荐已经足够。
+
+---
+
+# 52. Reviews / 评论
+
+如果商城已经有评价：
+
+建议放：
+
+```text
+商品详情之后
+相关商品之前
+```
+
+结构：
+
+```text
+Description
+Reviews
+Related Products
+```
+
+---
+
+# 53. 如果没有商品评价系统
+
+不要为了“像商城”硬加五星 UI。
+
+你的博客商城可以先不做。
+
+---
+
+# 54. 评论和博客评论不要直接混用 UI
+
+底层可以共享：
+
+```text
+Comment Engine
+```
+
+但商品评论如果未来有：
+
+```text
+Rating
+Verified Purchase
+```
+
+需要扩展字段。
+
+---
+
+# 55. Mobile 页面结构
+
+Mobile 推荐顺序：
+
+```text
+Breadcrumb
+
+Gallery
+
+Category / Badge
+
+Title
+
+Short Description
+
+Price
+
+Member Info
+
+Variants
+
+Quantity
+
+Purchase Buttons
+
+Product Facts
+
+Description
+
+Reviews
+
+Related Products
+```
+
+---
+
+# 56. Mobile 主图
+
+宽度：
+
+```text
+100%
+```
+
+比例：
+
+```text
+4:3
+```
+
+不要让主图：
+
+```text
+100vw × 100vw
+```
+
+变成巨大正方形。
+
+---
+
+# 57. Mobile Gallery
+
+缩略图：
+
+```text
+64~72px
+```
+
+横向滚动。
+
+不要换成：
+
+```text
+4×3 grid
+```
+
+占满首屏。
+
+---
+
+# 58. Mobile 购买操作
+
+强烈建议增加：
+
+```text
+Sticky Bottom Purchase Bar
+```
+
+例如：
+
+```text
+┌──────────────────────────────┐
+│ ¥99        [加入购物车] [购买] │
+└──────────────────────────────┘
+```
+
+---
+
+# 59. Mobile Sticky Bar
+
+只在用户滚过首屏购买按钮后显示更好。
+
+避免一打开页面就：
+
+```text
+遮挡内容
+```
+
+---
+
+# 60. Sticky Bar 高度
+
+推荐：
+
+```text
+64~72px
+```
+
+包含：
+
+```text
+Price
+Primary Action
+```
+
+不要把：
+
+```text
+Variant
+Quantity
+会员说明
+```
+
+全部塞进去。
+
+---
+
+# 61. 如果只有 Buy Now
+
+移动底栏：
+
+```text
+¥99
+[立即购买]
+```
+
+非常干净。
+
+---
+
+# 62. Safe Area
+
+Mobile 底栏必须：
+
+```text
+padding-bottom:
+env(safe-area-inset-bottom)
+```
+
+兼容 iPhone。
+
+---
+
+# 63. Mobile 标题与价格
+
+标题：
+
+```text
+24px
+```
+
+价格：
+
+```text
+26~28px
+```
+
+不要比 PC 缩得太小。
+
+---
+
+# 64. Tablet
+
+Tablet：
+
+推荐：
+
+```text
+>= 768px
+```
+
+仍然可以两栏。
+
+但比例：
+
+```text
+50 / 50
+```
+
+Gap：
+
+```text
+24px
+```
+
+如果宽度不足：
+
+在：
+
+```text
+< 900px
+```
+
+直接切单栏也可以。
+
+---
+
+# 65. 推荐 Breakpoint
+
+更稳：
+
+```text
+>= 1024px
+Two Columns
+
+< 1024px
+Single Column
+```
+
+这样实现简单，而且不会出现中间尺寸很挤。
+
+---
+
+# 66. 商品图片 Variant
+
+媒体库新增 / 继续使用：
+
+```text
+product_card
+product_gallery
+product_zoom
+```
+
+规格建议：
+
+```text
+product_card
+1200×900
+```
+
+```text
+product_gallery
+1600×1200
+```
+
+```text
+product_zoom
+最大 2400px
+```
+
+原图仍保留。
+
+---
+
+# 67. Gallery 不加载 Original
+
+初始页面：
+
+```text
+product_gallery
+```
+
+Lightbox 放大时：
+
+```text
+product_zoom / original
+```
+
+这样首屏性能更好。
+
+---
+
+# 68. 第一张商品图 LCP
+
+详情首图通常是 LCP。
+
+所以：
+
+```text
+不要 lazy load 第一张主图
+```
+
+使用：
+
+```text
+fetchpriority=high
+```
+
+后续图片：
+
+```text
+lazy
+```
+
+---
+
+# 69. CLS
+
+主图、缩略图、价格区、购买按钮：
+
+都应该预留固定空间。
+
+特别：
+
+```text
+Gallery
+```
+
+必须通过：
+
+```text
+aspect-ratio: 4 / 3
+```
+
+避免加载后页面跳动。
+
+---
+
+# 70. SEO
+
+商品详情页要补：
+
+```text
+Title
+Meta Description
+Canonical
+OpenGraph
+Twitter Card
+```
+
+以及：
+
+```text
+Product Structured Data
+```
+
+如果商品是真正公开销售。
+
+---
+
+# 71. Product Structured Data
+
+可以包含：
+
+```text
+name
+description
+image
+sku
+brand
+offers
+price
+priceCurrency
+availability
+url
+```
+
+只有数据真实存在才输出。
+
+---
+
+# 72. 不要伪造 Rating
+
+如果没有真实评价：
+
+不要输出：
+
+```text
+aggregateRating
+```
+
+否则属于错误结构化数据。
+
+---
+
+# 73. Canonical
+
+每个商品 Translation：
+
+自己的：
+
+```text
+canonical
+```
+
+和 P20 多语言策略保持一致。
+
+---
+
+# 74. 多语言商品详情
+
+如果已有：
+
+```text
+Product Entity + ProductTranslation
+```
+
+详情页按当前 Locale 加载：
+
+```text
+title
+description
+short_description
+seo
+slug
+```
+
+价格、库存：
+
+```text
+Entity
+```
+
+不重复放 Translation。
+
+---
+
+# 75. Language Switcher
+
+如果目标语言存在该商品 Translation：
+
+跳对应商品 URL。
+
+不存在：
+
+```text
+不显示 / disable
+```
+
+不要跳商城首页。
+
+继续遵循你整个博客的多语言原则。
+
+---
+
+# 76. 数字商品下载信息
+
+游客详情页：
+
+只显示：
+
+```text
+Digital Download
+付款后获取
+```
+
+购买后账户页再显示：
+
+```text
+Download
+License Key
+Download History
+```
+
+不要在 Product Detail 混入购买后管理功能。
+
+---
+
+# 77. 库存
+
+实体商品：
+
+```text
+有货
+低库存
+售罄
+```
+
+够了。
+
+不要默认显示：
+
+```text
+库存 392 件
+```
+
+除非业务需要。
+
+---
+
+# 78. Sold Out
+
+售罄时：
+
+```text
+Primary Button Disabled
+
+已售罄
+```
+
+不要直接隐藏购买按钮，让用户不知道为什么买不了。
+
+---
+
+# 79. 未上架商品
+
+```text
+draft
+```
+
+公开页面：
+
+```text
+404
+```
+
+管理员预览可通过专用 Preview。
+
+不要依赖前端隐藏。
+
+---
+
+# 80. 商品购买区可以用 Card 吗
+
+建议：
+
+> 不要把整个右栏再包成一个厚重 Card。
+
+因为左侧 Gallery 已经视觉很强。
+
+右侧直接：
+
+```text
+background page
+```
+
+即可。
+
+只有：
+
+```text
+会员优惠
+优惠信息
+Product Facts
+```
+
+使用轻量子 Card。
+
+这样更现代。
+
+---
+
+# 81. 整个首屏不要再套大 Card
+
+避免：
+
+```text
+一个巨大 Card
+里面 Gallery + Info
+```
+
+因为会：
+
+```text
+边框过多
+padding 过大
+首屏显得笨重
+```
+
+推荐：
+
+```text
+Gallery Card
++
+Plain Info
+```
+
+---
+
+# 82. Gallery 容器
+
+Gallery：
+
+```text
+border
+rounded-xl
+overflow-hidden
+```
+
+背景：
+
+```text
+bg-muted
+```
+
+如果图片本身满铺，可不用明显边框。
+
+---
+
+# 83. 页面间距
+
+推荐：
+
+```text
+Breadcrumb → Hero:
+20px
+
+Hero Columns Gap:
+40px
+
+Hero → Description:
+56~64px
+
+Description → Reviews:
+48px
+
+Reviews → Related:
+56px
+```
+
+不要所有模块：
+
+```text
+96px
+```
+
+营销站式大间距。
+
+---
+
+# 84. Desktop 首屏参考尺寸
+
+假设：
+
+```text
+Container:
+1280px
+```
+
+内宽约：
+
+```text
+1232px
+```
+
+Gap：
+
+```text
+40px
+```
+
+左：
+
+```text
+约 650px
+```
+
+右：
+
+```text
+约 540px
+```
+
+Gallery：
+
+```text
+650 × 488
+```
+
+右侧：
+
+```text
+Title       70
+Summary     60
+Price       50
+Member      50
+Variants    70
+Buttons     48
+Facts       80
+```
+
+基本可以和 Gallery 高度匹配。
+
+---
+
+# 85. 推荐最终首屏
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ 首页 / 商城 / 软件 / Product                       │
+│                                                     │
+│ ┌──────────────────────┐  软件 · [热门]            │
+│ │                      │                            │
+│ │                      │  Product Name              │
+│ │     Product Image    │                            │
+│ │       4 : 3          │  Short description...     │
+│ │                      │                            │
+│ │                      │  ¥99      ¥149             │
+│ └──────────────────────┘                            │
+│ [■] [■] [■] [■]        会员价 ¥69                 │
+│                                                     │
+│                          版本                       │
+│                          [标准] [Pro]              │
+│                                                     │
+│                          [立即购买] [加入购物车]   │
+│                                                     │
+│                          数字商品 · 即时交付       │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+# 86. 商品详情正文最终布局
+
+```text
+────────────────────────────────
+
+商品介绍
+
+      820px Content Width
+
+Heading
+Paragraph
+
+Image
+
+Heading
+List
+
+Table
+
+────────────────────────────────
+
+用户评价
+
+────────────────────────────────
+
+相关商品
+
+[Product][Product][Product][Product]
+```
+
+这样从上到下层次很清楚。
+
+---
+
+# 87. 不建议加左侧详情目录
+
+一般商品详情没有博客文章那么长。
+
+不要默认：
+
+```text
+Product TOC
+```
+
+如果数字商品文档型详情特别长，再考虑。
+
+---
+
+# 88. FAQ
+
+如果商品经常有重复问题：
+
+详情底部可以：
+
+```text
+FAQ Accordion
+```
+
+使用 shadcn-vue：
+
+```text
+Accordion
+```
+
+这是很适合商品详情的组件。
+
+---
+
+# 89. Share
+
+商品分享：
+
+可以：
+
+```text
+Copy Link
+```
+
+加少数社交分享。
+
+不要一排：
+
+```text
+10 个平台 Icon
+```
+
+---
+
+# 90. Favorite
+
+如果商城有用户体系：
+
+可以：
+
+```text
+♡ 收藏
+```
+
+如果没有真正收藏功能：
+
+不要只做一个无作用按钮。
+
+---
+
+# 91. Purchase State
+
+点击购买后必须有：
+
+```text
+loading
+```
+
+并禁止重复提交：
+
+```text
+disabled
+```
+
+防止重复创建订单。
+
+---
+
+# 92. Variant Change
+
+切换 Variant：
+
+应该只更新：
+
+```text
+价格
+库存
+SKU
+购买状态
+```
+
+不要重新加载整个 Page。
+
+---
+
+# 93. URL Variant
+
+如果 Variant 可分享：
+
+可以：
+
+```text
+?variant=pro
+```
+
+但第一版不是必须。
+
+---
+
+# 94. 错误状态
+
+例如：
+
+```text
+商品已下架
+Variant unavailable
+库存不足
+```
+
+页面要有明确状态。
+
+不能用户点击：
+
+```text
+Buy
+```
+
+只得到一个 Toast：
+
+```text
+Error
+```
+
+---
+
+# 95. Product Detail 组件建议
+
+```text
+components/store/product/
+├── ProductBreadcrumb.vue
+├── ProductGallery.vue
+├── ProductGalleryThumbnail.vue
+├── ProductInfo.vue
+├── ProductBadges.vue
+├── ProductPrice.vue
+├── ProductMemberPrice.vue
+├── ProductVariants.vue
+├── ProductQuantity.vue
+├── ProductActions.vue
+├── ProductFacts.vue
+├── ProductContent.vue
+├── ProductSpecifications.vue
+├── ProductFAQ.vue
+├── ProductReviews.vue
+├── ProductRelated.vue
+└── MobilePurchaseBar.vue
+```
+
+---
+
+# 96. 不要过度拆组件
+
+上面的目录是职责边界。
+
+实际非常小的组件可以合并。
+
+核心至少保留：
+
+```text
+ProductGallery
+
+ProductInfo
+
+ProductPrice
+
+ProductActions
+
+ProductContent
+
+RelatedProducts
+```
+
+即可。
+
+---
+
+# 97. Product Detail 数据一次解析
+
+页面进入时：
+
+Server 统一返回：
+
+```text
+product
+translation
+images
+variants
+price
+memberPrice
+stock
+category
+related metadata
+seo
+```
+
+不要每个组件：
+
+```text
+单独请求 API
+```
+
+否则会产生瀑布请求。
+
+---
+
+# 98. Related Products 可单独延迟
+
+唯一可以后加载：
+
+```text
+Related Products
+```
+
+因为不影响首屏。
+
+---
+
+# 99. 购买状态必须 Server authoritative
+
+价格：
+
+```text
+前端显示
+```
+
+但真正创建订单：
+
+Server 必须重新：
+
+```text
+resolve product
+resolve variant
+resolve membership
+resolve discount
+resolve price
+resolve stock
+```
+
+不能信：
+
+```text
+前端提交的 price
+```
+
+虽然这不是纯 UI，但商品详情改造时必须冻结这条规则。
+
+---
+
+# 100. Desktop 验收
+
+必须达到：
+
+```text
+✓ 1280px 页面不会出现巨大主图
+
+✓ 主图约 600~700px 宽
+
+✓ Gallery 固定 4:3
+
+✓ 购买按钮首屏可见
+
+✓ 标题不会把购买按钮推出首屏
+
+✓ 价格层级明显
+
+✓ Variant 区不拥挤
+
+✓ 商品正文不超过约 820~860px
+
+✓ Related Products 复用列表 ProductCard
+
+✓ 无 Blog Sidebar
+```
+
+---
+
+# 101. Mobile 验收
+
+```text
+✓ Gallery 4:3
+
+✓ 缩略图横向滚动
+
+✓ 标题约 22~26px
+
+✓ 价格约 26~28px
+
+✓ 购买区域紧凑
+
+✓ Mobile Sticky Purchase Bar
+
+✓ Sticky Bar 不遮内容
+
+✓ safe-area 正常
+
+✓ 详情正文无横向滚动
+
+✓ Related Products 两列
+```
+
+---
+
+# 102. 性能验收
+
+```text
+✓ 第一张 Gallery Image 非 Lazy
+
+✓ 后续图片 Lazy Load
+
+✓ 主图使用 product_gallery
+
+✓ Lightbox 使用 product_zoom/original
+
+✓ 图片区域预留 4:3
+
+✓ 无明显 CLS
+
+✓ Related Products 延迟加载可选
+```
+
+---
+
+# 103. 最终推荐规格冻结
+
+建议你的商品详情页直接定成：
+
+```text
+Container:
+1280px
+
+Desktop Hero:
+55 / 45
+
+Gap:
+40px
+
+Gallery:
+4:3
+max-height ≈ 520px
+
+Product Title:
+28~32px
+
+Price:
+28~32px
+
+Buttons:
+44~48px
+
+Detail Content:
+820px max
+
+Related:
+4 columns
+```
+
+移动端：
+
+```text
+Single Column
+
+Gallery:
+4:3
+
+Thumbnail:
+64~72px
+
+Title:
+22~26px
+
+Price:
+26~28px
+
+Sticky Purchase Bar:
+64~72px
+
+Related:
+2 columns
+```
+
+---
+
+# 104. 最终视觉原则
+
+商品列表负责：
+
+> 快速浏览。
+
+商品详情负责：
+
+> 快速理解商品 + 快速做购买决定。
+
+所以详情页首屏只需要突出：
+
+```text
+商品图
+商品名
+简介
+价格
+版本
+购买
+```
+
+而不是一次把：
+
+```text
+长描述
+FAQ
+规格
+评论
+更新记录
+推荐商品
+```
+
+全部堆进首屏。
+
+这样和你刚刚已经优化好的商品卡片会形成完整统一的一套商城视觉系统。
+
+其中我最建议你先改 5 个地方：**详情页改 55/45 双栏、主图固定 4:3 且最大约 520px 高、右侧购买按钮必须首屏可见、正文限制到约 820px、手机增加底部 Sticky Purchase Bar**。这五项通常就能解决“列表已经紧凑，但详情页进去突然巨大”的割裂感。

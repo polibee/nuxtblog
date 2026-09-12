@@ -1,0 +1,2346 @@
+可以，而且这部分很值得从一开始就设计好。你现在已经有 **Editor AI、Page AI、AI Assistant、Site Analysis、Tool Registry**，如果没有缓存和上下文治理，后面最大的成本不是请求次数，而是**同一份站点数据被重复塞给模型**。
+
+我建议增加一个独立的：
+
+```text
+AI Optimization Layer
+```
+
+整体变成：
+
+```text
+User Request
+    ↓
+Request Normalizer
+    ↓
+Scope / Context Resolver
+    ↓
+Cache & Fingerprint Layer
+    ↓
+Model Router
+    ↓
+Context Budget Manager
+    ↓
+AI Gateway
+    ↓
+Tool Calls
+    ↓
+Tool Result Cache
+    ↓
+LLM
+```
+
+核心目标：
+
+> **能不调用模型就不调用；能用小模型就不用大模型；能传摘要就不传全文；没变化的数据绝不重新分析。**
+
+---
+
+# 1. 最重要的不是 Response Cache，而是 6 层缓存
+
+我建议设计：
+
+```text
+L0 Request Cache
+L1 Entity Snapshot Cache
+L2 Tool Result Cache
+L3 Analysis Cache
+L4 Semantic Cache
+L5 Provider Prompt Cache
+```
+
+再加：
+
+```text
+Conversation Context Cache
+```
+
+分别解决不同问题。
+
+---
+
+# 2. L0：完全相同请求缓存
+
+比如：
+
+```text
+分析 /profile 页 SEO
+```
+
+页面内容没有变化，模型、prompt 版本、分析模式也没变。
+
+第一次：
+
+```text
+LLM → $$
+```
+
+第二次：
+
+```text
+直接返回缓存
+```
+
+Cache Key 不要只用 prompt。
+
+应该：
+
+```text
+hash(
+  feature
+  + scope
+  + entityFingerprint
+  + promptVersion
+  + modelClass
+  + analysisDepth
+  + locale
+)
+```
+
+例如：
+
+```text
+page-ai:
+profile:
+sha256(abcd):
+seo-v3:
+analysis:
+balanced:
+zh-CN
+```
+
+只要页面内容没变：
+
+> Page AI 不重新分析。
+
+这是最直接的省 Token 手段。
+
+---
+
+# 3. 内容 Fingerprint 是整个系统的核心
+
+每个可以被 AI 分析的实体生成：
+
+```text
+content_fingerprint
+```
+
+例如文章：
+
+```text
+hash(
+ title
+ + excerpt
+ + body
+ + seo
+ + category
+ + tags
+ + updated_at relevant fields
+)
+```
+
+Page：
+
+```text
+hash(
+ content
+ + sections
+ + seo
+ + layout
+)
+```
+
+Profile：
+
+```text
+hash(
+ about
+ + experience
+ + projects
+ + skills
+ + social
+)
+```
+
+Product：
+
+```text
+hash(
+ title
+ + description
+ + price
+ + metadata
+)
+```
+
+然后：
+
+```text
+fingerprint 未变化
+→ previous AI analysis still valid
+```
+
+而不是：
+
+```text
+updated_at 变了
+→ 全部分析重新跑
+```
+
+因为可能只是：
+
+```text
+view_count + 1
+```
+
+这种变化跟 SEO 分析完全无关。
+
+---
+
+# 4. 最好进一步做 Domain Fingerprint
+
+这是比单 fingerprint 更省钱的设计。
+
+一篇文章分别维护：
+
+```text
+contentFingerprint
+seoFingerprint
+layoutFingerprint
+mediaFingerprint
+```
+
+例如：
+
+用户只改：
+
+```text
+SEO Description
+```
+
+那么：
+
+```text
+contentFingerprint
+不变
+
+seoFingerprint
+变化
+```
+
+结果：
+
+```text
+Content AI cache HIT
+Accessibility cache HIT
+SEO AI cache MISS
+```
+
+只重新分析 SEO。
+
+这个非常值得做。
+
+---
+
+# 5. Page AI 最适合这种增量缓存
+
+比如 Page AI 五个维度：
+
+```text
+Content
+SEO
+UI
+Accessibility
+Performance
+```
+
+不要把它们缓存成一个：
+
+```text
+page-analysis.json
+```
+
+而是：
+
+```text
+PageAnalysisCache
+
+page_id
+dimension
+fingerprint
+prompt_version
+model_family
+result
+```
+
+这样：
+
+```text
+Content      HIT
+SEO          MISS
+UI           HIT
+A11y         HIT
+Performance  HIT
+```
+
+只调用一次 SEO AI。
+
+而不是重新花五份 Token。
+
+---
+
+# 6. Rule Engine 必须跑在 LLM 前面
+
+你之前设计：
+
+```text
+Rule Engine + AI
+```
+
+这里实际上也是节约 Token 的关键。
+
+例如：
+
+```text
+有没有 H1？
+有没有 alt？
+title 长度？
+description 长度？
+图片尺寸？
+canonical 有没有？
+```
+
+这些全部：
+
+```text
+0 tokens
+```
+
+本地代码计算。
+
+然后 AI 收到的不是：
+
+> “这是整个页面，帮我分析 SEO”
+
+而是：
+
+```text
+Deterministic findings:
+
+- title: 73 chars
+- description: missing
+- canonical: valid
+- H1: 1
+- missing alt: 2
+
+Please analyze semantic SEO quality only.
+```
+
+Prompt 可以小很多。
+
+---
+
+# 7. AI 只解决机器规则解决不了的问题
+
+划分应该非常严格：
+
+### 本地 Rule Engine
+
+```text
+存在性
+长度
+数量
+格式
+URL
+Schema
+HTML structure
+图片尺寸
+Heading hierarchy
+内部链接数量
+broken link
+重复 slug
+```
+
+### AI
+
+```text
+表达质量
+语义完整性
+意图
+内容重复
+语气
+搜索意图
+信息缺口
+视觉语义
+内链相关度
+```
+
+这个原则能大量降低模型调用。
+
+---
+
+# 8. Tool Result Cache
+
+AI Assistant 后面最容易浪费 Token 的地方其实是 Tool Calling。
+
+例如：
+
+```text
+User:
+哪些文章没有 SEO Description？
+```
+
+LLM：
+
+```text
+seo.missing()
+```
+
+然后下一句：
+
+```text
+那最重要的是哪些？
+```
+
+不应该再次：
+
+```text
+seo.missing()
+```
+
+而是直接复用上一轮 Tool Result。
+
+设计：
+
+```text
+Tool Result Cache
+
+tool
+normalized_arguments
+scope
+data_version
+result
+created_at
+ttl
+```
+
+Key：
+
+```text
+hash(
+ toolName
+ + normalizedArgs
+ + scope
+ + dataVersion
+)
+```
+
+---
+
+# 9. Tool Cache 不一定只看 TTL
+
+例如：
+
+```text
+getPosts()
+```
+
+如果 Posts 没有变化：
+
+> 缓存永远仍然有效。
+
+因此比：
+
+```text
+TTL = 5 minutes
+```
+
+更好的方法是：
+
+```text
+Version-based invalidation
+```
+
+例如：
+
+```text
+contentVersion = 184
+```
+
+文章新增/修改：
+
+```text
+contentVersion = 185
+```
+
+原来的 Tool Cache 自然失效。
+
+---
+
+# 10. 做模块 Version Counter
+
+非常推荐。
+
+例如：
+
+```text
+siteVersions
+
+posts: 128
+pages: 27
+profile: 5
+seo: 63
+comments: 249
+products: 77
+media: 162
+```
+
+修改文章：
+
+```text
+posts++
+seo++   // 如果 SEO 相关字段发生变化
+```
+
+修改产品：
+
+```text
+products++
+```
+
+然后：
+
+```text
+store.products.list
+```
+
+Cache Key 带：
+
+```text
+productsVersion
+```
+
+非常简单有效。
+
+---
+
+# 11. Site Overview 不应该每次实时扫数据库
+
+比如 AI Assistant 第一句：
+
+```text
+帮我分析一下我的站。
+```
+
+不要临时：
+
+```text
+COUNT posts
+COUNT pages
+COUNT comments
+COUNT products
+...
+```
+
+几十个 Query。
+
+维护一个：
+
+```text
+AISiteSnapshot
+```
+
+例如：
+
+```json
+{
+  "posts": {
+    "published": 82,
+    "draft": 6,
+    "missingSeo": 7
+  },
+  "pages": 12,
+  "products": 8,
+  "comments": 341,
+  "profile": {
+    "sections": 7
+  }
+}
+```
+
+它由业务事件增量维护或短 TTL 缓存。
+
+AI Assistant 首先只拿这个。
+
+---
+
+# 12. Context 应该使用“金字塔”
+
+不要直接：
+
+```text
+全部站点数据
+→ LLM
+```
+
+应该：
+
+```text
+Level 0
+站点概览
+
+↓ 有需要
+
+Level 1
+实体摘要列表
+
+↓ 有需要
+
+Level 2
+选定实体详情
+
+↓ 有需要
+
+Level 3
+正文片段
+
+↓ 极少情况
+
+Level 4
+完整正文
+```
+
+例如用户问：
+
+> 哪些文章可能内容重复？
+
+第一步：
+
+```text
+title
+excerpt
+tags
+content digest
+```
+
+就够了。
+
+模型发现：
+
+```text
+Post 12
+Post 47
+```
+
+可能重复。
+
+再拉：
+
+```text
+getPost(12)
+getPost(47)
+```
+
+而不是把 100 篇全文全送过去。
+
+---
+
+# 13. 为每个内容实体生成 AI Digest
+
+这是我非常建议你做的。
+
+例如：
+
+```text
+post_ai_digest
+```
+
+不是传统 excerpt。
+
+它专门给 AI 使用：
+
+```json
+{
+  "topic": "Nuxt 4 blog architecture",
+  "summary": "...",
+  "keywords": [
+    "Nuxt",
+    "CMS",
+    "Nitro"
+  ],
+  "entities": [],
+  "headings": [],
+  "wordCount": 1820
+}
+```
+
+可以：
+
+```text
+首次文章发布
+→ 小模型生成
+```
+
+或者先完全不用 AI：
+
+```text
+title
+excerpt
+headings
+tags
+first N chars
+```
+
+组成 cheap digest。
+
+以后 AI Assistant 默认读 digest。
+
+只有必要时读正文。
+
+---
+
+# 14. 摘要本身也缓存
+
+例如文章 3000 Token。
+
+第一次：
+
+```text
+3000 tokens
+→ summary 250 tokens
+```
+
+以后 20 次分析都使用：
+
+```text
+250 tokens
+```
+
+大幅节约。
+
+只要：
+
+```text
+contentFingerprint
+```
+
+没变，Summary 不重新生成。
+
+---
+
+# 15. 不要每个聊天轮次都重复 System Prompt
+
+这里要利用模型 Provider 本身的 **Prompt Caching** 能力。
+
+固定内容：
+
+```text
+system prompt
+tool definitions
+AI policies
+site schema explanation
+```
+
+排列在 Prompt 前方并保持字节级稳定。
+
+动态部分：
+
+```text
+user message
+current context
+tool result
+```
+
+放后面。
+
+理想：
+
+```text
+STATIC
+System Instructions
+Tool Definitions
+Data Policy
+Output Schema
+
+SEMI-STATIC
+Site Context
+
+DYNAMIC
+Conversation
+User Message
+```
+
+这样支持 Prompt Cache 的模型能大幅提高缓存命中。
+
+---
+
+# 16. Prompt 千万不要每次动态拼日期和随机内容到前面
+
+错误：
+
+```text
+Current time: 2026-09-12 08:22:01
+
+SYSTEM ...
+```
+
+下一秒：
+
+```text
+Current time: 08:22:02
+```
+
+整个 prefix cache 可能失效。
+
+应该：
+
+```text
+固定 System Prompt
+固定 Tools
+```
+
+必要的当前时间放到：
+
+```text
+dynamic context
+```
+
+后部。
+
+---
+
+# 17. Tool Definition 也要控制 Token
+
+如果以后有：
+
+```text
+50 个 Tools
+```
+
+不要每次把 50 个 tool schema 全塞给模型。
+
+做：
+
+```text
+Tool Selection Router
+```
+
+例如：
+
+Scope:
+
+```text
+Profile
+```
+
+只提供：
+
+```text
+profile.get
+profile.sections
+seo.page
+page.metrics
+```
+
+而不是同时提供：
+
+```text
+comments.*
+store.*
+payments.*
+media.*
+```
+
+---
+
+# 18. 两级 Tool Router
+
+可以设计：
+
+```text
+Request
+↓
+Feature / Scope Router
+↓
+Tool Group
+↓
+Relevant Tools
+```
+
+例如：
+
+```text
+"帮我看看商品描述"
+```
+
+识别：
+
+```text
+Scope = Store
+```
+
+只注册：
+
+```text
+store.summary
+store.products.list
+store.products.get
+seo.product
+```
+
+工具 Schema Token 可以少很多。
+
+---
+
+# 19. Model Router 是第二大省钱工具
+
+不要什么都跑最强模型。
+
+建立：
+
+```text
+AIModelClass
+
+fast
+writing
+analysis
+vision
+translation
+```
+
+或者更清楚：
+
+```text
+cheap
+standard
+deep
+vision
+```
+
+例如：
+
+### Cheap model
+
+负责：
+
+```text
+分类
+摘要
+Query Rewrite
+Intent Detection
+Tool Selection
+简单标签
+```
+
+### Standard
+
+```text
+Editor Rewrite
+SEO description
+Page analysis
+Chat
+```
+
+### Deep
+
+```text
+整站复杂分析
+跨模块推理
+复杂内容策略
+```
+
+### Vision
+
+只处理截图。
+
+---
+
+# 20. 甚至 Tool Router 都不一定用 AI
+
+第一版完全可以 Rule-based。
+
+例如：
+
+```text
+scope === "profile"
+→ Profile tools
+
+scope === "store"
+→ Store tools
+```
+
+用户已经在 UI 选了：
+
+```text
+Scope
+```
+
+那根本不需要另花 Token 判断。
+
+这是为什么你之前设计：
+
+```text
+Scope Selector
+```
+
+其实不仅是 UX，也能省钱。
+
+---
+
+# 21. Quick / Balanced / Deep 真正影响什么
+
+不要只改变：
+
+```text
+maxTokens
+```
+
+应该真正控制：
+
+### Quick
+
+```text
+Cached snapshot
+Rule Engine
+Digest
+Cheap/standard model
+最多 1–2 tool round
+```
+
+### Balanced
+
+```text
+Snapshot
+Relevant entities
+Standard model
+最多 3–5 tool rounds
+必要时获取全文
+```
+
+### Deep
+
+```text
+更多实体
+交叉分析
+Deep model
+更多 tool rounds
+完整报告
+```
+
+这样用户能理解成本和质量差异。
+
+---
+
+# 22. 做 Token Budget Manager
+
+建议为每个 Feature 定预算。
+
+比如不是精确数值先写死，而是：
+
+```text
+Editor AI
+small context
+
+Page AI
+medium context
+
+Assistant Quick
+small
+
+Assistant Balanced
+medium
+
+Site Deep Analysis
+large
+```
+
+Context Builder 收集内容以后：
+
+```text
+estimatedTokens > budget
+```
+
+就：
+
+```text
+优先：
+1. 移除低优先级 metadata
+2. 用 digest 替代全文
+3. 减少 entity count
+4. 压缩历史会话
+5. 最后才截断
+```
+
+不要简单：
+
+```text
+text.slice(0, 10000)
+```
+
+---
+
+# 23. Context Priority
+
+可以定义：
+
+```text
+P0 必须
+P1 高
+P2 中
+P3 低
+```
+
+例如 Page AI：
+
+```text
+P0 title
+P0 content
+P0 SEO
+
+P1 headings
+P1 internal links
+
+P2 tags
+P2 media details
+
+P3 view counts
+P3 created date
+```
+
+超预算时从 P3 开始丢。
+
+---
+
+# 24. Conversation History 不能无限回传
+
+聊天 50 轮以后，如果你每次传 50 轮：
+
+成本会不断上升。
+
+做：
+
+```text
+Recent Messages
++
+Conversation Summary
++
+Pinned Context
+```
+
+比如：
+
+```text
+最近 6～10 条原始消息
++
+前面会话 summary
+```
+
+旧消息压缩成：
+
+```text
+用户正在分析 Profile；
+已经确定 Projects 部分过长；
+用户拒绝删除 Experience；
+当前目标优化移动端。
+```
+
+而不是传几十 KB 对话。
+
+---
+
+# 25. Conversation Summary 也要 Fingerprint
+
+只在：
+
+```text
+N 个新消息
+```
+
+之后重新总结。
+
+不要每一轮都总结一次。
+
+比如：
+
+```text
+summaryUntilMessageId
+```
+
+之后只追加最近消息。
+
+---
+
+# 26. Semantic Cache 适合 AI Chat
+
+例如用户先问：
+
+```text
+哪些文章 SEO 有问题？
+```
+
+过一会儿问：
+
+```text
+帮我找 SEO 不完善的文章。
+```
+
+字面不同，但意图近似。
+
+可以建立：
+
+```text
+Semantic Cache
+```
+
+使用 embedding：
+
+```text
+query embedding
++
+scope
++
+dataVersion
+```
+
+相似度足够高：
+
+```text
+reuse previous result
+```
+
+但是我建议：
+
+> Semantic Cache 放到第二阶段。
+
+第一版先做好：
+
+```text
+fingerprint cache
+tool cache
+analysis cache
+```
+
+收益已经非常高，而且更可控。
+
+---
+
+# 27. Semantic Cache 不要直接缓存最终自然语言回答
+
+更安全的是缓存：
+
+```text
+Analysis Artifact
+```
+
+例如：
+
+```json
+{
+  "missingSeoPostIds": [1, 3, 8],
+  "generatedAt": "...",
+  "contentVersion": 52
+}
+```
+
+然后自然语言回答可以重新轻量生成。
+
+比缓存一句：
+
+> “你的站有 3 篇 SEO 有问题。”
+
+可靠得多。
+
+---
+
+# 28. Site Analysis 应该存“分析产物”
+
+你已经有：
+
+```text
+ai_reports
+```
+
+这非常适合。
+
+比如：
+
+```text
+SEO Health Report
+```
+
+生成一次以后：
+
+```text
+status = completed
+fingerprint = ...
+```
+
+下次用户问：
+
+```text
+当前 SEO 怎么样？
+```
+
+先检查：
+
+```text
+latest valid report
+```
+
+如果数据版本没变：
+
+> 直接基于 report 回答。
+
+根本不用重新扫站。
+
+---
+
+# 29. Report 要声明 Freshness
+
+例如：
+
+```text
+SEO Report
+
+Generated:
+Sep 12
+
+Based on:
+postsVersion 184
+pagesVersion 31
+seoVersion 94
+```
+
+如果：
+
+```text
+current postsVersion = 184
+current seoVersion = 94
+```
+
+则：
+
+```text
+Fresh
+```
+
+如果：
+
+```text
+seoVersion = 97
+```
+
+则：
+
+```text
+Stale
+```
+
+但也不意味着全部重算。
+
+可以做：
+
+```text
+Incremental Report
+```
+
+只分析发生变化的实体。
+
+---
+
+# 30. 增量 Site Analysis
+
+例如上次报告分析：
+
+```text
+100 posts
+```
+
+之后只有：
+
+```text
+3 posts updated
+1 new post
+```
+
+新报告不要再把 100 篇全部发模型。
+
+应该：
+
+```text
+Previous Report
++
+Changed Entities:
+  Post 12
+  Post 39
+  Post 86
+  Post 101
+```
+
+更新：
+
+```text
+report delta
+```
+
+最后合并结果。
+
+这个以后内容多起来非常重要。
+
+---
+
+# 31. AI 数据最好用 Event Invalidation
+
+你的应用本来就是模块化。
+
+例如：
+
+```text
+post.updated
+```
+
+触发：
+
+```text
+invalidate:
+post digest
+post AI analysis
+related page analysis
+posts tool cache
+SEO report freshness
+```
+
+而不是：
+
+```text
+每隔 10 分钟 flush all cache
+```
+
+推荐：
+
+```text
+Domain Event
+        ↓
+AI Cache Invalidation
+```
+
+例如：
+
+```text
+profile.updated
+product.updated
+comment.approved
+seo.updated
+```
+
+---
+
+# 32. 不要所有变化都 invalidate 全站
+
+比如：
+
+```text
+comment.created
+```
+
+不应该：
+
+```text
+invalidate Page SEO
+invalidate Profile
+invalidate Store
+```
+
+只影响：
+
+```text
+comments.summary
+site.overview comment stats
+```
+
+这是 Domain Version 的价值。
+
+---
+
+# 33. Cache Storage 怎么选
+
+你的第一版可以：
+
+### Memory
+
+用于：
+
+```text
+hot settings
+tool metadata
+small short-lived result
+```
+
+### Database
+
+用于：
+
+```text
+AI analysis
+digest
+report
+conversation summary
+```
+
+### Redis 可选
+
+以后多实例时：
+
+```text
+tool result cache
+request cache
+locks
+rate limit
+```
+
+所以现在设计 CacheAdapter：
+
+```text
+CacheAdapter
+├── memory
+└── redis future
+```
+
+不要直接到处：
+
+```text
+useRedis()
+```
+
+---
+
+# 34. 不建议把大型 LLM Result 全塞 Redis
+
+像：
+
+```text
+Site Report
+Page Analysis
+Long AI Suggestion
+```
+
+应该进数据库。
+
+Redis：
+
+```text
+短期、高频、可丢失
+```
+
+Database：
+
+```text
+长期、可审计、用户需要再次查看
+```
+
+---
+
+# 35. 可以设计 AI Artifact Store
+
+这是我认为你当前架构还可以加的一层：
+
+```text
+AI Artifact Store
+```
+
+专门存：
+
+```text
+Digest
+Analysis
+Summary
+Report
+Suggestion
+Embedding
+```
+
+所有 artifact 都有：
+
+```text
+entity_type
+entity_id
+artifact_type
+source_fingerprint
+model
+prompt_version
+payload
+created_at
+```
+
+以后查：
+
+```text
+有没有这个 fingerprint 对应的 SEO analysis？
+```
+
+直接拿。
+
+---
+
+# 36. 推荐表结构
+
+概念：
+
+```text
+ai_artifacts
+
+id
+entity_type
+entity_id
+artifact_type
+
+source_fingerprint
+
+provider
+model
+prompt_id
+prompt_version
+
+payload_json
+
+input_tokens
+output_tokens
+cost
+
+created_at
+expires_at nullable
+```
+
+例如：
+
+```text
+post / 123
+content_digest
+abc123
+```
+
+或者：
+
+```text
+page / profile
+seo_analysis
+xyz999
+```
+
+---
+
+# 37. Tool Cache 可以单独轻量表/Redis
+
+```text
+ai_tool_cache
+
+cache_key
+tool_name
+scope
+data_version
+payload
+expires_at
+```
+
+如果上 Redis：
+
+```text
+ai:tool:{hash}
+```
+
+即可。
+
+---
+
+# 38. Prompt Version 一定放 Cache Key
+
+例如你改了：
+
+```text
+seo-analysis-v2
+```
+
+虽然页面没变：
+
+```text
+source_fingerprint same
+```
+
+但旧结果可能不适合新 Prompt。
+
+所以：
+
+```text
+source fingerprint
++
+prompt version
+```
+
+一起决定命中。
+
+---
+
+# 39. Model Version 不一定直接放完整型号
+
+这里有两种策略。
+
+如果结果高度模型相关：
+
+```text
+model version
+```
+
+加入 key。
+
+如果你认为：
+
+```text
+seo_analysis artifact
+```
+
+可以跨模型复用：
+
+可以只用：
+
+```text
+quality tier
+```
+
+例如：
+
+```text
+standard
+deep
+```
+
+我建议第一版保守：
+
+```text
+provider + model
+```
+
+都放进去。
+
+后面再优化跨模型复用。
+
+---
+
+# 40. Editor AI 不适合大量 Response Cache
+
+比如：
+
+```text
+Rewrite this paragraph
+```
+
+相同输入确实可以缓存，但实际命中率可能不高。
+
+Editor AI 优化重点应该是：
+
+```text
+Selection-only Context
++
+邻近 1–3 blocks
++
+小模型路由
++
+Provider Prompt Cache
+```
+
+而不是复杂 Semantic Cache。
+
+---
+
+# 41. Page AI 最适合 Analysis Cache
+
+命中率最高。
+
+因为：
+
+```text
+页面不会每分钟变化
+```
+
+所以：
+
+```text
+Analyze Page
+```
+
+第一次贵。
+
+之后：
+
+```text
+Instant
+```
+
+直到相关 fingerprint 变化。
+
+---
+
+# 42. AI Assistant 最适合 Tool Cache + Conversation Compression
+
+重点：
+
+```text
+Tool result reuse
+Site snapshot
+Entity digest
+Conversation summary
+Relevant tool selection
+```
+
+Response Cache 只是辅助。
+
+---
+
+# 43. Site Analysis 最适合 Artifact + Incremental Analysis
+
+重点：
+
+```text
+persistent reports
+versioning
+delta updates
+changed entity detection
+```
+
+这是省钱最大的地方。
+
+---
+
+# 44. Provider Prompt Cache
+
+如果 OpenAI-compatible / Anthropic / Gemini 等支持缓存能力：
+
+你的 Gateway 应统一抽象：
+
+```ts
+interface AICacheCapabilities {
+  promptCaching: boolean
+  explicitCacheControl: boolean
+  cachedTokenUsage: boolean
+}
+```
+
+Provider Adapter 自己处理具体协议。
+
+业务层不要写：
+
+```text
+if anthropic...
+if openai...
+```
+
+---
+
+# 45. Usage 里一定统计 Cache Hit
+
+你原来的：
+
+```text
+ai_requests
+```
+
+建议增加：
+
+```text
+cache_status
+```
+
+例如：
+
+```text
+MISS
+REQUEST_HIT
+ARTIFACT_HIT
+TOOL_HIT
+PROVIDER_PROMPT_HIT
+```
+
+以及：
+
+```text
+input_tokens
+cached_input_tokens
+output_tokens
+estimated_saved_tokens
+```
+
+这样你才能知道优化到底有没有效果。
+
+---
+
+# 46. Admin AI Usage 最好展示
+
+比如：
+
+```text
+AI Usage
+
+Requests       1,284
+Cache hit       68%
+Input tokens    3.1M
+Cached tokens   1.9M
+Estimated saved 61%
+```
+
+然后：
+
+```text
+By Feature
+
+Editor AI       18%
+Page AI         82% cache hit
+Assistant       54%
+Site Analysis   91%
+```
+
+你就能知道哪里烧钱。
+
+---
+
+# 47. 很值得设计“Cache Explain”
+
+开发/Advanced：
+
+```text
+Why did this request miss cache?
+```
+
+例如：
+
+```text
+MISS
+
+Reason:
+SEO fingerprint changed
+
+Previous:
+a32f...
+
+Current:
+c834...
+
+Changed fields:
+seo.description
+og_image
+```
+
+调试会非常舒服。
+
+---
+
+# 48. 防止 Cache Stampede
+
+如果同时 10 个请求分析同一个页面：
+
+不能：
+
+```text
+10 × LLM
+```
+
+做：
+
+```text
+single-flight lock
+```
+
+例如：
+
+```text
+cache miss
+↓
+acquire lock page:123:seo
+↓
+request AI
+↓
+其他请求等待同一结果
+```
+
+第一版单机可以内存 Promise Map。
+
+以后 Redis Lock。
+
+---
+
+# 49. Negative Cache 也有用
+
+例如：
+
+```text
+该页面不支持 UI Patch
+```
+
+不要每次重新判断。
+
+或者 Provider：
+
+```text
+暂时不可用
+```
+
+短暂缓存：
+
+```text
+30–60 sec
+```
+
+避免故障时不断重试烧钱。
+
+---
+
+# 50. Token Efficiency 最关键的 10 条
+
+如果只记十条，我建议冻结：
+
+1. **实体 Fingerprint**
+2. **Domain Fingerprint**
+3. **Analysis Artifact Cache**
+4. **Tool Result Cache**
+5. **Site Snapshot**
+6. **Entity Digest**
+7. **Progressive Context**
+8. **Conversation Summary**
+9. **Model Routing**
+10. **Provider Prompt Cache**
+
+这十个基本决定了以后成本。
+
+---
+
+# 51. 我建议把 AI Core 更新成这样
+
+```text
+                         AI Core
+                            │
+        ┌───────────────────┼─────────────────────┐
+        │                   │                     │
+   Provider Layer      Context Layer       Optimization Layer
+        │                   │                     │
+ Provider Registry     Scope Resolver       Fingerprints
+ AI Gateway            Context Builder      Artifact Cache
+ Feature Router        Token Budget         Tool Cache
+ Prompt Registry       Digest Resolver      Semantic Cache
+        │               Conversation         Single Flight
+        │               Summary              Model Router
+        │                                     Usage Metrics
+        │
+ ┌──────┼──────────┬────────────┐
+ │      │          │            │
+Editor Page AI  Assistant  Site Reports
+```
+
+---
+
+# 52. Server 目录建议
+
+```text
+server/ai/
+├── gateway/
+├── providers/
+├── prompts/
+├── context/
+│   ├── context-builder.ts
+│   ├── token-budget.ts
+│   ├── digest-resolver.ts
+│   ├── conversation-summary.ts
+│   └── scope-resolver.ts
+│
+├── cache/
+│   ├── ai-cache.ts
+│   ├── cache-key.ts
+│   ├── artifact-cache.ts
+│   ├── tool-cache.ts
+│   ├── request-cache.ts
+│   ├── fingerprint.ts
+│   ├── invalidation.ts
+│   └── single-flight.ts
+│
+├── routing/
+│   ├── model-router.ts
+│   ├── tool-router.ts
+│   └── depth-policy.ts
+│
+├── artifacts/
+│   ├── artifact-service.ts
+│   └── digest-service.ts
+│
+├── tools/
+├── rules/
+├── features/
+└── usage/
+```
+
+这个 `cache/` 我认为应该正式成为 AI Core 一级模块，而不是散落在各 Feature 里面。
+
+---
+
+# 53. 最推荐的请求流程
+
+例如：
+
+```text
+用户：
+分析 /profile
+```
+
+实际：
+
+```text
+1. Resolve scope
+   profile
+
+2. Compute relevant fingerprints
+   content = AAA
+   seo = BBB
+   layout = CCC
+
+3. Run deterministic rules
+   0 token
+
+4. Check artifacts
+
+   Content AI:
+   AAA + prompt-v3 → HIT
+
+   SEO:
+   BBB + prompt-v2 → HIT
+
+   UI:
+   CCC + prompt-v1 → MISS
+
+5. Build ONLY UI context
+
+6. Token budget
+   1,800 → reduce to 950
+
+7. Model Router
+   Standard Analysis
+
+8. Provider prompt cache
+
+9. Save UI Artifact
+
+10. Merge:
+    rule findings
+    cached Content
+    cached SEO
+    fresh UI
+
+11. Return
+```
+
+最终一次“完整 Page AI 分析”可能只真正调用：
+
+```text
+1 个模型请求
+```
+
+而不是：
+
+```text
+3～5 个。
+```
+
+---
+
+# 54. AI Assistant 请求示例
+
+用户：
+
+```text
+哪些文章值得增加内链？
+```
+
+流程：
+
+```text
+Site Snapshot HIT
+
+↓
+
+// 不取全文
+
+content.posts.listDigests()
+Tool Cache HIT
+
+↓
+
+本地先根据：
+tags
+categories
+keyword overlap
+existing links
+
+产生候选 pair
+
+↓
+
+只把 Top 20 candidates
+交给 AI 做语义判断
+
+↓
+
+返回 Top 5
+```
+
+这比：
+
+```text
+100 篇全文 → 大模型
+```
+
+便宜可能不止一个数量级。
+
+---
+
+# 55. 搜索也是如此
+
+以后如果有 500 / 5,000 篇文章：
+
+不要：
+
+```text
+全部送 LLM
+```
+
+先：
+
+```text
+SQL FTS / metadata
+```
+
+筛选：
+
+```text
+5000
+→ 30
+```
+
+然后：
+
+```text
+Digest rerank
+30
+→ 8
+```
+
+必要时：
+
+```text
+AI
+8
+→ answer
+```
+
+以后规模大了再加：
+
+```text
+embedding/vector search
+```
+
+不需要第一天就上 RAG。
+
+---
+
+# 56. 第一版不要过度设计
+
+虽然上面架构很完整，但你现在真正应该第一阶段实现的只有：
+
+```text
+P1
+
+✓ Fingerprint Service
+✓ Page Analysis Cache
+✓ AI Artifact Store
+✓ Tool Result Cache
+✓ Site Snapshot
+✓ Entity Digest
+✓ Token Budget
+✓ Conversation Summary
+✓ Model Router
+✓ Cache Usage Metrics
+```
+
+先不要：
+
+```text
+Semantic Cache
+Vector DB
+Distributed Redis Lock
+Complex embedding cache
+Cross-model artifact reuse
+```
+
+这些等规模上来再做。
+
+---
+
+# 57. 我会把 AI 开发阶段重新优化成
+
+```text
+A1 AI Core
+├── Gateway
+├── Providers
+├── Model Router
+├── Prompt Registry
+├── Usage
+└── Optimization Foundation
+    ├── Fingerprint
+    ├── Artifact Cache
+    └── Token Budget
+
+A2 Editor AI
+├── Selection Context
+└── Small Context Policy
+
+A3 Page AI
+├── Rules
+├── Domain Fingerprint
+├── Dimension Cache
+└── Incremental Analysis
+
+A5 Tool Platform
+├── Tool Registry
+├── Tool Cache
+├── Domain Versions
+├── Site Snapshot
+└── Entity Digests
+
+A6 AI Assistant
+├── Progressive Context
+├── Conversation Summary
+├── Tool Reuse
+└── SSE
+
+A7 Site Analysis
+├── Persistent Reports
+├── Versioned Reports
+└── Incremental Re-analysis
+
+Later
+├── Semantic Cache
+├── Embeddings
+├── Redis Distributed Cache
+└── Advanced RAG
+```
+
+这套设计我认为比单纯“给 AI 请求加 Redis Cache”好得多。
+
+最终你应该追求的并不是 **AI 请求命中率** 一个指标，而是三个指标同时优化：
+
+```text
+LLM Avoidance Rate
+= 有多少请求完全没调用模型
+
+Context Reduction Rate
+= 必须调用时上下文减少了多少
+
+Provider Cache Hit Rate
+= 最终送给模型的 Token 中又有多少命中了供应商缓存
+```
+
+理想情况下，Page AI 和 Site Report 后期可以做到非常高的复用率；AI Assistant 则通过 Tool Cache、Digest 和 Progressive Context 控制输入 Token。这样即使以后整站内容越来越多，AI 成本也不会跟数据库内容量线性增长。

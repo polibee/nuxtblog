@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CreditCardIcon, FileTextIcon, ShoppingCartIcon, UsersIcon } from 'lucide-vue-next'
+import { FileTextIcon, MessageSquareIcon, UsersIcon, LayoutTemplateIcon } from 'lucide-vue-next'
 import { useI18n } from '~/admin/i18n'
 
 const { t } = useI18n()
@@ -7,10 +7,11 @@ const { t } = useI18n()
 interface Stats {
   usersTotal: number
   usersActive: number
-  postsTotal: number
   postsPublished: number
-  ordersTotal: number
-  totalRevenue: number
+  postsDraft: number
+  pendingComments: number
+  approvedComments: number
+  pagesPublished: number
 }
 
 const stats = ref<Stats | null>(null)
@@ -24,10 +25,29 @@ onMounted(async () => {
 })
 
 const cards = computed(() => [
-  { label: t('widget.totalUsers'), value: stats.value?.usersTotal, sub: t('widget.active', { n: stats.value?.usersActive ?? 0 }), icon: UsersIcon },
-  { label: t('widget.posts'), value: stats.value?.postsTotal, sub: t('widget.published', { n: stats.value?.postsPublished ?? 0 }), icon: FileTextIcon },
-  { label: t('widget.orders'), value: stats.value?.ordersTotal, icon: ShoppingCartIcon },
-  { label: t('widget.revenue'), value: stats.value ? `$${stats.value.totalRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : undefined, icon: CreditCardIcon }
+  {
+    label: t('widget.totalUsers'),
+    value: stats.value?.usersTotal,
+    sub: t('widget.active', { n: stats.value?.usersActive ?? 0 }),
+    icon: UsersIcon
+  },
+  {
+    label: t('widget.posts'),
+    value: (stats.value?.postsPublished ?? 0) + (stats.value?.postsDraft ?? 0),
+    sub: t('widget.published', { n: stats.value?.postsPublished ?? 0 }),
+    icon: FileTextIcon
+  },
+  {
+    label: t('widget.comments'),
+    value: (stats.value?.approvedComments ?? 0) + (stats.value?.pendingComments ?? 0),
+    sub: t('widget.pendingComments', { n: stats.value?.pendingComments ?? 0 }),
+    icon: MessageSquareIcon
+  },
+  {
+    label: t('widget.pages'),
+    value: stats.value?.pagesPublished,
+    icon: LayoutTemplateIcon
+  }
 ])
 </script>
 

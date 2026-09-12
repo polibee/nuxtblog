@@ -1,11 +1,12 @@
 <script setup lang="ts">
 const ui = useUiStore()
+const { siteName } = useSiteSettings()
 
 useHead({
   htmlAttrs: {
     class: () => (ui.theme === 'dark' ? 'dark' : '')
   },
-  titleTemplate: title => (title ? `${title} · Nuxt Admin` : 'Nuxt Admin')
+  titleTemplate: title => (title ? `${title} · ${siteName.value}` : siteName.value)
 })
 </script>
 

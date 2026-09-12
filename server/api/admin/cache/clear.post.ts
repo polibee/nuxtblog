@@ -5,5 +5,5 @@ import { requirePermission } from '../../../utils/auth'
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'settings.edit')
   const purged = await invalidatePageCache()
-  return { ok: true, purged, stats: cacheStatsSnapshot() }
+  return { ok: true, purged, stats: await cacheStatsSnapshot() }
 })

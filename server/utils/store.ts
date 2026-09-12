@@ -17,7 +17,7 @@ import { buildConnectionString, type DbConfig } from './runtimeConfig'
  * ============================================================= */
 
 export interface StoreDriver {
-  kind: 'memory' | 'postgres' | 'mysql'
+  kind: 'memory' | 'postgres' | 'mysql' | 'supabase'
   init(): Promise<void>
   loadAll(): Promise<Array<{ resource: string, rows: Array<Record<string, unknown>> }>>
   upsert(resource: string, id: number, row: Record<string, unknown>): Promise<void>
@@ -38,17 +38,19 @@ class MemoryStore implements StoreDriver {
 }
 
 class PostgresStore implements StoreDriver {
-  kind = 'postgres' as const
+  kind: 'postgres' | 'supabase'
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- driver ships its own optional types
   private client: any = null
 
-  constructor(private config: DbConfig) {}
+  constructor(private config: DbConfig, kind: 'postgres' | 'supabase' = 'postgres') {
+    this.kind = kind
+  }
 
   async init(): Promise<void> {
     const pg = await import('pg')
     this.client = new pg.Client({
-      connectionString: buildConnectionString(this.config),
-      ssl: this.config.ssl ? { rejectUnauthorized: true } : undefined
+      connectionString: await buildConnectionString(this.config),
+      ssl: this.config.ssl ? { rejectUnauthorized: this.config.sslVerify } : undefined
     })
     await this.client.connect()
     await this.client.query('CREATE TABLE IF NOT EXISTS cms_records (resource VARCHAR(80) NOT NULL, id BIGINT NOT NULL, data JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (resource, id))', [])
@@ -156,7 +158,7 @@ export function activeStoreKind(): string {
 
 export async function initStore(config: DbConfig): Promise<string> {
   if (config.driver === 'postgres' || config.driver === 'supabase') {
-    active = new PostgresStore(config)
+    active = new PostgresStore(config, config.driver)
   } else if (config.driver === 'mysql') {
     active = new MysqlStore(config)
   } else {
@@ -184,7 +186,9 @@ export async function loadPersisted(): Promise<Array<{ resource: string, rows: A
 export async function testStoreConnection(config: DbConfig): Promise<{ ok: boolean, kind: string, error?: string }> {
   if (config.driver === 'memory') return { ok: true, kind: 'memory' }
   try {
-    const probe = config.driver === 'mysql' ? new MysqlStore(config) : new PostgresStore(config)
+    const probe = config.driver === 'mysql'
+      ? new MysqlStore(config)
+      : new PostgresStore(config, config.driver)
     await probe.init()
     await probe.ping()
     return { ok: true, kind: probe.kind }

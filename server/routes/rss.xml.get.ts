@@ -1,36 +1,42 @@
-import { getCollection } from '../utils/db'
 import { withPageCache } from '../utils/pageCache'
 import { buildRssChannel, toPlainText } from '../utils/xml'
+import { getSettingValue } from '../modules/settings/settings.service'
+import { getPublicPosts } from '../modules/posts/post.service'
+import { resolveLocale, withLocaleKey } from '../utils/locale'
+import { isBlogDbReady } from '../repositories/db.server'
+import { contentUrl } from '../utils/contentUrl'
 
 /**
- * GET /rss.xml — latest published posts as an RSS 2.0 feed.
- * Channel metadata comes from public settings (SITE_NAME/SITE_URL/SITE_DESCRIPTION).
+ * GET /rss.xml — latest published posts as an RSS 2.0 feed (resolved
+ * default locale). Channel metadata comes from public settings.
  */
 export default defineEventHandler(async (event) => {
-  const settings = getCollection('settings')
-  const value = (key: string, fallback: string): string =>
-    String(settings.find(s => s.key === key)?.value ?? fallback)
+  const value = async (key: string, fallback: string): Promise<string> =>
+    String(await getSettingValue(key, fallback))
 
-  const origin = value('SITE_URL', '') || getRequestURL(event).origin
+  const origin = (await value('SITE_URL', '')) || getRequestURL(event).origin
 
-  const posts = getCollection('posts')
-    .filter(p => p.status === 'published')
-    .sort((a, b) => new Date(b.publishedAt as string ?? b.createdAt as string).getTime()
-      - new Date(a.publishedAt as string ?? a.createdAt as string).getTime())
-    .slice(0, 50)
-
-  const { body } = await withPageCache('rss', async () => buildRssChannel(
-    {
-      title: value('SITE_NAME', 'Nuxt Admin'),
-      link: origin,
-      description: value('SITE_DESCRIPTION', 'Latest posts')
-    },
-    posts.map(p => ({
-      title: String(p.title),
-      url: `/blog/${p.slug}`,
-      description: toPlainText(p.content),
-      pubDate: (p.publishedAt as string | null) ?? (p.createdAt as string)
+  let items: Array<{ title: string, url: string, description: string, pubDate: string }> = []
+  let localeCode = 'zh-CN'
+  if (isBlogDbReady()) {
+    const locale = await resolveLocale('/', getRequestHeader(event, 'accept-language'))
+    localeCode = locale.code
+    const { items: posts } = await getPublicPosts(locale.code, { perPage: 50 })
+    items = posts.map(p => ({
+      title: p.title,
+      url: contentUrl('post', p.alias),
+      description: p.excerpt || toPlainText(''),
+      pubDate: p.publishedAt
     }))
+  }
+
+  const { body } = await withPageCache(withLocaleKey('rss', localeCode), async () => buildRssChannel(
+    {
+      title: await value('SITE_NAME', 'Nuxt Admin'),
+      link: origin,
+      description: await value('SITE_DESCRIPTION', 'Latest posts')
+    },
+    items
   ))
   setResponseHeader(event, 'Content-Type', 'application/rss+xml; charset=utf-8')
   setResponseHeader(event, 'Cache-Control', 'public, max-age=60')

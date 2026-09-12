@@ -31,4 +31,12 @@ export async function emitCmsEvent(event: string, payload: Record<string, unknow
   }
   // outbound webhooks subscribe to the same event names
   await dispatchWebhooks(event, payload).catch(() => undefined)
+  // P38 notification center: notifiable events land in the outbox;
+  // failures here must never break the business operation
+  try {
+    const { enqueueFromCmsEvent } = await import('../modules/notifications/engine')
+    await enqueueFromCmsEvent(event, payload)
+  } catch {
+    // notification outbox is best-effort
+  }
 }

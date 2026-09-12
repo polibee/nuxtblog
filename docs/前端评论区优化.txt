@@ -1,0 +1,3021 @@
+可以。你这个前端评论模块已经有完整业务能力了，现在主要问题是 **视觉密度、层级和交互不像现代评论系统**。最适合的方向不是重写评论系统，而是参考 Tiptap Comments 的几个核心体验：线程清晰、回复收拢、编辑器轻量、操作按钮弱化、选中/回复状态明显。Tiptap 本身把讨论组织成 thread + comment，并支持 rich text、reply、edit、delete、resolve 等能力，这些思路很适合借到博客评论 UI 上。
+
+但博客评论和协作文档不同，所以我建议：**借 Tiptap 的视觉和交互语言，不引入 Tiptap Collaboration / Comments Pro 作为博客评论后端。** 继续使用你现有 Nuxt/Nitro 评论 API 和数据库即可。
+
+# Nuxt 全栈博客前端评论模块现代化重构方案
+
+## 1. 重构定位
+
+目标不是开发一个新的评论系统，而是：
+
+```text
+现有 Comments Backend
++
+现有审核 / Reply / Like / Report
++
+新的现代化 Comments UI
+```
+
+参考方向：
+
+```text
+Tiptap Comments
+Linear
+GitHub Discussions
+Notion Comments
+```
+
+最终视觉应该：
+
+```text
+轻
+紧凑
+清晰
+不使用大量 Card
+不使用厚重边框
+回复层级明显
+编辑器现代
+操作弱化
+```
+
+---
+
+# 2. 当前评论 UI 常见问题
+
+需要重点避免：
+
+```text
+❌ 每条评论都是一个巨大 Card
+❌ 每层回复都有边框
+❌ Avatar 太大
+❌ Username / OS / Browser 信息太抢眼
+❌ Reply / Like / Report 全部做成 Button
+❌ 评论编辑器像后台富文本编辑器
+❌ Toolbar 太重
+❌ 回复无限缩进
+❌ 评论之间间距过大
+❌ 操作菜单到处都是文字
+❌ Pending / Admin / Author Badge 太多
+```
+
+应该改成：
+
+> **内容是主角，UI 退到背景。**
+
+---
+
+# 3. 评论区整体宽度
+
+文章正文：
+
+```text
+680~760px
+```
+
+评论区可以稍微宽一点：
+
+```text
+max-width:
+760~820px
+```
+
+推荐：
+
+```text
+800px
+```
+
+不要铺满：
+
+```text
+1200px
+```
+
+否则回复线程很难阅读。
+
+---
+
+# 4. 评论区入口
+
+文章正文结束后：
+
+```text
+────────────────────────
+
+评论 24
+
+参与讨论，分享你的想法。
+
+[ Comment Composer ]
+
+────────────────────────
+```
+
+标题建议：
+
+```text
+评论 24
+```
+
+不要：
+
+```text
+评论列表（24条）
+```
+
+更自然。
+
+---
+
+# 5. 顶部 Toolbar
+
+推荐：
+
+```text
+评论 24
+
+                         [最新 ▼]
+```
+
+排序：
+
+```text
+最新
+最早
+热门
+```
+
+不要设计：
+
+```text
+最新 | 最热 | 最旧 | 作者 | 只看关注...
+```
+
+太复杂。
+
+---
+
+# 6. 顶级 Comment Composer
+
+参考 Tiptap Comments 的“轻编辑器”感觉。
+
+默认状态：
+
+```text
+┌───────────────────────────────────────────┐
+│ [Avatar]  写下你的评论...                 │
+│                                           │
+└───────────────────────────────────────────┘
+```
+
+不是一开始就展示完整 Toolbar。
+
+---
+
+# 7. Composer Focus 状态
+
+点击以后展开：
+
+```text
+┌───────────────────────────────────────────┐
+│ [Avatar]                                  │
+│                                           │
+│ 写下你的评论...                           │
+│                                           │
+│                                           │
+├───────────────────────────────────────────┤
+│ B  I  <>  🔗  ❝  😊        0 / 3000      │
+│                              [取消][评论] │
+└───────────────────────────────────────────┘
+```
+
+这比传统：
+
+```text
+Username
+Email
+Website
+Toolbar
+巨大文本框
+Submit
+```
+
+现代很多。
+
+---
+
+# 8. Guest Comment
+
+未登录用户 Focus 后才显示：
+
+```text
+昵称 *
+邮箱 *
+网站
+```
+
+推荐：
+
+```text
+┌───────────────────────────────────────────┐
+│ 昵称              邮箱                   │
+│ [............]    [...................]  │
+│                                           │
+│ 网站（可选）                              │
+│ [......................................] │
+└───────────────────────────────────────────┘
+```
+
+不要在评论区未展开时就占据大量空间。
+
+---
+
+# 9. Comment Editor 功能
+
+继续使用你的 Tiptap stripped editor。
+
+推荐只保留：
+
+```text
+Bold
+Italic
+Inline Code
+Link
+Quote
+Code Block
+Emoji
+```
+
+不要：
+
+```text
+Heading
+Table
+Image
+Video
+Iframe
+Font Size
+Text Color
+Alignment
+```
+
+博客评论没必要。
+
+---
+
+# 10. Toolbar 图标化
+
+错误：
+
+```text
+[加粗] [斜体] [代码] [引用] [添加链接]
+```
+
+正确：
+
+```text
+B  I  <>  🔗  ❝  😊
+```
+
+Toolbar Button：
+
+```text
+size:
+32 × 32
+```
+
+使用：
+
+```text
+ghost
+```
+
+样式。
+
+---
+
+# 11. Toolbar 不使用 Border Card
+
+编辑器外框只有：
+
+```text
+border
+rounded-lg / rounded-xl
+```
+
+Toolbar：
+
+```text
+border-top
+```
+
+即可。
+
+不要 Toolbar 自己再套 Card。
+
+---
+
+# 12. Comment 主结构
+
+推荐每条评论：
+
+```text
+Avatar
+
+Username · 2小时前
+Comment Body
+
+Reply   Like   More
+```
+
+视觉：
+
+```text
+● Avatar    William · 2小时前
+│
+│           这是一条评论内容。
+│           第二行评论内容。
+│
+│           回复   ♡ 12   ···
+```
+
+---
+
+# 13. 不要给每条评论完整 Card
+
+这是最重要的调整之一。
+
+不要：
+
+```text
+┌────────────────────────────────┐
+│ Avatar Username                │
+│                                │
+│ Comment                        │
+│                                │
+│ Reply Like                     │
+└────────────────────────────────┘
+```
+
+然后下一条又一个 Card。
+
+最终会显得：
+
+```text
+很重
+很碎
+像后台列表
+```
+
+---
+
+# 14. 推荐采用 Thread Layout
+
+顶级评论：
+
+```text
+Avatar + Thread Line
+```
+
+回复：
+
+沿一条视觉线展开。
+
+类似：
+
+```text
+● William
+│  Comment...
+│
+│  Reply · Like
+│
+├── ● Alice
+│   │  Reply...
+│   │
+│   │  Reply · Like
+│   │
+│   └── ● Bob
+│       Reply...
+```
+
+这就是最值得从 Tiptap Thread 概念借用的部分。
+
+---
+
+# 15. Thread Connector
+
+不要画复杂树状线。
+
+只需要：
+
+```text
+border-left
+```
+
+例如：
+
+```text
+1px
+border-muted
+```
+
+连接：
+
+```text
+parent avatar
+→ replies
+```
+
+就够了。
+
+---
+
+# 16. Avatar
+
+Desktop：
+
+```text
+Top Comment:
+36~40px
+```
+
+Reply：
+
+```text
+32~36px
+```
+
+Mobile：
+
+```text
+32px
+```
+
+不要：
+
+```text
+48~56px
+```
+
+否则评论区会显得非常松散。
+
+---
+
+# 17. Avatar Fallback
+
+无头像：
+
+显示：
+
+```text
+首字母
+```
+
+例如：
+
+```text
+W
+```
+
+不要每个匿名用户都是完全相同：
+
+```text
+灰色 User Icon
+```
+
+可以根据用户 ID / email hash：
+
+生成稳定背景。
+
+但不要自己定义大量强色。
+
+继续使用：
+
+```text
+muted
+secondary
+```
+
+等主题 Token。
+
+---
+
+# 18. Comment Header
+
+推荐：
+
+```text
+William
+作者
+2小时前
+```
+
+但是视觉层级：
+
+```text
+William      14px semibold
+
+作者 Badge   very small
+
+2小时前     12~13px muted
+```
+
+例如：
+
+```text
+William  作者  ·  2小时前
+```
+
+---
+
+# 19. Author Badge
+
+文章作者：
+
+```text
+作者
+```
+
+或者：
+
+```text
+Author
+```
+
+Badge：
+
+```text
+small
+secondary
+```
+
+不要：
+
+```text
+ADMINISTRATOR
+SUPER ADMIN
+AUTHOR
+VERIFIED
+```
+
+一起出现。
+
+---
+
+# 20. Admin Badge
+
+如果管理员不是文章作者：
+
+最多：
+
+```text
+管理员
+```
+
+小 Badge。
+
+如果：
+
+```text
+Author == Admin
+```
+
+只显示：
+
+```text
+作者
+```
+
+不要两个 Badge。
+
+---
+
+# 21. Comment Metadata
+
+你之前希望显示：
+
+```text
+Username
+OS
+Browser
+```
+
+可以保留，但必须弱化。
+
+不要：
+
+```text
+William
+Windows 11
+Chrome 152
+Desktop
+```
+
+全部显示在 Header。
+
+推荐：
+
+```text
+William · 2小时前
+```
+
+然后：
+
+```text
+···
+```
+
+或 Hover：
+
+```text
+Windows · Chrome
+```
+
+---
+
+# 22. OS / Browser 的最佳位置
+
+推荐：
+
+Desktop：
+
+```text
+Hover timestamp
+```
+
+Tooltip：
+
+```text
+Windows · Chrome
+```
+
+或者点击：
+
+```text
+Comment Details
+```
+
+显示：
+
+```text
+Browser
+Chrome
+
+OS
+Windows
+
+Device
+Desktop
+```
+
+---
+
+# 23. 不建议公开 Browser Major Version
+
+前台只：
+
+```text
+Chrome
+Windows
+Desktop
+```
+
+不要：
+
+```text
+Chrome 152.0.9999.36
+Windows NT 10.0.22631
+```
+
+既难看，也没必要。
+
+---
+
+# 24. Comment Body
+
+字体：
+
+```text
+14~15px
+```
+
+推荐：
+
+```text
+15px
+```
+
+Line Height：
+
+```text
+1.65~1.75
+```
+
+不要和文章正文：
+
+```text
+18px
+```
+
+一样大。
+
+评论应该稍紧凑。
+
+---
+
+# 25. Comment Width
+
+正文：
+
+```text
+width: auto
+```
+
+不要：
+
+```text
+max-width: 500px
+```
+
+这种聊天气泡式限制。
+
+博客评论不是 Messenger。
+
+---
+
+# 26. 不要做 Chat Bubble
+
+避免：
+
+```text
+William
+
+┌────────────────┐
+│ 评论内容       │
+└────────────────┘
+```
+
+这种聊天 UI。
+
+评论区应该更接近：
+
+```text
+GitHub / Tiptap / Discussion
+```
+
+而不是：
+
+```text
+微信
+Telegram
+```
+
+---
+
+# 27. Comment Action Bar
+
+推荐：
+
+```text
+回复
+
+♡ 12
+
+···
+```
+
+其中：
+
+```text
+回复
+```
+
+是文字按钮。
+
+Like：
+
+```text
+Heart Icon + Count
+```
+
+More：
+
+```text
+Ellipsis
+```
+
+---
+
+# 28. 不要直接显示
+
+```text
+回复
+点赞
+举报
+编辑
+删除
+复制链接
+```
+
+六个按钮。
+
+太乱。
+
+---
+
+# 29. More Menu
+
+`···`：
+
+```text
+复制链接
+举报
+```
+
+自己的评论：
+
+```text
+编辑
+删除
+复制链接
+```
+
+管理员：
+
+```text
+审核
+隐藏
+删除
+查看信息
+```
+
+---
+
+# 30. Hover Actions
+
+Desktop：
+
+More 可以：
+
+```text
+默认弱显示
+hover comment 时显示
+```
+
+但 Reply / Like：
+
+应该一直可见。
+
+Mobile：
+
+More 始终可见。
+
+---
+
+# 31. Like Interaction
+
+未点赞：
+
+```text
+♡ 12
+```
+
+已点赞：
+
+```text
+♥ 13
+```
+
+不要：
+
+```text
+[点赞 12]
+```
+
+大按钮。
+
+---
+
+# 32. Reply Interaction
+
+点击：
+
+```text
+回复
+```
+
+不要跳页面底部主编辑器。
+
+应该：
+
+```text
+Inline Reply Composer
+```
+
+直接在评论下面打开。
+
+---
+
+# 33. Inline Reply Composer
+
+例如：
+
+```text
+William · 评论内容
+
+回复  ♡ 12
+
+    ┌─────────────────────────────┐
+    │ 回复 William...             │
+    │                             │
+    ├─────────────────────────────┤
+    │ B I <>        [取消][回复] │
+    └─────────────────────────────┘
+```
+
+这会明显提升交互。
+
+---
+
+# 34. 回复 Editor 更简化
+
+顶级 Composer：
+
+```text
+完整 stripped toolbar
+```
+
+Reply Composer：
+
+只显示：
+
+```text
+Bold
+Italic
+Code
+Link
+Emoji
+```
+
+甚至：
+
+```text
+Toolbar 只有 focus 后显示
+```
+
+进一步降低视觉噪音。
+
+---
+
+# 35. Reply Context
+
+不要：
+
+```text
+回复 #123
+```
+
+应该显示：
+
+```text
+回复 William
+```
+
+Composer：
+
+```text
+回复 William...
+```
+
+---
+
+# 36. Nested Replies
+
+数据库继续：
+
+```text
+parent_id
+```
+
+无限层级。
+
+但是前端：
+
+```text
+最大视觉缩进 = 3
+```
+
+这是你之前的设计，可以保留。
+
+---
+
+# 37. Visual Depth
+
+例如：
+
+```text
+Level 0:
+0px
+
+Level 1:
+32px
+
+Level 2:
+64px
+
+Level 3+:
+64px
+```
+
+不要：
+
+```text
+0
+40
+80
+120
+160
+200...
+```
+
+手机会完全没宽度。
+
+---
+
+# 38. Level 3+ Reply
+
+显示：
+
+```text
+回复 @Alice
+```
+
+例如：
+
+```text
+Bob · 1小时前
+回复 @Alice
+
+我觉得这个方式...
+```
+
+这样仍然知道上下文。
+
+---
+
+# 39. Mobile 缩进
+
+Mobile：
+
+进一步压缩：
+
+```text
+Level 1:
+20px
+
+Level 2:
+32px
+
+Level 3+:
+32px
+```
+
+否则 390px 手机非常拥挤。
+
+---
+
+# 40. Replies 默认折叠
+
+对于回复很多的 Thread：
+
+不要全部展开。
+
+例如：
+
+```text
+William
+Comment...
+
+回复 ♡
+
+查看 8 条回复
+```
+
+点击：
+
+```text
+展开前 5 条
+```
+
+底部：
+
+```text
+加载更多回复
+```
+
+---
+
+# 41. Reply Count Button
+
+推荐：
+
+```text
+↳ 查看 8 条回复
+```
+
+或者：
+
+```text
+查看 8 条回复
+```
+
+使用：
+
+```text
+ghost / link style
+```
+
+不要：
+
+```text
+[展开回复]
+```
+
+大按钮。
+
+---
+
+# 42. Thread 状态
+
+博客前台不需要 Tiptap 那种：
+
+```text
+Resolved / Unresolved
+```
+
+因为这是协作文档语义。
+
+博客评论对应：
+
+```text
+approved
+pending
+spam
+trash
+```
+
+其中公开页面主要只关心：
+
+```text
+approved
+pending-own
+```
+
+---
+
+# 43. Pending Comment
+
+用户自己提交：
+
+```text
+William  等待审核 · 刚刚
+
+这是一条待审核评论。
+```
+
+使用：
+
+```text
+subtle muted background
+```
+
+或者：
+
+```text
+small outline badge
+```
+
+不要黄色大 Alert。
+
+---
+
+# 44. Pending Privacy
+
+仍遵循：
+
+```text
+提交者本人
+可以看到自己的 Pending
+
+其他用户
+看不到
+```
+
+这个逻辑不要因为 UI 重构而改变。
+
+---
+
+# 45. Edited 状态
+
+编辑过：
+
+```text
+2小时前 · 已编辑
+```
+
+点击 / Hover：
+
+可以显示：
+
+```text
+最后编辑：1小时前
+```
+
+不需要完整编辑历史前台展示。
+
+---
+
+# 46. Edited Visual
+
+`已编辑`：
+
+```text
+12px muted
+```
+
+不要 Badge。
+
+---
+
+# 47. Comment Permalink
+
+每条评论：
+
+```text
+#comment-123
+```
+
+More：
+
+```text
+复制评论链接
+```
+
+复制后：
+
+```text
+https://site.com/post/slug#comment-123
+```
+
+---
+
+# 48. 被 URL 定位的 Comment
+
+访问：
+
+```text
+#comment-123
+```
+
+页面：
+
+```text
+scrollIntoView
+```
+
+然后：
+
+```text
+2秒轻微 highlight
+```
+
+例如：
+
+```text
+bg-muted/50
+```
+
+再淡出。
+
+这是非常现代的体验。
+
+---
+
+# 49. Comment Highlight
+
+不要：
+
+```text
+黄色强背景
+```
+
+使用：
+
+```text
+ring-1
+ring-primary/20
+bg-muted/30
+```
+
+然后 transition fade。
+
+---
+
+# 50. Reply Target Highlight
+
+点击：
+
+```text
+回复 @Alice
+```
+
+可以定位到 Alice 原评论。
+
+如果原评论在当前 Thread 中：
+
+轻微 Highlight。
+
+这样深层回复上下文更清楚。
+
+---
+
+# 51. Long Comment
+
+长评论超过：
+
+```text
+约 8~12 行
+```
+
+可以：
+
+```text
+展开全文
+```
+
+但建议：
+
+> 不要默认截所有评论。
+
+只有真正很长的内容才折叠。
+
+---
+
+# 52. Code Block
+
+Comment Code：
+
+```text
+font-size:
+13px
+```
+
+支持：
+
+```text
+horizontal scroll
+```
+
+不要让长代码撑破评论区。
+
+---
+
+# 53. Quote
+
+引用：
+
+```text
+border-left: 2px
+```
+
+背景：
+
+```text
+muted/30
+```
+
+Padding：
+
+```text
+8~12px
+```
+
+保持轻量。
+
+---
+
+# 54. Mention
+
+如果未来有用户系统：
+
+可以支持：
+
+```text
+@William
+```
+
+Tiptap Comments 本身支持 mention 这类富文本扩展，这个能力可以作为后续 P1，而不是当前重构必须项。
+
+第一版：
+
+```text
+回复 @username
+```
+
+自动插入即可。
+
+---
+
+# 55. Emoji
+
+Composer 支持：
+
+```text
+Emoji Picker
+```
+
+但不要：
+
+```text
+自定义表情包
+GIF
+Sticker
+```
+
+第一版没必要。
+
+---
+
+# 56. Comment Reactions
+
+Tiptap 的评论思路允许 reaction 类交互，但你的博客第一版只需要：
+
+```text
+Like
+```
+
+不要：
+
+```text
+👍 ❤️ 😂 🎉 😢 🚀
+```
+
+一排 Reaction。
+
+个人博客评论用 Like 足够。
+
+---
+
+# 57. Sorting Header
+
+最终：
+
+```text
+评论 24                       最新 ▼
+```
+
+下面：
+
+```text
+Composer
+```
+
+然后：
+
+```text
+Threads
+```
+
+非常简单。
+
+---
+
+# 58. Comment Empty State
+
+不要：
+
+```text
+暂无评论
+```
+
+孤零零一行。
+
+推荐：
+
+```text
+还没有评论
+
+成为第一个参与讨论的人。
+```
+
+下面：
+
+```text
+Composer
+```
+
+不需要大 Illustration。
+
+---
+
+# 59. Loading Skeleton
+
+评论加载：
+
+```text
+Avatar circle
+Username line
+2 body lines
+```
+
+显示：
+
+```text
+2~3 条
+```
+
+就够。
+
+不要 10 条 Skeleton。
+
+---
+
+# 60. Pagination
+
+顶级评论数量较多：
+
+建议：
+
+```text
+Load More
+```
+
+比传统分页：
+
+```text
+1 2 3 4
+```
+
+更适合评论。
+
+例如：
+
+```text
+查看更早的评论
+```
+
+---
+
+# 61. 顶级加载策略
+
+推荐：
+
+```text
+Initial:
+10~20 threads
+```
+
+然后：
+
+```text
+Load More:
+10~20
+```
+
+不要一次 SSR：
+
+```text
+300 comments
+```
+
+---
+
+# 62. Replies 单独分页
+
+每个 Thread：
+
+```text
+Initial:
+3~5 replies
+
+Load more:
+5~10
+```
+
+这和你原来计划一致。
+
+---
+
+# 63. Thread 与 Reply 数据加载
+
+避免：
+
+```text
+每条 Parent Comment
+→ 再单独 GET replies
+```
+
+产生 N+1。
+
+首批 API 应返回：
+
+```text
+top comment
+reply_count
+first_replies[]
+```
+
+后续再按 Thread 加载。
+
+---
+
+# 64. 推荐 API Result
+
+概念：
+
+```text
+CommentThread
+├── rootComment
+├── replyCount
+├── replies[]
+├── hasMoreReplies
+└── permissions
+```
+
+前端直接渲染 Thread。
+
+---
+
+# 65. 不需要数据库新增 Thread 表
+
+你现有：
+
+```text
+comments.id
+comments.parent_id
+```
+
+就可以计算：
+
+```text
+Root Comment
+=
+Thread Root
+```
+
+不要为了“参考 Tiptap”重新加：
+
+```text
+comment_threads
+```
+
+这会增加迁移复杂度。
+
+---
+
+# 66. Thread ID
+
+直接：
+
+```text
+threadId = root_comment_id
+```
+
+即可。
+
+前端概念有 Thread，不意味着 DB 必须有 Thread Entity。
+
+---
+
+# 67. Permission
+
+API 返回：
+
+```text
+canReply
+canEdit
+canDelete
+canReport
+canModerate
+```
+
+前端根据：
+
+```text
+permissions
+```
+
+决定按钮。
+
+不要 Vue 内到处：
+
+```text
+if currentUser.id === comment.userId ...
+```
+
+---
+
+# 68. Comment Item 组件
+
+你原来：
+
+```text
+CommentItem.vue
+CommentThread.vue
+CommentMeta.vue
+```
+
+可以继续使用，但重构职责。
+
+推荐：
+
+```text
+components/comment/
+├── CommentSection.vue
+├── CommentHeader.vue
+├── CommentComposer.vue
+├── CommentToolbar.vue
+├── CommentThread.vue
+├── CommentItem.vue
+├── CommentContent.vue
+├── CommentActions.vue
+├── CommentReplies.vue
+├── CommentReplyComposer.vue
+├── CommentMoreMenu.vue
+├── CommentPendingBadge.vue
+└── CommentEmptyState.vue
+```
+
+---
+
+# 69. CommentSection
+
+只负责：
+
+```text
+Title
+Sort
+Root Composer
+Thread List
+Load More
+```
+
+不要：
+
+```text
+CommentSection
+```
+
+一个文件写 1000 行。
+
+---
+
+# 70. CommentThread
+
+负责：
+
+```text
+Root Comment
+Replies
+Expand / Collapse
+Reply Loading
+Thread Line
+```
+
+---
+
+# 71. CommentItem
+
+只负责单条：
+
+```text
+Avatar
+Header
+Content
+Actions
+```
+
+不自己递归获取 API。
+
+---
+
+# 72. CommentReplyComposer
+
+不要与 Root Composer 写两套 Editor。
+
+统一：
+
+```text
+CommentComposer
+```
+
+Props：
+
+```text
+mode:
+root
+reply
+edit
+```
+
+---
+
+# 73. Edit Comment
+
+点击：
+
+```text
+Edit
+```
+
+Comment Body 就地变 Editor。
+
+不要：
+
+```text
+打开 Dialog
+```
+
+编辑自己的评论。
+
+Inline Edit 更现代。
+
+---
+
+# 74. Edit UI
+
+```text
+William · 2小时前
+
+┌───────────────────────────┐
+│ 当前评论内容...           │
+├───────────────────────────┤
+│ B I <>      [取消][保存] │
+└───────────────────────────┘
+```
+
+---
+
+# 75. Delete Comment
+
+自己的评论：
+
+More → Delete。
+
+Confirm：
+
+```text
+删除评论？
+
+如果评论已有回复，建议保留占位以维持讨论结构。
+
+[取消] [删除]
+```
+
+---
+
+# 76. 有回复的评论删除
+
+不要直接让子回复失去结构。
+
+推荐：
+
+```text
+[该评论已删除]
+```
+
+保留 Thread Node。
+
+数据库：
+
+```text
+soft delete
+```
+
+或：
+
+```text
+content_redacted
+```
+
+---
+
+# 77. 没有回复
+
+可以隐藏整条 Comment。
+
+---
+
+# 78. Report
+
+点击 Report：
+
+小 Dialog：
+
+```text
+举报评论
+
+○ 垃圾信息
+○ 骚扰
+○ 违规内容
+○ 其他
+
+[取消] [提交]
+```
+
+不要跳页面。
+
+---
+
+# 79. Moderator Action
+
+普通前台：
+
+管理员 More Menu：
+
+```text
+Approve
+Hide
+Mark Spam
+Delete
+```
+
+不要把管理员专用按钮常驻所有评论下面。
+
+---
+
+# 80. 评论环境信息
+
+你之前设计的：
+
+```text
+Browser family
+OS family
+Device type
+```
+
+前台可以在 More → Comment Info：
+
+```text
+评论信息
+
+发布时间
+2026-09-11 22:00
+
+设备
+Desktop
+
+系统
+Windows
+
+浏览器
+Chrome
+```
+
+只显示粗粒度。
+
+---
+
+# 81. 不公开
+
+不要前台显示：
+
+```text
+IP
+IP Hash
+Raw User Agent
+完整浏览器版本
+```
+
+这些仅后台。
+
+---
+
+# 82. Desktop 最终视觉
+
+```text
+评论 24                                      最新 ▼
+
+┌──────────────────────────────────────────────┐
+│ [W] 写下你的评论...                         │
+└──────────────────────────────────────────────┘
+
+
+● William  作者 · 2小时前
+│
+│ 这篇文章的这个设计我觉得很好，不过这里如果
+│ 能加一个缓存策略是不是会更合适？
+│
+│ 回复     ♡ 12     ···
+│
+├── ● Alice · 1小时前
+│   │
+│   │ 我也有同样的想法。
+│   │
+│   │ 回复    ♡ 3    ···
+│   │
+│   └── ● Bob · 30分钟前
+│       回复 @Alice
+│
+│       可以按照 locale 分 cache key。
+│
+│       回复    ♡ 1    ···
+│
+└── 查看另外 5 条回复
+```
+
+---
+
+# 83. 这套设计为什么比 Card 评论更好
+
+Card：
+
+```text
+视觉边界很强
+```
+
+Thread：
+
+```text
+关系边界更强
+```
+
+对于评论而言：
+
+> “谁在回复谁”
+
+比：
+
+> “这一条评论在哪里结束”
+
+更重要。
+
+所以 Thread Line + Whitespace 更合适。
+
+---
+
+# 84. Mobile 最终视觉
+
+```text
+评论 24                最新 ▼
+
+┌──────────────────────────────┐
+│ [W] 写下你的评论...         │
+└──────────────────────────────┘
+
+● William · 2小时前
+│
+│ 这是评论内容……
+│
+│ 回复   ♡ 12   ···
+│
+└─ ● Alice · 1小时前
+   │
+   │ 回复内容……
+   │
+   │ 回复   ♡ 3   ···
+   │
+   └─ ● Bob
+       回复 @Alice
+       ...
+```
+
+---
+
+# 85. Mobile Toolbar
+
+Focus Composer：
+
+Toolbar 不应该横向塞不下。
+
+推荐：
+
+```text
+[B] [I] [<>] [🔗] [😊]
+
+                        [评论]
+```
+
+Quote / Code Block：
+
+可以：
+
+```text
+···
+```
+
+进入 More Formatting。
+
+---
+
+# 86. Mobile Actions
+
+```text
+回复
+♡ 12
+···
+```
+
+保持一行。
+
+不要：
+
+```text
+Reply
+Like
+Report
+Copy
+Edit
+Delete
+```
+
+一起显示。
+
+---
+
+# 87. Touch Target
+
+按钮视觉可以小，但点击区域至少：
+
+```text
+40 × 40px
+```
+
+尤其：
+
+```text
+Like
+More
+```
+
+---
+
+# 88. Hover
+
+Desktop Comment：
+
+Hover 时：
+
+```text
+More icon opacity:
+0 → 1
+```
+
+但 Comment Body：
+
+不改变背景。
+
+除非：
+
+```text
+targeted
+selected
+```
+
+---
+
+# 89. Dark Mode
+
+不要写死：
+
+```text
+#fafafa
+#333
+```
+
+全部继续用：
+
+```text
+background
+foreground
+muted
+muted-foreground
+border
+primary
+secondary
+```
+
+跟随 shadcn-vue。
+
+---
+
+# 90. Comment Composer Dark Mode
+
+Editor：
+
+```text
+bg-background
+border-border
+```
+
+Toolbar：
+
+```text
+bg-muted/30
+```
+
+不要黑色里再套深灰巨大 Card。
+
+---
+
+# 91. Selected / Targeted State
+
+Tiptap 对 thread 有 hovered / selected 等状态，这个设计理念可以借过来。
+
+博客里只需要：
+
+```text
+normal
+hover
+targeted
+replying
+editing
+pending
+```
+
+不需要：
+
+```text
+resolved
+unresolved
+```
+
+---
+
+# 92. State Styling
+
+Normal：
+
+```text
+transparent
+```
+
+Targeted：
+
+```text
+bg-muted/40
+ring-1
+```
+
+Replying：
+
+```text
+inline composer visible
+```
+
+Editing：
+
+```text
+content → editor
+```
+
+Pending：
+
+```text
+opacity slightly reduced
+```
+
+---
+
+# 93. Comment Separator
+
+顶级 Threads 之间：
+
+```text
+32~40px
+```
+
+不要每条：
+
+```text
+border-bottom
+```
+
+回复之间：
+
+```text
+20~24px
+```
+
+Whitespace 就足够。
+
+---
+
+# 94. Root Comment Margin
+
+推荐：
+
+```text
+margin-bottom:
+32px
+```
+
+一个 Thread 视觉上是一个讨论单元。
+
+---
+
+# 95. Composer 和 Threads 距离
+
+Root Composer：
+
+下方：
+
+```text
+32px
+```
+
+然后 Thread List。
+
+不要：
+
+```text
+64px
+```
+
+---
+
+# 96. Comment Content Links
+
+链接：
+
+```text
+underline
+underline-offset
+```
+
+外链：
+
+```text
+target="_blank"
+rel="noopener noreferrer"
+```
+
+并经过 URL sanitize。
+
+---
+
+# 97. Comment HTML Sanitization
+
+即使 Tiptap 输出 JSON：
+
+Server 仍必须限制：
+
+```text
+allowed nodes
+allowed marks
+allowed link protocols
+```
+
+不要信客户端 Editor。
+
+---
+
+# 98. Tiptap JSON
+
+推荐评论继续存：
+
+```text
+content_json
+```
+
+同时可选保存：
+
+```text
+content_text
+```
+
+用于：
+
+```text
+搜索
+通知
+审核预览
+```
+
+不要只保存 Rendered HTML。
+
+---
+
+# 99. 评论输入限制
+
+前端：
+
+```text
+0 / 3000
+```
+
+靠近限制时显示。
+
+例如：
+
+```text
+2750 / 3000
+```
+
+才增强视觉。
+
+平时可以 muted。
+
+---
+
+# 100. Empty Comment
+
+Comment 按钮：
+
+```text
+disabled
+```
+
+不要提交后服务器才报：
+
+```text
+CONTENT_REQUIRED
+```
+
+---
+
+# 101. Optimistic Like
+
+Like：
+
+可以 optimistic。
+
+点击：
+
+```text
+♡ 12
+→
+♥ 13
+```
+
+失败：
+
+rollback。
+
+---
+
+# 102. Comment Submit
+
+评论本身不建议完全 optimistic 插入 approved 状态。
+
+提交后服务器返回：
+
+```text
+approved
+```
+
+或者：
+
+```text
+pending
+```
+
+前端按真实状态插入。
+
+---
+
+# 103. Reply Submit
+
+成功后：
+
+直接插入当前 Thread。
+
+不要：
+
+```text
+刷新整个评论列表
+```
+
+---
+
+# 104. Edit
+
+成功：
+
+只更新 Comment Item。
+
+不要：
+
+```text
+refreshNuxtData("comments")
+```
+
+把整区重新闪一遍。
+
+---
+
+# 105. Deep Link SSR
+
+如果访问：
+
+```text
+#comment-123
+```
+
+而该评论不在首批：
+
+前端可以：
+
+```text
+GET comment context
+```
+
+加载对应 Thread。
+
+否则 permalink 实际不可用。
+
+---
+
+# 106. Comment Count
+
+文章顶部：
+
+```text
+24 条评论
+```
+
+点击可以：
+
+```text
+scroll → #comments
+```
+
+---
+
+# 107. Comment Count 实时更新
+
+新 Approved Comment：
+
+```text
+24 → 25
+```
+
+Pending：
+
+如果只自己可见：
+
+公开 count 不立即加。
+
+避免统计不一致。
+
+---
+
+# 108. Recommended Components
+
+最终组件建议冻结：
+
+```text
+components/comment/
+├── CommentSection.vue
+├── CommentSectionHeader.vue
+├── CommentSort.vue
+├── CommentComposer.vue
+├── CommentEditor.vue
+├── CommentToolbar.vue
+├── CommentThread.vue
+├── CommentItem.vue
+├── CommentHeader.vue
+├── CommentContent.vue
+├── CommentActions.vue
+├── CommentReplies.vue
+├── CommentReplyToggle.vue
+├── CommentMoreMenu.vue
+├── CommentStatus.vue
+├── CommentInfoDialog.vue
+├── CommentReportDialog.vue
+├── CommentDeleteDialog.vue
+├── CommentSkeleton.vue
+└── CommentEmptyState.vue
+```
+
+---
+
+# 109. Composable
+
+推荐：
+
+```text
+composables/
+├── useComments.ts
+├── useCommentComposer.ts
+└── useCommentPermissions.ts
+```
+
+不要：
+
+```text
+每个 CommentItem
+自己调用 $fetch
+```
+
+---
+
+# 110. useComments
+
+管理：
+
+```text
+loadThreads
+loadMoreThreads
+loadReplies
+submitComment
+submitReply
+editComment
+deleteComment
+likeComment
+reportComment
+sort
+```
+
+---
+
+# 111. UI 不直接知道 API
+
+组件：
+
+```text
+emit reply
+emit like
+emit edit
+```
+
+或者调用统一 composable。
+
+避免 CommentItem 内：
+
+```text
+/api/posts/:id/comments/...
+```
+
+硬编码。
+
+---
+
+# 112. shadcn-vue 组件复用
+
+可以直接复用：
+
+```text
+Avatar
+Button
+DropdownMenu
+Tooltip
+Dialog
+AlertDialog
+Popover
+Separator
+Skeleton
+Textarea/Input
+Badge
+```
+
+Tiptap Editor 部分继续使用你的 editor wrapper。
+
+不要重新做基础 UI。
+
+---
+
+# 113. 不建议使用 Card
+
+CommentItem：
+
+```text
+NO Card
+```
+
+Composer：
+
+可以有一个：
+
+```text
+border container
+```
+
+但不用：
+
+```text
+<Card>
+<CardHeader>
+<CardContent>
+```
+
+这种重结构。
+
+---
+
+# 114. 评论区 Page Background
+
+保持：
+
+```text
+background
+```
+
+不要单独：
+
+```text
+bg-muted
+```
+
+覆盖整块。
+
+否则会像嵌入式第三方评论插件。
+
+---
+
+# 115. 博客整体一致性
+
+文章：
+
+```text
+Content-first
+```
+
+评论：
+
+也应该：
+
+```text
+Text-first
+```
+
+所以减少：
+
+```text
+Box
+Border
+Badge
+Button
+```
+
+非常关键。
+
+---
+
+# 116. P0 必须修改
+
+第一阶段只改 UI，不动后端：
+
+```text
+✓ 评论 Card → Thread Layout
+
+✓ Root Composer 收起 / Focus 展开
+
+✓ Inline Reply Composer
+
+✓ Avatar 缩小
+
+✓ Header 简化
+
+✓ OS / Browser 移出主 Header
+
+✓ Actions 改 Reply + Like + More
+
+✓ Edit 改 Inline
+
+✓ Reply Collapse
+
+✓ Maximum visual nesting = 3
+
+✓ Mobile nesting optimization
+
+✓ Pending subtle status
+
+✓ Comment permalink highlight
+
+✓ Tiptap stripped toolbar modernize
+
+✓ Dark Mode
+```
+
+---
+
+# 117. P1 可以增加
+
+```text
+Mention
+Emoji Picker
+Comment Info Dialog
+Stable Avatar Fallback
+Deep-link lazy thread fetch
+Optimistic Like
+Reply Target Highlight
+```
+
+---
+
+# 118. P2 再考虑
+
+```text
+Reaction System
+Realtime Comments
+Notifications
+Mention Notification
+Comment Subscription
+WebSocket live update
+```
+
+不要本次 UI 重构时一起开发。
+
+---
+
+# 119. 不需要引入 Tiptap Comments Pro
+
+这一点建议直接冻结。
+
+Tiptap 官方 Comments 当前主要是围绕协作编辑文档的 thread/comment 能力，并依赖其 Comments/Collaboration 体系；你的博客评论已经有自己完整的数据与审核模型，所以没有必要为了相似 UI 替换后端。
+
+使用：
+
+```text
+Tiptap Core Editor
++
+自有 Comment API
++
+自有 Comment Database
+```
+
+即可。
+
+---
+
+# 120. 最终推荐视觉规格
+
+```text
+Comment Section:
+max-width 800px
+```
+
+```text
+Root Avatar:
+40px
+```
+
+```text
+Reply Avatar:
+32~36px
+```
+
+```text
+Comment Body:
+15px
+line-height 1.7
+```
+
+```text
+Username:
+14px semibold
+```
+
+```text
+Metadata:
+12~13px muted
+```
+
+```text
+Actions:
+12~13px
+ghost
+```
+
+```text
+Root Thread Gap:
+36px
+```
+
+```text
+Replies Gap:
+20~24px
+```
+
+```text
+Desktop Nest Indent:
+32px / level
+max 64px
+```
+
+```text
+Mobile Nest Indent:
+20~32px
+max 32px
+```
+
+```text
+Composer Radius:
+10~12px
+```
+
+---
+
+# 121. 最终页面效果
+
+```text
+────────────────────────────────────────────
+
+评论 24                              最新 ▼
+
+┌──────────────────────────────────────────┐
+│ [W] 写下你的评论...                     │
+└──────────────────────────────────────────┘
+
+
+● William  作者 · 2小时前
+│
+│ 我觉得这里的架构设计可以再简单一点，
+│ 尤其是缓存这一层其实不需要单独拆服务。
+│
+│ 回复     ♡ 12     ···
+│
+├─ ● Alice · 1小时前
+│  │
+│  │ 同意，直接在 service 层统一处理会更简单。
+│  │
+│  │ 回复     ♡ 3      ···
+│  │
+│  └─ ● Bob · 30分钟前
+│
+│     回复 @Alice
+│
+│     多语言 cache key 还是要保留。
+│
+│     回复     ♡ 1      ···
+│
+└─ 查看另外 5 条回复
+
+
+● Jack · 3小时前
+│
+│ 文章写得不错。
+│
+│ 回复     ♡ 4      ···
+
+────────────────────────────────────────────
+```
+
+---
+
+# 122. 最终冻结原则
+
+### Rule 1
+
+CommentItem 不使用 Card。
+
+### Rule 2
+
+一组 Root Comment + Replies 视为一个 Thread。
+
+### Rule 3
+
+Thread 通过留白 + 细连接线表达关系。
+
+### Rule 4
+
+Reply 必须 Inline。
+
+### Rule 5
+
+视觉最多缩进 3 层。
+
+### Rule 6
+
+Reply / Like 常驻，其他操作进入 More。
+
+### Rule 7
+
+OS / Browser 不占主 Header。
+
+### Rule 8
+
+评论编辑器默认简洁，Focus 后展开 Toolbar。
+
+### Rule 9
+
+评论 Tiptap Toolbar 必须是 stripped version。
+
+### Rule 10
+
+编辑评论使用 Inline Edit，而不是 Dialog。
+
+### Rule 11
+
+Pending 只做轻状态，不做大 Alert。
+
+### Rule 12
+
+评论 Deep Link 必须支持 Target Highlight。
+
+### Rule 13
+
+前端 Thread 概念不要求数据库增加 Thread Table。
+
+### Rule 14
+
+保留现有 Nuxt/Nitro Comment Backend，不接入 Tiptap Collaboration Comments。
+
+### Rule 15
+
+继续严格复用 shadcn-vue Theme Token，不另造评论区配色体系。
+
+Tiptap 还有一个很值得你借鉴的点：它把“评论数据能力”和“前端 Comments UX”分开，官方也明确允许开发自己的评论 UI；所以你完全可以只借它的 thread/hover/selected/composer 交互思想，而保留自己的实现。
+
+对你当前版本，优先改 **5 件事**就会非常明显：**去掉 Comment Card、改成 Thread Line；回复改 Inline Composer；操作区只留“回复 + Like + ···”；OS/Browser 移到详情 Tooltip/Dialog；编辑器默认收起、点击后展开。** 这几个比单纯改颜色和圆角有效得多。

@@ -37,7 +37,7 @@ describe('pageCache (WP Super Cache style)', () => {
     await withPageCache('test:metrics', async () => 'x')
     await withPageCache('test:metrics', async () => 'x') // 1 miss + 2 hits
 
-    const stats = cacheStatsSnapshot()
+    const stats = await cacheStatsSnapshot()
     const key = stats.keys.find(k => k.key === 'test:metrics')
     expect(key).toBeDefined()
     expect(key!.hits).toBeGreaterThanOrEqual(2)
@@ -46,21 +46,22 @@ describe('pageCache (WP Super Cache style)', () => {
     expect(stats.hitRate).toBeLessThanOrEqual(100)
   })
 
-  it('respects the disabled switch (producer always runs)', async () => {
-    const row = (await import('../../server/utils/db')).getCollection('settings')
-    row.push({ id: 99990, key: 'PAGE_CACHE_ENABLED', value: 'false', type: 'string', group: 'Cache', public: false })
-    try {
-      let produced = 0
-      const produce = async () => {
-        produced++
-        return 'fresh'
+  it('respects the disabled switch (producer always runs)', () => {
+    // env wins over the DB-backed PAGE_CACHE_ENABLED setting
+    process.env.PAGE_CACHE_ENABLED = 'false'
+    return (async () => {
+      try {
+        let produced = 0
+        const produce = async () => {
+          produced++
+          return 'fresh'
+        }
+        await withPageCache('test:disabled', produce)
+        await withPageCache('test:disabled', produce)
+        expect(produced).toBe(2) // no caching when disabled
+      } finally {
+        delete process.env.PAGE_CACHE_ENABLED
       }
-      await withPageCache('test:disabled', produce)
-      await withPageCache('test:disabled', produce)
-      expect(produced).toBe(2) // no caching when disabled
-    } finally {
-      const idx = row.findIndex(r => r.key === 'PAGE_CACHE_ENABLED')
-      if (idx >= 0) row.splice(idx, 1)
-    }
+    })()
   })
 })

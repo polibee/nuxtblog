@@ -1,6 +1,6 @@
 import { onCmsEvent } from './events'
 import { getKV } from './kv'
-import { getCollection } from './db'
+import { getSettingValue } from '../modules/settings/settings.runtime.service'
 
 /* =============================================================
  * Page cache - the WP Super Cache of this framework.
@@ -42,10 +42,10 @@ const metrics = {
 const perKey = new Map<string, KeyStat>()
 const cachedKeys = new Set<string>()
 
-export function pageCacheEnabled(): boolean {
+export async function pageCacheEnabled(): Promise<boolean> {
   if (process.env.PAGE_CACHE_ENABLED === 'false') return false
-  const row = getCollection('settings').find(s => s.key === 'PAGE_CACHE_ENABLED')
-  return row ? String(row.value) !== 'false' : true
+  const value = await getSettingValue('PAGE_CACHE_ENABLED', 'true')
+  return String(value) !== 'false'
 }
 
 function statFor(key: string): KeyStat {
@@ -68,7 +68,7 @@ export async function withPageCache(
   produce: () => Promise<string>,
   opts?: { ttlSec?: number }
 ): Promise<PageCacheResult> {
-  if (!pageCacheEnabled()) {
+  if (!(await pageCacheEnabled())) {
     const body = await produce()
     return { body, hit: false }
   }
@@ -121,10 +121,10 @@ export interface CacheStats {
   keys: Array<{ key: string, hits: number, misses: number }>
 }
 
-export function cacheStatsSnapshot(): CacheStats {
+export async function cacheStatsSnapshot(): Promise<CacheStats> {
   const total = metrics.hits + metrics.misses
   return {
-    enabled: pageCacheEnabled(),
+    enabled: await pageCacheEnabled(),
     driver: getKV().kind,
     hits: metrics.hits,
     misses: metrics.misses,

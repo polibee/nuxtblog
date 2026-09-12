@@ -1,8 +1,13 @@
 import type { MailProvider } from '../../../utils/mail'
 import { ALIYUN_REGIONS } from '../../../utils/mail'
-import { getCollection, updateRow } from '../../../utils/db'
 import { requirePermission } from '../../../utils/auth'
 import { invalidatePageCache } from '../../../utils/pageCache'
+import {
+  createSetting,
+  getSettingItem,
+  invalidateSettingsCache,
+  updateSettingValue
+} from '../../../modules/settings/settings.runtime.service'
 
 interface ConfigBody {
   provider?: string
@@ -14,14 +19,13 @@ interface ConfigBody {
 }
 
 /** upsert a settings row by key (creates with correct type metadata) */
-function upsertSetting(key: string, value: string | number | boolean, secret = false): void {
-  const rows = getCollection('settings')
-  const existing = rows.find(s => s.key === key)
+async function upsertSetting(key: string, value: string | number | boolean, secret = false): Promise<void> {
+  const existing = await getSettingItem(key)
   if (existing) {
-    if (value !== '' && value !== undefined) updateRow('settings', existing.id as number, { value })
+    if (value !== '' && value !== undefined) await updateSettingValue(existing.id, value)
     return
   }
-  insertRow('settings', {
+  await createSetting({
     key,
     value,
     type: secret ? 'secret' : 'string',
@@ -67,8 +71,9 @@ export default defineEventHandler(async (event) => {
   ]
 
   for (const [key, incoming, fallback, isSecret] of managed) {
-    upsertSetting(key, incoming === '' ? fallback : incoming, isSecret)
+    await upsertSetting(key, incoming === '' ? fallback : incoming, isSecret)
   }
+  invalidateSettingsCache()
 
   await invalidatePageCache(['public-settings'])
   return { ok: true }

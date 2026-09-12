@@ -27,6 +27,10 @@ function baseRuleFor(node: FieldNode): ZodTypeAny {
       return z.any()
     case 'repeater':
       return z.array(z.record(z.unknown()))
+    case 'localized':
+      return z.record(z.string(), z.record(z.unknown()))
+    case 'multirelation':
+      return z.array(z.union([z.string(), z.number()]))
     case 'permissions':
       return z.array(z.string())
     case 'select':

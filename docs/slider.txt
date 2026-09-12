@@ -1,0 +1,2149 @@
+可以，这部分建议单独做成一个 **Slider / Carousel Module**，不要把轮播图写死在首页组件里。核心原则是：**后台负责内容和展示配置，前端只消费固定规格的数据；所有图片必须按统一比例裁切/适配，避免轮播时高度跳动。**
+
+# Nuxt Blog Slider / Carousel Module 设计
+
+## 1. 模块目标
+
+Slider Module 负责：
+
+```text
+轮播图管理
+轮播顺序
+轮播图片
+标题
+描述
+按钮/CTA
+超链接
+新窗口打开
+启用/禁用
+展示时间
+固定宽高比例
+图片自动裁切
+响应式图片
+自动播放
+切换间隔
+```
+
+前端页面只需要：
+
+```vue
+<SiteSlider />
+```
+
+不直接写：
+
+```vue
+<img src="xxx">
+<a href="xxx">
+```
+
+---
+
+# 2. 使用场景
+
+第一版主要用于：
+
+```text
+首页 Hero Slider
+```
+
+以后可扩展：
+
+```text
+分类页 Slider
+专题页 Slider
+活动页 Slider
+```
+
+但当前建议只开发：
+
+```text
+home.hero
+```
+
+一个位置。
+
+避免过度设计。
+
+---
+
+# 3. 整体结构
+
+```text
+Admin
+  ↓
+Slider
+  ↓
+Slider Item
+  ↓
+Media
+  ↓
+Nuxt Server
+  ↓
+Frontend SiteSlider
+```
+
+建议模型：
+
+```text
+Slider
+  │
+  ├── Slider Item #1
+  ├── Slider Item #2
+  ├── Slider Item #3
+  └── Slider Item #4
+```
+
+---
+
+# 4. 为什么不要只建一个 sliders 表
+
+如果只设计：
+
+```text
+slider
+├── image
+├── title
+├── url
+```
+
+以后轮播组件配置和单张 Slide 内容会混在一起。
+
+应该分成：
+
+```text
+sliders
+```
+
+负责：
+
+> 整个轮播组件。
+
+以及：
+
+```text
+slider_items
+```
+
+负责：
+
+> 每一张轮播内容。
+
+---
+
+# 5. sliders 表
+
+建议：
+
+```text
+sliders
+├── id
+├── key
+├── name
+├── enabled
+├── autoplay
+├── interval_ms
+├── transition
+├── show_arrows
+├── show_indicators
+├── pause_on_hover
+├── sort_order
+├── created_at
+└── updated_at
+```
+
+---
+
+# 6. key
+
+第一版：
+
+```text
+home.hero
+```
+
+唯一约束：
+
+```text
+UNIQUE(key)
+```
+
+未来：
+
+```text
+category.hero
+campaign.hero
+```
+
+再扩展。
+
+前端不要通过：
+
+```text
+slider_id = 3
+```
+
+硬编码。
+
+应该：
+
+```vue
+<SiteSlider slider-key="home.hero" />
+```
+
+---
+
+# 7. Slider 全局设置
+
+后台可以设置：
+
+```text
+Enable Slider
+
+Autoplay
+
+Interval
+
+Show Arrows
+
+Show Indicators
+
+Pause On Hover
+```
+
+例如：
+
+```text
+自动播放：
+开启
+
+切换时间：
+5000 ms
+
+鼠标悬停暂停：
+开启
+
+左右箭头：
+开启
+
+底部圆点：
+开启
+```
+
+---
+
+# 8. transition
+
+第一版只建议：
+
+```text
+slide
+fade
+```
+
+默认：
+
+```text
+slide
+```
+
+不要一开始做：
+
+```text
+cube
+coverflow
+3D
+parallax
+```
+
+博客首页不需要。
+
+---
+
+# 9. slider_items 表
+
+```text
+slider_items
+├── id
+├── slider_id
+├── image_media_id
+├── mobile_image_media_id nullable
+├── link_url nullable
+├── link_target
+├── enabled
+├── starts_at nullable
+├── ends_at nullable
+├── sort_order
+├── created_at
+└── updated_at
+```
+
+如果当前多语言架构已经启用：
+
+建议再增加：
+
+```text
+slider_item_translations
+```
+
+---
+
+# 10. slider_item_translations
+
+```text
+slider_item_translations
+├── id
+├── slider_item_id
+├── locale
+├── title nullable
+├── description nullable
+├── button_text nullable
+├── link_url nullable
+├── alt_text
+├── created_at
+└── updated_at
+```
+
+唯一：
+
+```text
+UNIQUE(slider_item_id, locale)
+```
+
+这样未来：
+
+```text
+中文 Slider 文案
+英文 Slider 文案
+日文 Slider 文案
+```
+
+不需要修改代码。
+
+---
+
+# 11. URL 设计
+
+建议同时支持：
+
+```text
+默认 URL
++
+Locale URL Override
+```
+
+即：
+
+```text
+slider_items.link_url
+```
+
+作为默认。
+
+如果：
+
+```text
+slider_item_translations.link_url
+```
+
+存在，则当前语言优先使用 Translation URL。
+
+解析：
+
+```text
+translation.link_url
+        ↓ NULL
+slider_item.link_url
+```
+
+---
+
+# 12. 支持超链接跳转
+
+每个 Slider Item 后台有：
+
+```text
+Link URL
+```
+
+例如：
+
+```text
+/posts/nuxt-blog
+```
+
+或者：
+
+```text
+https://amcihub.com/
+```
+
+支持：
+
+```text
+站内链接
+站外链接
+```
+
+---
+
+# 13. link_target
+
+支持：
+
+```text
+_same
+_blank
+```
+
+后台 UI：
+
+```text
+打开方式：
+
+● 当前页面
+○ 新窗口
+```
+
+数据库建议机器值：
+
+```text
+self
+blank
+```
+
+而不是保存：
+
+```text
+当前窗口
+新窗口
+```
+
+---
+
+# 14. URL 安全
+
+链接必须验证：
+
+允许：
+
+```text
+/
+https://
+http://
+```
+
+生产环境外链优先：
+
+```text
+https://
+```
+
+禁止：
+
+```text
+javascript:
+data:
+vbscript:
+```
+
+外部链接如果：
+
+```text
+target="_blank"
+```
+
+必须：
+
+```text
+rel="noopener noreferrer"
+```
+
+如果以后用于广告/联盟：
+
+```text
+rel="sponsored nofollow noopener"
+```
+
+由 Advertising Module 负责，不要把 Slider 当广告模块。
+
+---
+
+# 15. 最重要：固定图片比例
+
+你提出：
+
+> 不能一张图片大、一张图片小。
+
+这一点应该从架构层解决。
+
+不要要求管理员每次自己上传完全相同像素。
+
+系统统一规定：
+
+```text
+Slider Aspect Ratio
+```
+
+例如首页推荐：
+
+```text
+16:7
+```
+
+或者：
+
+```text
+16:6
+```
+
+我更建议：
+
+```text
+16:7
+```
+
+视觉上比较适合博客首页。
+
+---
+
+# 16. 推荐桌面尺寸
+
+例如：
+
+```text
+1600 × 700
+```
+
+比例：
+
+```text
+16:7
+```
+
+也可以生成：
+
+```text
+1280 × 560
+```
+
+```text
+960 × 420
+```
+
+关键不是固定像素，而是：
+
+> 固定 Aspect Ratio。
+
+---
+
+# 17. 为什么不推荐固定绝对高度
+
+不要直接：
+
+```css
+height: 500px;
+```
+
+覆盖所有设备。
+
+推荐：
+
+```css
+aspect-ratio: 16 / 7;
+```
+
+例如：
+
+```vue
+<div class="aspect-[16/7]">
+```
+
+这样：
+
+```text
+桌面宽 → 高度相应增加
+平板 → 自动缩放
+手机 → 自动缩放
+```
+
+所有轮播图永远保持统一高度比例。
+
+---
+
+# 18. 图片必须使用 object-cover
+
+前端图片：
+
+```css
+width: 100%;
+height: 100%;
+object-fit: cover;
+```
+
+Nuxt：
+
+```vue
+<NuxtImg
+  class="h-full w-full object-cover"
+/>
+```
+
+这样即使管理员上传：
+
+```text
+1920 × 1080
+
+1600 × 900
+
+3000 × 2000
+```
+
+前端仍然显示统一：
+
+```text
+16:7
+```
+
+---
+
+# 19. 不允许 object-contain
+
+Slider 默认禁止：
+
+```text
+object-contain
+```
+
+否则可能出现：
+
+```text
+黑边
+白边
+不同视觉大小
+```
+
+默认：
+
+```text
+object-cover
+```
+
+---
+
+# 20. 后台图片选择必须提供裁切预览
+
+后台上传/选择图片后：
+
+必须显示：
+
+```text
+Desktop Slider Preview
+16:7
+```
+
+例如：
+
+```text
+┌────────────────────────────────────┐
+│                                    │
+│           Cropped Preview          │
+│                                    │
+└────────────────────────────────────┘
+              16 : 7
+```
+
+管理员看到的预览：
+
+> 必须接近真实前端显示结果。
+
+---
+
+# 21. 图片裁切
+
+推荐接入现有 Media Module。
+
+选择图片后允许：
+
+```text
+Crop
+```
+
+裁切比例固定：
+
+```text
+16:7
+```
+
+不要让管理员自由选：
+
+```text
+1:1
+4:3
+3:2
+16:9
+```
+
+首页 Slider 就固定：
+
+```text
+16:7
+```
+
+这样视觉永远一致。
+
+---
+
+# 22. 原图不要被破坏
+
+Media：
+
+```text
+original
+```
+
+继续保留。
+
+Slider 使用：
+
+```text
+derived variant
+```
+
+例如：
+
+```text
+slider-desktop
+```
+
+规格：
+
+```text
+1600 × 700
+```
+
+---
+
+# 23. Slider 图片 Variant
+
+建议 Media Module 增加：
+
+```text
+slider_desktop
+slider_mobile
+```
+
+例如：
+
+```text
+slider_desktop
+1600 × 700
+
+slider_mobile
+900 × 900
+```
+
+---
+
+# 24. 为什么建议移动端单独图片
+
+桌面 Banner：
+
+```text
+16:7
+```
+
+在手机上会变成很矮：
+
+```text
+390px 宽
+→ 高约 171px
+```
+
+仍然能用，但如果图片里有人物/文字，效果可能不好。
+
+所以建议支持：
+
+```text
+Mobile Image
+```
+
+可选。
+
+---
+
+# 25. Mobile Slider 比例
+
+如果上传：
+
+```text
+mobile_image_media_id
+```
+
+手机端建议：
+
+```text
+4:3
+```
+
+甚至：
+
+```text
+1:1
+```
+
+我更推荐：
+
+```text
+4:3
+```
+
+不会太高。
+
+---
+
+# 26. 响应式图片规则
+
+例如：
+
+```text
+>= 768px
+使用 desktop image
+16:7
+
+< 768px
+如果 mobile image 存在
+→ mobile image
+4:3
+
+否则
+→ desktop image
+16:7
+```
+
+---
+
+# 27. 后台必须明确提示规格
+
+图片字段旁边显示：
+
+```text
+桌面推荐尺寸：
+1600 × 700 px
+
+固定比例：
+16:7
+
+系统会自动裁切超出区域。
+```
+
+移动图：
+
+```text
+移动端推荐：
+900 × 675 px
+
+固定比例：
+4:3
+```
+
+这样管理员不会疑惑。
+
+---
+
+# 28. 上传不符合尺寸怎么办
+
+不要拒绝：
+
+```text
+3000 × 2000
+```
+
+只要：
+
+```text
+分辨率足够
+```
+
+就允许上传。
+
+然后：
+
+```text
+Crop / object-cover
+```
+
+处理。
+
+但如果上传：
+
+```text
+400 × 200
+```
+
+太小，则提示：
+
+```text
+图片分辨率过低，建议至少 1280px 宽。
+```
+
+可以：
+
+```text
+warning
+```
+
+或者低于最低值直接禁止使用为 Slider。
+
+---
+
+# 29. 最低尺寸
+
+建议：
+
+桌面：
+
+```text
+min width:
+1280px
+```
+
+推荐：
+
+```text
+1600 × 700
+```
+
+移动：
+
+```text
+min width:
+720px
+```
+
+推荐：
+
+```text
+900 × 675
+```
+
+---
+
+# 30. 图片压缩
+
+使用 Nuxt Image / Image Provider：
+
+输出：
+
+```text
+AVIF
+WebP
+```
+
+并保留：
+
+```text
+JPEG fallback
+```
+
+不要首页加载 5 张：
+
+```text
+4MB PNG
+```
+
+---
+
+# 31. Slider 第一张图片
+
+第一张是首页 LCP 候选。
+
+必须：
+
+```text
+priority preload
+```
+
+或者：
+
+```text
+fetchpriority="high"
+```
+
+第一张：
+
+```text
+不要 lazy load
+```
+
+其他：
+
+```text
+lazy load
+```
+
+这对于首页性能非常重要。
+
+---
+
+# 32. Slider Item 文案
+
+每一张允许：
+
+```text
+Title
+
+Description
+
+Button Text
+```
+
+例如：
+
+```text
+Nuxt Full-stack Blog
+
+构建一个快速、现代的个人博客。
+
+查看文章 →
+```
+
+这些都：
+
+```text
+optional
+```
+
+所以也可以只显示纯图片。
+
+---
+
+# 33. Overlay
+
+如果有 Title：
+
+建议前端自动添加：
+
+```text
+gradient overlay
+```
+
+例如：
+
+```text
+bottom:
+transparent
+↓
+black / 60%
+```
+
+避免：
+
+```text
+白字直接压在亮色图片上看不见
+```
+
+---
+
+# 34. 文案位置
+
+第一版固定：
+
+```text
+左下角
+```
+
+不要后台允许：
+
+```text
+top-left
+top-right
+middle
+bottom-right
+...
+```
+
+太复杂。
+
+以后有需要再加。
+
+保持：
+
+```text
+统一视觉
+```
+
+---
+
+# 35. 标题字数限制
+
+建议后台：
+
+```text
+Title:
+最多 80 字符
+
+Description:
+最多 160 字符
+
+Button:
+最多 30 字符
+```
+
+避免 Banner 被文字占满。
+
+---
+
+# 36. Slider 点击行为
+
+有两种模式。
+
+如果没有 CTA：
+
+```text
+整张 Slider 可点击
+```
+
+有 Button：
+
+```text
+Button 点击跳转
+```
+
+为了交互清晰，我更推荐：
+
+```text
+整个 Slide 可点击
+```
+
+同时 Button 只是视觉 CTA。
+
+---
+
+# 37. 无 URL
+
+如果：
+
+```text
+link_url = NULL
+```
+
+整个 Slider：
+
+```text
+不可点击
+```
+
+不要：
+
+```text
+href="#"
+```
+
+---
+
+# 38. 排序
+
+后台 Slider Items：
+
+必须支持：
+
+```text
+Drag & Drop
+```
+
+例如：
+
+```text
+☰ Slide A
+☰ Slide B
+☰ Slide C
+```
+
+拖动后保存：
+
+```text
+sort_order
+```
+
+---
+
+# 39. Item 启用关闭
+
+每一张：
+
+```text
+enabled
+```
+
+例如：
+
+```text
+Slide #1 ✓
+Slide #2 ✗
+Slide #3 ✓
+```
+
+关闭不删除。
+
+---
+
+# 40. 定时展示
+
+建议顺便支持：
+
+```text
+starts_at
+ends_at
+```
+
+例如：
+
+```text
+双十一活动：
+
+11/01
+↓
+11/11
+```
+
+到期自动停止。
+
+不用 Cron 修改状态。
+
+查询时：
+
+```text
+enabled = true
+
+AND
+starts_at <= now
+
+AND
+ends_at >= now
+```
+
+即可。
+
+字段都允许：
+
+```text
+NULL
+```
+
+代表永久。
+
+---
+
+# 41. Slider Item 状态
+
+可以后台显示：
+
+```text
+Draft
+Scheduled
+Active
+Expired
+Disabled
+```
+
+这些状态：
+
+> 运行时计算。
+
+不用额外 `status` 字段也可以。
+
+---
+
+# 42. 后台页面
+
+建议：
+
+```text
+/admin/sliders
+```
+
+进入：
+
+```text
+Slider
+└── Homepage Hero
+```
+
+编辑：
+
+```text
+/admin/sliders/home.hero
+```
+
+---
+
+# 43. Slider Settings 后台
+
+页面顶部：
+
+```text
+Homepage Slider
+
+状态          [Enabled]
+
+自动播放      [✓]
+
+间隔          [5000] ms
+
+切换动画      [Slide ▼]
+
+左右箭头      [✓]
+
+导航圆点      [✓]
+
+悬停暂停      [✓]
+```
+
+下面：
+
+```text
+Slides
+```
+
+---
+
+# 44. Slide 列表
+
+例如：
+
+```text
+┌────┬───────────┬────────────────┬────────┬─────────┐
+│    │ Preview   │ Title          │ Status │ Link    │
+├────┼───────────┼────────────────┼────────┼─────────┤
+│ ☰  │ [image]   │ Nuxt Blog      │ Active │ /posts  │
+│ ☰  │ [image]   │ AMCIHUB        │ Active │ https.. │
+│ ☰  │ [image]   │ September      │ Expired│ /...    │
+└────┴───────────┴────────────────┴────────┴─────────┘
+```
+
+---
+
+# 45. Slide Editor
+
+字段：
+
+```text
+Desktop Image *
+
+Mobile Image
+
+Title
+
+Description
+
+Button Text
+
+Link URL
+
+Open In
+
+Start Date
+
+End Date
+
+Enabled
+```
+
+多语言开启后：
+
+```text
+LocaleTabs
+```
+
+管理：
+
+```text
+Title
+Description
+Button
+Link URL
+Alt
+```
+
+---
+
+# 46. Image Preview 必须固定比例
+
+列表 Thumbnail：
+
+也不要显示原图比例。
+
+统一：
+
+```text
+16:7
+```
+
+后台 Preview：
+
+```text
+16:7
+```
+
+前端：
+
+```text
+16:7
+```
+
+三处完全一致。
+
+这样管理员不会出现：
+
+> 后台看起来正常，前台裁掉一半。
+
+---
+
+# 47. Nuxt 前端组件
+
+建议：
+
+```text
+components/slider/
+├── SiteSlider.vue
+├── SliderItem.vue
+├── SliderControls.vue
+└── SliderIndicators.vue
+```
+
+首页：
+
+```vue
+<SiteSlider slider-key="home.hero" />
+```
+
+---
+
+# 48. 前端组件建议使用现成轮播基础
+
+如果你当前 UI 基于：
+
+```text
+shadcn-vue
+```
+
+优先复用：
+
+```text
+Carousel
+```
+
+基础组件。
+
+不要自己从：
+
+```text
+pointer event
+touch event
+swipe physics
+```
+
+重新实现 Carousel。
+
+Slider Module 负责：
+
+```text
+数据
+配置
+图片规格
+后台管理
+```
+
+Carousel Library 负责：
+
+```text
+滑动行为
+Touch
+Keyboard
+Controls
+```
+
+---
+
+# 49. SiteSlider 数据获取
+
+Nuxt：
+
+```text
+useAsyncData
+```
+
+或者：
+
+```text
+server data composable
+```
+
+获取：
+
+```text
+slider key
++
+current locale
+```
+
+返回已经 Resolve 好的数据。
+
+不要前端自己处理：
+
+```text
+enabled
+starts_at
+ends_at
+locale fallback
+```
+
+---
+
+# 50. Server 返回结构
+
+例如：
+
+```json
+{
+  "key": "home.hero",
+  "config": {
+    "autoplay": true,
+    "interval": 5000,
+    "transition": "slide",
+    "showArrows": true,
+    "showIndicators": true
+  },
+  "items": [
+    {
+      "id": "1",
+      "title": "Nuxt Blog",
+      "description": "...",
+      "image": "...",
+      "mobileImage": "...",
+      "alt": "...",
+      "url": "/posts/nuxt-blog",
+      "target": "self"
+    }
+  ]
+}
+```
+
+---
+
+# 51. Slider Cache
+
+首页 Slider 很适合缓存。
+
+例如：
+
+```text
+slider:home.hero:zh-CN
+```
+
+TTL：
+
+```text
+5 ~ 30 分钟
+```
+
+管理员修改 Slider：
+
+直接：
+
+```text
+invalidate
+```
+
+对应 Cache。
+
+---
+
+# 52. 多语言 Cache
+
+必须：
+
+```text
+slider:{key}:{locale}
+```
+
+不要：
+
+```text
+slider:{key}
+```
+
+否则：
+
+```text
+中文 Slider
+```
+
+可能缓存给：
+
+```text
+英文首页
+```
+
+---
+
+# 53. Slider 与广告模块分离
+
+这一点很重要。
+
+Slider：
+
+```text
+内容展示
+活动推广
+Featured Content
+站内外跳转
+```
+
+Advertising：
+
+```text
+广告投放
+Affiliate
+AdSense
+会员免广告
+Campaign
+```
+
+不要把：
+
+```text
+Slider = Ad Slot
+```
+
+混起来。
+
+如果以后需要 Banner 广告：
+
+应该：
+
+```text
+Slider Item
+```
+
+仍然是普通 Slider 内容；
+
+真正广告则通过：
+
+```text
+AdSlot
+```
+
+解决。
+
+---
+
+# 54. 首页推荐结构
+
+最终：
+
+```text
+Header
+
+Slider
+16:7
+固定高度比例
+
+↓ 24~32px Gap
+
+Main Content + Sidebar
+```
+
+例如：
+
+```text
+┌──────────────────────────────────────────┐
+│                                          │
+│             Hero Slider                  │
+│               16 : 7                     │
+│                                          │
+└──────────────────────────────────────────┘
+
+┌───────────────────────────┬──────────────┐
+│ Latest Posts              │ Sidebar      │
+│                           │              │
+└───────────────────────────┴──────────────┘
+```
+
+---
+
+# 55. 首页 Slider 宽度
+
+我建议：
+
+```text
+和整个 Main Container 同宽
+```
+
+即：
+
+```text
+Main + Sidebar
+```
+
+上面整宽显示 Slider。
+
+不要只放左栏。
+
+这样首页视觉结构更稳定：
+
+```text
+Header
+
+Full Container Slider
+
+两栏内容
+
+Footer
+```
+
+---
+
+# 56. Slider 最大高度
+
+即使大屏：
+
+不要无限增长。
+
+建议：
+
+```text
+max-height:
+600 ~ 650px
+```
+
+更合理。
+
+例如：
+
+```css
+aspect-ratio: 16 / 7;
+max-height: 620px;
+```
+
+---
+
+# 57. 移动端
+
+移动端：
+
+如果有 Mobile Image：
+
+```text
+4:3
+```
+
+没有：
+
+```text
+Desktop Image
+```
+
+但保持：
+
+```text
+aspect-ratio
+```
+
+例如：
+
+```text
+Mobile:
+4:3
+
+Desktop:
+16:7
+```
+
+绝对不能：
+
+```text
+height: auto
+```
+
+直接按每张图片原始尺寸显示。
+
+否则就会出现你说的：
+
+> 一张大、一张小。
+
+---
+
+# 58. Layout Shift
+
+Slider 容器必须在图片加载前：
+
+```text
+已经有固定 Aspect Ratio
+```
+
+这样避免：
+
+```text
+CLS
+```
+
+例如：
+
+```text
+页面打开
+Slider 0px 高
+↓
+图片加载
+突然变 500px
+↓
+正文整体跳下去
+```
+
+这是必须避免的。
+
+---
+
+# 59. Loading State
+
+图片加载期间：
+
+```text
+Skeleton
+```
+
+也保持：
+
+```text
+16:7
+```
+
+绝对不能：
+
+```text
+Spinner
+```
+
+占 20px 高，然后图片突然展开。
+
+---
+
+# 60. Empty State
+
+如果：
+
+```text
+Slider disabled
+```
+
+或者：
+
+```text
+0 active slides
+```
+
+前端：
+
+```text
+不渲染 Slider
+```
+
+且：
+
+```text
+不保留空白高度
+```
+
+---
+
+# 61. 只有一张图片
+
+如果只有：
+
+```text
+1 Slide
+```
+
+自动：
+
+```text
+关闭 autoplay
+
+隐藏 arrows
+
+隐藏 indicators
+```
+
+直接作为静态 Hero Banner。
+
+---
+
+# 62. Accessibility
+
+必须：
+
+```text
+alt text
+
+keyboard arrows
+
+pause control
+```
+
+自动轮播建议提供：
+
+```text
+Pause
+```
+
+或者至少：
+
+```text
+pause_on_hover
+pause_on_focus
+```
+
+尊重：
+
+```text
+prefers-reduced-motion
+```
+
+如果用户设置：
+
+```text
+Reduce Motion
+```
+
+则：
+
+```text
+关闭自动动画
+```
+
+或者改：
+
+```text
+fade / no motion
+```
+
+---
+
+# 63. Touch
+
+移动端支持：
+
+```text
+Swipe Left
+Swipe Right
+```
+
+使用 Carousel Component 自带能力。
+
+不要另外写复杂触摸逻辑。
+
+---
+
+# 64. 最终推荐规格
+
+我建议正式冻结：
+
+```text
+Homepage Desktop Slider
+
+Aspect Ratio:
+16:7
+
+Recommended:
+1600 × 700
+
+Minimum:
+1280px width
+
+Rendering:
+object-cover
+```
+
+移动：
+
+```text
+Mobile Slider
+
+Aspect Ratio:
+4:3
+
+Recommended:
+900 × 675
+
+Minimum:
+720px width
+
+Rendering:
+object-cover
+```
+
+---
+
+# 65. 后台最终结构
+
+```text
+外观
+└── 轮播图
+    │
+    └── 首页轮播
+        │
+        ├── 基础设置
+        │   ├── 启用
+        │   ├── 自动播放
+        │   ├── 时间间隔
+        │   ├── 动画
+        │   ├── 箭头
+        │   └── 指示器
+        │
+        └── Slides
+            ├── Image
+            ├── Mobile Image
+            ├── Title
+            ├── Description
+            ├── CTA
+            ├── URL
+            ├── Target
+            ├── Start / End
+            ├── Enabled
+            └── Sort
+```
+
+---
+
+# 66. 验收标准
+
+模块完成必须满足：
+
+```text
+✓ 后台可以启用/关闭首页轮播
+
+✓ 可以添加多个 Slide
+
+✓ 可以编辑 Slide
+
+✓ 可以删除 Slide
+
+✓ 可以禁用单个 Slide
+
+✓ 可以拖拽排序
+
+✓ 可以设置超链接
+
+✓ 可以设置当前页/新窗口打开
+
+✓ 外链 URL 安全验证
+
+✓ 所有桌面 Slider 固定 16:7
+
+✓ 不同原始尺寸图片显示高度完全一致
+
+✓ 使用 object-cover
+
+✓ 后台 Preview 与前台裁切一致
+
+✓ 支持 Desktop Image
+
+✓ 支持可选 Mobile Image
+
+✓ Mobile 固定 4:3
+
+✓ 图片加载前已有固定高度
+
+✓ 不产生明显 CLS
+
+✓ 第一张图片优化 LCP
+
+✓ 其他图片 Lazy Load
+
+✓ 支持自动播放
+
+✓ 支持切换时间
+
+✓ 支持左右箭头
+
+✓ 支持 Indicators
+
+✓ 只有一张时不轮播
+
+✓ 没有内容时不占空间
+
+✓ 支持 starts_at / ends_at
+
+✓ 支持动态 Locale
+
+✓ 新增语言不修改 Slider Schema
+
+✓ Slider Cache 包含 Locale
+
+✓ 修改 Slider 自动失效 Cache
+
+✓ Bun / Node 部署环境均正常
+```
+
+---
+
+# 67. 最终设计原则
+
+Slider Module 最重要的规则冻结为：
+
+```text
+Slider ≠ Image List
+
+Slider
+=
+固定展示区域
++
+统一图片规范
++
+可管理内容
++
+可管理跳转
+```
+
+图片必须：
+
+```text
+Desktop:
+16:7
+
+Mobile:
+4:3
+```
+
+所有图片：
+
+```text
+object-cover
+```
+
+后台：
+
+```text
+固定比例裁切预览
+```
+
+前端：
+
+```text
+固定比例容器
+```
+
+Media：
+
+```text
+保存 Original
++
+生成 Slider Variant
+```
+
+最终才能保证：
+
+> 不管管理员上传 1920×1080、3000×2000 还是 1600×700，首页轮播区域的宽度、高度和布局永远稳定，不会出现一张图大、一张图小、页面上下跳动的问题。
+
+我尤其建议把 **桌面 `16:7` + 移动端 `4:3` + `object-cover` + 后台固定比例裁切预览** 直接冻结成规范。这样后台用户不需要懂图片尺寸，前端也不会因为上传图片比例不同而破坏布局。

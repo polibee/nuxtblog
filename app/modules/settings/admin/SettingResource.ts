@@ -1,5 +1,6 @@
 import type { Translator, SchemaNode } from '~/admin/core/types'
 import SettingsGroupedPage from './SettingsGroupedPage.vue'
+import SettingsWorkspacePage from './SettingsWorkspacePage.vue'
 
 const GROUP_OPTIONS = ['General', 'Blog', 'Email', 'Cache', 'Security', 'Storage', 'Plugin']
 const TYPE_OPTIONS = [
@@ -26,18 +27,24 @@ function valueField(type: string, current: unknown): SchemaNode {
   }
 }
 
+/** P34 (docs/设置.txt): the schema-driven workspace is the Settings UI;
+    the legacy key/value panel moves to /admin/settings/raw (developer
+    only, Advanced §40 — full Raw Editor gating lands in S7). */
 export default (t: Translator) => defineResource({
   name: 'settings',
   model: 'Setting',
   label: t('res.settings.label'),
-  labelPlural: 'Settings',
+  labelPlural: t('res.settings.plural'),
   icon: 'settings',
-  group: 'System',
+  group: t('nav.system'),
   sort: 97,
   permissionPrefix: 'settings',
   searchable: ['key', 'group'],
-  // grouped visual editor replaces the flat list page
-  pages: { list: SettingsGroupedPage },
+  pages: {
+    list: SettingsWorkspacePage,
+    view: SettingsWorkspacePage,
+    raw: SettingsGroupedPage
+  },
 
   table: () => [
     textColumn('key', 'Key'),

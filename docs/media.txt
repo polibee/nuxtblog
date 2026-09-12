@@ -1,0 +1,2888 @@
+你现在媒体库最核心的问题其实不是“少几个功能”，而是**资源进入、分类、尺寸规范、使用场景、预览体验没有被统一管理**。尤其你刚才已经确定 Slider、文章封面、正文图片、广告图片都有固定尺寸/比例要求，所以媒体库应该升级成“媒体资产中心”，而不是简单的上传列表。
+
+我建议直接按下面这套设计。
+
+# Nuxt Blog Media Library 媒体库优化设计
+
+## 1. 模块目标
+
+媒体库负责：
+
+```text
+上传
+分类
+文件夹
+标签
+搜索
+筛选
+图片尺寸规范
+自动生成变体
+裁切
+Lightbox 预览
+引用关系
+Alt / Caption
+多语言媒体信息
+重复文件检测
+删除保护
+批量操作
+存储管理
+```
+
+媒体库不应该只是：
+
+```text
+上传图片
+↓
+显示图片列表
+```
+
+而应该成为：
+
+```text
+Media Asset
+    │
+    ├── 原图
+    ├── 不同尺寸 Variant
+    ├── 分类 / 文件夹
+    ├── 标签
+    ├── Alt / Caption
+    ├── 使用位置
+    └── 引用关系
+```
+
+---
+
+# 2. 你当前存在的三个核心问题
+
+## 2.1 分类乱放
+
+目前如果所有图片都扔到一个 Media Library：
+
+```text
+文章图片
+封面
+Logo
+Slider
+广告 Banner
+Avatar
+页面图片
+```
+
+很快就会完全失控。
+
+所以必须把：
+
+```text
+物理存储
+```
+
+和：
+
+```text
+逻辑分类
+```
+
+分开。
+
+不要靠文件名管理。
+
+---
+
+# 3. 推荐采用「文件夹 + 类型 + 标签」三层组织
+
+## 第一层：Folder
+
+给人看的逻辑文件夹。
+
+例如：
+
+```text
+媒体库
+├── 文章
+├── 页面
+├── 轮播图
+├── 广告
+├── 站点
+├── 用户头像
+└── 未分类
+```
+
+文章下面还可以：
+
+```text
+文章
+├── 2026
+│   ├── 09
+│   ├── 08
+│   └── 07
+```
+
+但不要强制每个用户手动建年月目录。
+
+---
+
+# 4. 第二层：Media Type / Usage Type
+
+系统自动识别或设置：
+
+```text
+general
+post_content
+post_featured
+page_content
+slider
+advertising
+avatar
+site_logo
+site_icon
+og_image
+```
+
+这些是机器类型。
+
+例如：
+
+```text
+Slider 图片
+usage_type = slider
+```
+
+它可以同时放在：
+
+```text
+Folder = 首页轮播
+```
+
+里。
+
+---
+
+# 5. 第三层：Tags
+
+例如：
+
+```text
+Nuxt
+AI
+GPU
+Crypto
+Homepage
+2026
+```
+
+Tag 用于搜索和过滤。
+
+不要用 Tag 代替 Folder。
+
+三者职责：
+
+```text
+Folder
+→ 人工组织
+
+Usage Type
+→ 系统用途
+
+Tag
+→ 横向检索
+```
+
+---
+
+# 6. 推荐后台媒体库结构
+
+```text
+媒体库
+├── 全部媒体
+├── 图片
+├── 文档
+├── 未分类
+├── 最近上传
+├── 未使用
+└── 文件夹
+    ├── 文章
+    ├── 页面
+    ├── 轮播图
+    ├── 广告
+    └── 站点
+```
+
+顶部：
+
+```text
+上传文件
+新建文件夹
+批量选择
+
+搜索……
+
+类型
+用途
+尺寸
+上传时间
+使用状态
+```
+
+---
+
+# 7. 媒体库主视图
+
+建议支持：
+
+```text
+Grid View
+List View
+```
+
+默认：
+
+```text
+Grid View
+```
+
+因为图片为主。
+
+---
+
+# 8. Grid View
+
+不要只是纯图片宫格。
+
+建议：
+
+```text
+┌──────────────────┐
+│                  │
+│      Image       │
+│                  │
+├──────────────────┤
+│ filename.webp    │
+│ 1600×900 · 240KB │
+└──────────────────┘
+```
+
+Hover：
+
+```text
+Preview
+Select
+More
+```
+
+选中：
+
+```text
+明显边框
+Checkbox
+```
+
+---
+
+# 9. Grid Thumbnail 必须统一尺寸
+
+这是你现在“图片大小不合适”的一个来源。
+
+媒体库 Grid 不应该：
+
+```text
+竖图很高
+横图很矮
+Logo 很小
+```
+
+统一：
+
+```text
+thumbnail container
+aspect-ratio: 1 / 1
+```
+
+内部：
+
+```text
+object-fit: cover
+```
+
+但有一个例外：
+
+对于：
+
+```text
+logo
+icon
+transparent PNG
+SVG
+```
+
+可以：
+
+```text
+object-contain
+```
+
+并用棋盘格背景。
+
+---
+
+# 10. Thumbnail 不代表原图裁切
+
+Grid Thumbnail 只是：
+
+```text
+UI Preview
+```
+
+不要修改原图。
+
+例如：
+
+```text
+原图 1600 × 700
+```
+
+媒体库 Grid：
+
+```text
+240 × 240 preview
+```
+
+只是缩略图。
+
+---
+
+# 11. List View
+
+用于管理大量文件：
+
+```text
+Preview
+Filename
+Folder
+Type
+Dimensions
+Size
+Format
+Used By
+Uploaded
+Uploader
+```
+
+例如：
+
+```text
+[img] hero.webp
+轮播图
+Slider
+1600×700
+182 KB
+WebP
+Homepage Slider
+2026-09-11
+```
+
+---
+
+# 12. 最重要：尺寸管理
+
+不要让用户上传图片之后自己记：
+
+> 这张能不能当 Slider？
+
+媒体库应该提供：
+
+```text
+Media Presets
+```
+
+统一管理使用场景。
+
+---
+
+# 13. Media Presets
+
+建议第一版：
+
+```text
+original
+
+thumbnail
+medium
+large
+
+post_featured
+
+slider_desktop
+slider_mobile
+
+og_image
+
+avatar
+```
+
+---
+
+# 14. 推荐规格
+
+## Thumbnail
+
+```text
+400 × 400
+1:1
+```
+
+## Medium
+
+```text
+768px max width
+```
+
+## Large
+
+```text
+1280px max width
+```
+
+## Post Featured
+
+建议：
+
+```text
+1200 × 630
+```
+
+即：
+
+```text
+1.91:1
+```
+
+这样可以兼容：
+
+```text
+文章卡片
+OpenGraph
+社交分享
+```
+
+如果你想文章卡片视觉更厚：
+
+也可以使用：
+
+```text
+16:9
+```
+
+但最好全站统一。
+
+---
+
+# 15. Slider
+
+你刚才已经确定：
+
+```text
+Desktop:
+1600 × 700
+16:7
+```
+
+```text
+Mobile:
+900 × 675
+4:3
+```
+
+因此 Media Library 需要知道：
+
+```text
+usage_type = slider
+```
+
+并显示：
+
+```text
+✓ Desktop Slider Compatible
+```
+
+或者：
+
+```text
+⚠ 推荐裁切
+```
+
+---
+
+# 16. OG Image
+
+推荐：
+
+```text
+1200 × 630
+```
+
+---
+
+# 17. Avatar
+
+推荐：
+
+```text
+512 × 512
+```
+
+前端输出：
+
+```text
+128
+256
+512
+```
+
+不同尺寸 Variant。
+
+---
+
+# 18. 站点 Logo
+
+Logo 不强制裁成固定比例。
+
+应该：
+
+```text
+preserve aspect ratio
+object-contain
+```
+
+但后台提示：
+
+```text
+推荐透明背景 SVG / PNG / WebP
+```
+
+---
+
+# 19. 上传后的处理流程
+
+推荐：
+
+```text
+Upload
+   ↓
+Validate
+   ↓
+Read Metadata
+   ↓
+Duplicate Check
+   ↓
+Store Original
+   ↓
+Generate Preview
+   ↓
+Generate Standard Variants
+   ↓
+Save Database
+```
+
+不是：
+
+```text
+上传 → 原文件直接前端使用
+```
+
+---
+
+# 20. 不要给所有图片生成所有 Variant
+
+这一点很重要。
+
+否则：
+
+```text
+一张图片
+→ 10 个 Variant
+```
+
+长期浪费大量存储。
+
+推荐：
+
+### 基础 Variant
+
+每张图片：
+
+```text
+thumbnail
+medium
+large
+```
+
+### Usage-specific Variant
+
+只有被用于：
+
+```text
+Slider
+Post Featured
+OG Image
+Avatar
+```
+
+时才：
+
+```text
+按需生成
+```
+
+---
+
+# 21. Lazy Variant Generation
+
+例如：
+
+管理员选择某图片作为：
+
+```text
+Slider Desktop
+```
+
+系统检查：
+
+```text
+slider_desktop variant exists?
+```
+
+没有：
+
+```text
+Generate 1600×700
+```
+
+然后保存。
+
+这样更节省空间。
+
+---
+
+# 22. Crop Editor
+
+这个我认为你必须增加。
+
+当图片被选择用于：
+
+```text
+Slider
+Post Featured
+OG Image
+Avatar
+```
+
+如果比例不匹配：
+
+弹出：
+
+```text
+Crop Editor
+```
+
+---
+
+# 23. Crop Editor 必须按用途固定比例
+
+例如：
+
+选择：
+
+```text
+Usage = Slider Desktop
+```
+
+只能：
+
+```text
+16:7
+```
+
+不能自由裁。
+
+选择：
+
+```text
+Avatar
+```
+
+固定：
+
+```text
+1:1
+```
+
+选择：
+
+```text
+OG
+```
+
+固定：
+
+```text
+1200:630
+```
+
+这样 UI 才稳定。
+
+---
+
+# 24. Crop 不修改 Original
+
+必须：
+
+```text
+Original
+```
+
+永远保留。
+
+Crop 生成：
+
+```text
+Variant
+```
+
+例如：
+
+```text
+original:
+photo.jpg
+
+variants:
+photo-thumbnail.webp
+photo-medium.webp
+photo-slider-desktop.webp
+```
+
+---
+
+# 25. Lightbox 当前太小的问题
+
+你提到：
+
+> Lightbox 图片预览显示太小。
+
+这个需要直接重新设计。
+
+目前很可能是：
+
+```text
+Modal max-width 太小
+```
+
+或者图片被：
+
+```text
+max-width: 600px
+```
+
+限制。
+
+应该改成：
+
+```text
+Viewport Lightbox
+```
+
+---
+
+# 26. Lightbox 推荐尺寸
+
+Desktop：
+
+```text
+width:
+90vw ~ 95vw
+
+height:
+90vh ~ 95vh
+```
+
+图片：
+
+```text
+max-width: 100%
+max-height: 100%
+object-fit: contain
+```
+
+例如：
+
+```text
+95vw × 92vh
+```
+
+这样大图能够真正看清。
+
+---
+
+# 27. Lightbox Layout
+
+推荐：
+
+```text
+┌────────────────────────────────────────────┐
+│ filename.jpg                     ×         │
+├─────────────────────────────┬──────────────┤
+│                             │              │
+│                             │ File Info    │
+│                             │              │
+│        LARGE IMAGE          │ Size         │
+│                             │ Dimensions   │
+│                             │ Format       │
+│                             │ Alt          │
+│                             │ Usage        │
+│                             │              │
+├─────────────────────────────┴──────────────┤
+│ ← Previous                       Next →    │
+└────────────────────────────────────────────┘
+```
+
+---
+
+# 28. Lightbox 图片区域
+
+建议占：
+
+```text
+75~80%
+```
+
+右侧信息栏：
+
+```text
+20~25%
+```
+
+用户可以：
+
+```text
+collapse sidebar
+```
+
+折叠后图片几乎全屏。
+
+---
+
+# 29. Fullscreen Preview
+
+Lightbox 增加：
+
+```text
+Fullscreen
+```
+
+按钮。
+
+全屏：
+
+```text
+100vw
+100vh
+```
+
+黑色/深色背景。
+
+适合查看：
+
+```text
+截图
+大图
+细节图
+```
+
+---
+
+# 30. Zoom
+
+Lightbox 建议支持：
+
+```text
+Zoom In
+Zoom Out
+Reset
+Actual Size
+Fit
+```
+
+至少：
+
+```text
+Fit
+100%
+Zoom
+```
+
+不要只有缩小后的图片。
+
+---
+
+# 31. 鼠标操作
+
+支持：
+
+```text
+Mouse Wheel Zoom
+Drag Pan
+Double Click Zoom
+```
+
+移动：
+
+```text
+Pinch Zoom
+Swipe Previous/Next
+```
+
+如果现有 Lightbox Library 已支持，直接复用。
+
+---
+
+# 32. 键盘
+
+```text
+ESC
+→ Close
+
+←
+→ Previous
+
++
+→ Zoom In
+
+-
+→ Zoom Out
+```
+
+---
+
+# 33. Lightbox Metadata
+
+右侧显示：
+
+```text
+File name
+
+Original name
+
+Dimensions
+
+File size
+
+Format
+
+Uploaded at
+
+Folder
+
+Usage type
+
+Alt
+
+Caption
+
+Used by
+```
+
+---
+
+# 34. Used By 非常重要
+
+这是当前媒体库很可能缺失的功能。
+
+例如：
+
+```text
+Used by:
+
+Post
+Nuxt 全栈博客设计
+
+Slider
+Homepage Hero
+
+Advertising
+Campaign #12
+```
+
+这样管理员才知道：
+
+> 这张图能不能删。
+
+---
+
+# 35. 删除保护
+
+删除图片前：
+
+```text
+MediaReferenceService
+```
+
+检查：
+
+```text
+Post
+Page
+Slider
+Advertising
+Site Settings
+Avatar
+Navigation
+```
+
+是否引用。
+
+---
+
+# 36. 如果正在使用
+
+禁止直接永久删除。
+
+显示：
+
+```text
+无法删除
+
+该媒体正在被 3 个资源使用：
+
+• Post: Nuxt Full-stack Blog
+• Slider: Homepage Hero
+• Advertising: Campaign 12
+```
+
+提供：
+
+```text
+View References
+```
+
+---
+
+# 37. Trash
+
+建议 Media 也支持：
+
+```text
+Trash
+```
+
+流程：
+
+```text
+Media
+↓
+Move to Trash
+↓
+30 days
+↓
+Permanent Delete
+```
+
+或者第一版：
+
+```text
+手工永久删除
+```
+
+不要删除按钮直接物理删除存储文件。
+
+---
+
+# 38. 未使用媒体
+
+非常推荐加入：
+
+```text
+Unused Media
+```
+
+即：
+
+```text
+reference_count = 0
+```
+
+方便定期清理。
+
+例如：
+
+```text
+未使用媒体 126
+```
+
+---
+
+# 39. 最近上传
+
+增加：
+
+```text
+Recently Uploaded
+```
+
+例如：
+
+```text
+Today
+Last 7 Days
+Last 30 Days
+```
+
+对编辑文章时选图非常方便。
+
+---
+
+# 40. Folder 设计
+
+建议：
+
+```text
+media_folders
+```
+
+字段：
+
+```text
+id
+parent_id
+name
+sort_order
+created_at
+updated_at
+```
+
+Media：
+
+```text
+folder_id nullable
+```
+
+`NULL`：
+
+```text
+未分类
+```
+
+---
+
+# 41. 文件夹可以无限嵌套吗？
+
+数据库：
+
+```text
+parent_id
+```
+
+可以。
+
+UI 建议：
+
+```text
+最多 3~4 层
+```
+
+不要做文件管理器那么复杂。
+
+---
+
+# 42. 拖拽归类
+
+媒体库支持：
+
+```text
+图片
+↓ drag
+Folder
+```
+
+或者批量：
+
+```text
+Select
+↓
+Move to Folder
+```
+
+这样解决你说的：
+
+> 分类乱放。
+
+---
+
+# 43. 自动分类
+
+可以进一步优化：
+
+当从：
+
+```text
+Slider Editor
+```
+
+上传图片时：
+
+自动：
+
+```text
+usage_type = slider
+folder = Slider
+```
+
+从：
+
+```text
+Post Editor
+```
+
+上传：
+
+```text
+usage_type = post_content
+folder = Posts
+```
+
+从：
+
+```text
+Advertising
+```
+
+上传：
+
+```text
+usage_type = advertising
+folder = Advertising
+```
+
+这样大幅减少人工整理。
+
+---
+
+# 44. Source Context
+
+Media 创建时可以记录：
+
+```text
+source_context
+```
+
+例如：
+
+```text
+post_editor
+slider
+advertising
+site_settings
+media_library
+```
+
+主要用于：
+
+```text
+自动分类
+统计
+```
+
+不是权限逻辑。
+
+---
+
+# 45. Media Picker
+
+文章/Slider/广告等不应该打开完整媒体后台。
+
+需要统一：
+
+```text
+MediaPicker
+```
+
+---
+
+# 46. MediaPicker
+
+例如：
+
+```text
+选择图片
+```
+
+弹窗：
+
+```text
+Tabs:
+
+媒体库
+上传
+最近使用
+```
+
+可以：
+
+```text
+Search
+Folder
+Filter
+```
+
+选中后：
+
+右侧显示：
+
+```text
+Preview
+Filename
+Dimensions
+Alt
+```
+
+---
+
+# 47. Picker 根据用途过滤
+
+例如 Slider：
+
+```text
+<MediaPicker
+  usage="slider"
+  aspectRatio="16:7"
+/>
+```
+
+Picker 自动提示：
+
+```text
+推荐 1600×700
+```
+
+如果选：
+
+```text
+800×800
+```
+
+提示：
+
+```text
+该图片比例不符合 Slider 要求。
+选择后需要裁切。
+```
+
+---
+
+# 48. Post Featured Picker
+
+例如：
+
+```text
+usage = post_featured
+```
+
+只显示：
+
+```text
+Images
+```
+
+不显示：
+
+```text
+PDF
+ZIP
+```
+
+---
+
+# 49. 文件类型
+
+第一版建议媒体库支持：
+
+图片：
+
+```text
+JPEG
+PNG
+WebP
+AVIF
+GIF
+SVG
+```
+
+文档可选：
+
+```text
+PDF
+```
+
+不要第一版把媒体库变成：
+
+```text
+Video DAM
+Audio DAM
+Document Management System
+```
+
+---
+
+# 50. SVG 安全
+
+SVG 不能直接认为安全。
+
+上传必须：
+
+```text
+sanitize
+```
+
+或者：
+
+```text
+只允许管理员上传
+```
+
+删除：
+
+```text
+script
+foreignObject
+event handlers
+external references
+```
+
+---
+
+# 51. GIF
+
+GIF：
+
+```text
+不做 resize variant
+```
+
+或者只：
+
+```text
+generate static thumbnail
+```
+
+避免处理复杂动画。
+
+---
+
+# 52. 图片格式优化
+
+推荐 Original 保留。
+
+前端 Variant：
+
+优先：
+
+```text
+AVIF
+WebP
+```
+
+浏览器兼容时自动使用。
+
+不要把管理员上传的：
+
+```text
+PNG
+```
+
+原封不动用于首页。
+
+---
+
+# 53. EXIF
+
+上传 JPEG 时：
+
+建议：
+
+```text
+读取 Orientation
+↓
+正确旋转
+```
+
+然后：
+
+```text
+去除敏感 EXIF
+```
+
+尤其：
+
+```text
+GPS
+Camera Serial
+```
+
+默认不要公开。
+
+---
+
+# 54. Duplicate Detection
+
+非常建议加入。
+
+上传时计算：
+
+```text
+SHA-256
+```
+
+或者其他 hash。
+
+如果同一个文件已存在：
+
+```text
+检测到重复媒体
+```
+
+显示：
+
+```text
+使用已有文件
+
+仍然上传
+```
+
+第一版甚至可以：
+
+```text
+直接推荐复用
+```
+
+这样长期避免大量重复图片。
+
+---
+
+# 55. Filename
+
+上传后建议生成安全存储文件名：
+
+```text
+UUID / ULID
+```
+
+例如：
+
+```text
+01K....webp
+```
+
+但数据库保存：
+
+```text
+original_filename
+```
+
+供后台显示。
+
+---
+
+# 56. SEO Filename
+
+不建议为了 SEO 真正修改物理文件路径。
+
+可以有：
+
+```text
+display_filename
+```
+
+或者：
+
+```text
+slug
+```
+
+但第一版没必要。
+
+真正 SEO 更重要的是：
+
+```text
+Alt
+Caption
+Context
+```
+
+---
+
+# 57. Alt Text
+
+媒体详情中重点显示：
+
+```text
+Alt Text
+```
+
+如果图片被用于内容：
+
+最好提示：
+
+```text
+Alt Missing
+```
+
+---
+
+# 58. Alt 缺失过滤
+
+加入：
+
+```text
+Filter:
+Missing Alt
+```
+
+这对 SEO 和 Accessibility 很有价值。
+
+---
+
+# 59. Caption
+
+支持：
+
+```text
+Caption
+```
+
+正文图片可以：
+
+```text
+Image
+Caption
+```
+
+显示。
+
+---
+
+# 60. Title
+
+Media Title 可以保留。
+
+用途：
+
+```text
+后台管理
+附件信息
+```
+
+不要默认把 Title 当 Alt。
+
+两者含义不同。
+
+---
+
+# 61. 多语言
+
+按照你前面冻结的架构：
+
+```text
+media
+```
+
+只放语言无关数据。
+
+```text
+media_translations
+```
+
+放：
+
+```text
+title
+alt_text
+caption
+```
+
+结构：
+
+```text
+media_translations
+├── id
+├── media_id
+├── locale
+├── title
+├── alt_text
+├── caption
+├── created_at
+└── updated_at
+```
+
+---
+
+# 62. 文件夹名称要不要多语言？
+
+不需要。
+
+因为 Folder：
+
+```text
+Admin Internal Organization
+```
+
+属于后台工具。
+
+使用：
+
+```text
+UI/admin name
+```
+
+即可。
+
+不需要：
+
+```text
+media_folder_translations
+```
+
+---
+
+# 63. Search
+
+媒体搜索至少覆盖：
+
+```text
+Filename
+Original Filename
+Title
+Alt
+Caption
+Tag
+```
+
+中文英文都可。
+
+---
+
+# 64. Filter
+
+建议：
+
+```text
+Type
+Folder
+Usage
+Format
+Date
+Size
+Dimensions
+Used / Unused
+Missing Alt
+```
+
+---
+
+# 65. 尺寸 Filter
+
+例如：
+
+```text
+Landscape
+Portrait
+Square
+```
+
+以及：
+
+```text
+< 800px
+800~1600px
+> 1600px
+```
+
+对于找 Banner 很方便。
+
+---
+
+# 66. Aspect Ratio Filter
+
+可以直接：
+
+```text
+Square
+16:9
+16:7
+4:3
+Portrait
+Other
+```
+
+这样 Slider 选图会更方便。
+
+---
+
+# 67. 批量操作
+
+必须支持：
+
+```text
+Move Folder
+Add Tags
+Delete
+Restore
+Permanent Delete
+```
+
+可以增加：
+
+```text
+Generate Variants
+```
+
+但不是必须。
+
+---
+
+# 68. Bulk Selection
+
+Grid：
+
+```text
+Checkbox
+```
+
+Shift：
+
+```text
+range select
+```
+
+全选：
+
+```text
+Current Page
+```
+
+不要默认：
+
+```text
+全库 10,000 文件
+```
+
+全部选中。
+
+---
+
+# 69. 上传体验
+
+支持：
+
+```text
+Drag & Drop
+Multi-file Upload
+Paste Image
+```
+
+Paste 很适合写博客。
+
+例如：
+
+```text
+Ctrl + V Screenshot
+```
+
+直接上传到文章编辑器。
+
+---
+
+# 70. 上传队列
+
+显示：
+
+```text
+Uploading 3 / 8
+
+image-1.png  ✓
+image-2.png  73%
+image-3.png  waiting
+```
+
+失败单独：
+
+```text
+Retry
+```
+
+不要一个失败导致全部失败。
+
+---
+
+# 71. 大文件
+
+设置：
+
+```text
+max_upload_size
+```
+
+来自 Settings。
+
+例如：
+
+```text
+10 MB
+```
+
+超过：
+
+```text
+上传前拦截
+```
+
+避免上传完成后服务器才报错。
+
+---
+
+# 72. 图片过大自动处理
+
+例如用户上传：
+
+```text
+9000 × 6000
+```
+
+不需要前端保留这么大的日常输出。
+
+可以：
+
+```text
+保留 original
+```
+
+但前端永远用：
+
+```text
+optimized variant
+```
+
+或者设置：
+
+```text
+max_original_dimension
+```
+
+例如：
+
+```text
+4096px
+```
+
+这要根据你是否真的需要保留摄影级原图决定。
+
+个人博客我更倾向：
+
+```text
+Original 保留
+```
+
+以避免不可逆损失。
+
+---
+
+# 73. Storage Adapter
+
+媒体模块不要写死：
+
+```text
+local filesystem
+```
+
+应该：
+
+```text
+StorageAdapter
+```
+
+支持：
+
+```text
+local
+S3-compatible
+R2
+OSS
+COS
+```
+
+第一版默认：
+
+```text
+Local
+```
+
+即可。
+
+---
+
+# 74. Public URL
+
+业务代码只调用：
+
+```text
+mediaService.getUrl()
+```
+
+不要：
+
+```text
+"/uploads/" + path
+```
+
+到处拼。
+
+以后切：
+
+```text
+R2 / CDN
+```
+
+无需修改 Post、Slider、Advertising。
+
+---
+
+# 75. 图片详情 Drawer
+
+除了 Lightbox，我建议媒体库点击图片先打开：
+
+```text
+Detail Drawer
+```
+
+右侧：
+
+```text
+Preview
+
+Filename
+Dimensions
+Size
+Folder
+Type
+
+Alt
+Caption
+
+Used By
+
+Actions
+```
+
+点击：
+
+```text
+Preview
+```
+
+再进入全屏 Lightbox。
+
+这样：
+
+```text
+管理
+```
+
+和：
+
+```text
+看大图
+```
+
+是两种不同交互。
+
+---
+
+# 76. 为什么不要所有操作都放 Lightbox
+
+Lightbox 主要用于：
+
+```text
+查看图片
+```
+
+Drawer 用于：
+
+```text
+编辑信息
+```
+
+如果 Lightbox 同时塞：
+
+```text
+编辑
+分类
+标签
+URL
+删除
+替换
+```
+
+会变得很重。
+
+建议分离。
+
+---
+
+# 77. Media Detail Actions
+
+右侧详情：
+
+```text
+Edit
+Move
+Copy URL
+Preview
+Download Original
+Regenerate Variants
+Move to Trash
+```
+
+---
+
+# 78. Replace Media
+
+这个功能很有价值。
+
+例如文章用了：
+
+```text
+diagram.png
+```
+
+发现图错了。
+
+如果：
+
+```text
+Replace File
+```
+
+可以保持：
+
+```text
+media.id
+```
+
+不变。
+
+所有引用自动使用新资源。
+
+但是必须：
+
+```text
+重新生成 Variants
+清理 CDN Cache
+```
+
+---
+
+# 79. Replace Media 风险
+
+必须明确提示：
+
+```text
+此文件当前被 8 个位置使用。
+替换后这些位置都会更新。
+```
+
+管理员确认后才执行。
+
+---
+
+# 80. Version
+
+第一版不需要完整 Media Version History。
+
+Replace 可以只：
+
+```text
+覆盖 underlying asset
+```
+
+或者保留上一版短期回滚。
+
+如果实现成本高：
+
+P03.1 再做。
+
+---
+
+# 81. 前端使用统一 Media 对象
+
+不要页面自己处理：
+
+```text
+path
+variant
+cdn
+format
+```
+
+统一：
+
+```ts
+interface ResolvedMedia {
+  id: string
+  url: string
+  width: number
+  height: number
+  alt?: string
+  caption?: string
+  srcset?: string
+}
+```
+
+---
+
+# 82. Nuxt Image
+
+前端建议统一使用：
+
+```vue
+<NuxtImg>
+```
+
+或：
+
+```vue
+<NuxtPicture>
+```
+
+正文、Card、Slider 不直接：
+
+```html
+<img src="...">
+```
+
+除非有特殊理由。
+
+---
+
+# 83. Card 图片
+
+PostCard：
+
+应该向 MediaService 请求：
+
+```text
+post_card / post_featured
+```
+
+规格。
+
+不要直接加载：
+
+```text
+4000 × 2500 original
+```
+
+然后 CSS 缩成 300px。
+
+---
+
+# 84. Slider 图片
+
+Slider：
+
+```text
+slider_desktop
+slider_mobile
+```
+
+固定 Variant。
+
+---
+
+# 85. Lightbox 图片
+
+Lightbox：
+
+这里才可以：
+
+```text
+large
+```
+
+或者：
+
+```text
+original
+```
+
+所以你现在 Lightbox 太小，不只是 Modal 问题，也可能是：
+
+> Lightbox 用了 thumbnail URL。
+
+必须检查。
+
+正确：
+
+```text
+Grid
+→ thumbnail
+
+Detail
+→ medium
+
+Lightbox
+→ large / original
+```
+
+---
+
+# 86. 最重要的 Variant 使用规范
+
+冻结：
+
+```text
+Media Grid
+→ thumbnail
+
+Post Card
+→ post_featured / medium
+
+Post Content
+→ responsive medium/large
+
+Slider
+→ slider_desktop/mobile
+
+Lightbox
+→ large/original
+
+OG
+→ og_image
+
+Avatar
+→ avatar
+```
+
+不要混用。
+
+---
+
+# 87. Media 数据库建议
+
+```text
+media
+├── id
+├── folder_id nullable
+├── uploader_id
+├── filename
+├── original_filename
+├── disk
+├── path
+├── mime_type
+├── extension
+├── size
+├── width
+├── height
+├── hash
+├── usage_type
+├── created_at
+├── updated_at
+└── deleted_at
+```
+
+---
+
+# 88. media_variants
+
+建议增加：
+
+```text
+media_variants
+├── id
+├── media_id
+├── variant
+├── disk
+├── path
+├── width
+├── height
+├── size
+├── format
+├── created_at
+└── updated_at
+```
+
+唯一：
+
+```text
+UNIQUE(media_id, variant, format)
+```
+
+---
+
+# 89. 为什么需要 media_variants 表
+
+如果你只通过文件名推导：
+
+```text
+image-thumbnail.webp
+```
+
+以后：
+
+```text
+存储迁移
+重新生成
+格式变化
+```
+
+很难管理。
+
+有表以后可以知道：
+
+```text
+这个 Media 当前实际有哪些 Variant。
+```
+
+---
+
+# 90. media_folders
+
+```text
+media_folders
+├── id
+├── parent_id
+├── name
+├── sort_order
+├── created_at
+└── updated_at
+```
+
+---
+
+# 91. media_tags
+
+如果需要：
+
+```text
+media_tags
+media_tag_relations
+```
+
+第一版如果你觉得复杂：
+
+可以先只做：
+
+```text
+Folder + Usage Type
+```
+
+Tag 放 P03.1。
+
+我认为这样更适合你的项目。
+
+---
+
+# 92. Media Reference 不一定建立统一表
+
+不要为了所有引用建立：
+
+```text
+media_references
+```
+
+然后所有模块都往这里写。
+
+更稳妥：
+
+```text
+MediaReferenceRegistry
+```
+
+每个模块提供：
+
+```text
+findReferences(mediaId)
+```
+
+例如：
+
+```text
+PostsAdapter
+PagesAdapter
+SliderAdapter
+AdvertisingAdapter
+SettingsAdapter
+```
+
+Media 删除时统一查询。
+
+这样避免双写关系失同步。
+
+---
+
+# 93. 首页媒体库推荐布局
+
+最终：
+
+```text
+┌──────────────────────────────────────────────────┐
+│ Media Library                       Upload       │
+├────────────┬─────────────────────────────────────┤
+│            │ Search…   Type ▼ Usage ▼ Used ▼    │
+│ Folders    ├─────────────────────────────────────┤
+│            │                                     │
+│ All        │   □ [img]   □ [img]   □ [img]      │
+│ Recent     │                                     │
+│ Unused     │   □ [img]   □ [img]   □ [img]      │
+│            │                                     │
+│ Posts      │   □ [img]   □ [img]   □ [img]      │
+│ Pages      │                                     │
+│ Slider     │                                     │
+│ Ads        │                                     │
+│ Site       │                                     │
+│            │                                     │
+└────────────┴─────────────────────────────────────┘
+```
+
+---
+
+# 94. 点击图片
+
+第一次：
+
+```text
+Detail Drawer
+```
+
+例如：
+
+```text
+┌──────────── Main Media Library ──────┬──────────┐
+│                                     │ Preview  │
+│                                     │          │
+│                                     │ 1600×700 │
+│                                     │ 182KB    │
+│                                     │ WebP     │
+│                                     │          │
+│                                     │ Folder   │
+│                                     │ Slider   │
+│                                     │          │
+│                                     │ Alt      │
+│                                     │ Caption  │
+│                                     │          │
+│                                     │ Used By  │
+│                                     │          │
+│                                     │ Preview  │
+└─────────────────────────────────────┴──────────┘
+```
+
+点击 Preview：
+
+```text
+Full Lightbox
+```
+
+---
+
+# 95. Lightbox 最终推荐
+
+```text
+95vw
+92vh
+```
+
+图片区域：
+
+```text
+object-fit: contain
+```
+
+默认：
+
+```text
+Fit to Screen
+```
+
+工具栏：
+
+```text
+-
+100%
++
+Fit
+Fullscreen
+Download
+×
+```
+
+底部：
+
+```text
+← 12 / 85 →
+```
+
+这基本可以解决你现在：
+
+> Lightbox 太小
+
+的问题。
+
+---
+
+# 96. 你还缺的几个重要功能
+
+除了你已经指出的：
+
+```text
+分类乱
+尺寸不合适
+Lightbox 太小
+```
+
+我认为最需要补的是：
+
+```text
+1. Media Folder
+
+2. Usage Type
+
+3. Media Presets / Variants
+
+4. Crop Editor
+
+5. Used By / Reference Check
+
+6. Unused Media
+
+7. Duplicate Detection
+
+8. Missing Alt Filter
+
+9. Media Picker Context
+
+10. Replace Media
+
+11. Responsive Image Variants
+
+12. EXIF Privacy Cleaning
+
+13. Trash / Safe Delete
+```
+
+这些比再增加“更多上传方式”重要得多。
+
+---
+
+# 97. 第一版优先级
+
+## P0 必须
+
+```text
+Folder
+Usage Type
+Grid/List
+Search/Filter
+Fixed Grid Preview
+Large Lightbox
+Media Detail Drawer
+Dimensions / Size Info
+Media Variants
+Image Crop
+Media Picker
+Reference Check
+Delete Protection
+Alt / Caption
+```
+
+## P1 很值得
+
+```text
+Unused Media
+Duplicate Check
+Replace Media
+Bulk Move
+Recently Uploaded
+Paste Upload
+Fullscreen / Zoom
+```
+
+## P2 后续
+
+```text
+Tags
+Version History
+Advanced DAM
+AI Alt
+AI Classification
+Face Recognition
+Video Transcoding
+```
+
+---
+
+# 98. 第一版不要做
+
+不要做：
+
+```text
+Google Photos Clone
+
+复杂 DAM
+
+视频编辑
+
+音频编辑
+
+AI 自动分类整库
+
+图片社交标注
+
+几十层文件夹权限
+
+复杂 Media Workflow
+
+数字版权管理
+```
+
+你的目标仍然是：
+
+> 博客媒体库。
+
+---
+
+# 99. 最终 Media Module 结构
+
+建议：
+
+```text
+Media
+│
+├── Organization
+│   ├── Folder
+│   └── Usage Type
+│
+├── Asset
+│   ├── Original
+│   ├── Metadata
+│   └── Translation
+│
+├── Processing
+│   ├── Thumbnail
+│   ├── Medium
+│   ├── Large
+│   └── Usage Variant
+│
+├── Editing
+│   └── Crop
+│
+├── Management
+│   ├── Search
+│   ├── Filter
+│   ├── Bulk
+│   ├── Trash
+│   └── Duplicate
+│
+├── Reference
+│   ├── Used By
+│   └── Delete Guard
+│
+└── Preview
+    ├── Detail Drawer
+    └── Full Lightbox
+```
+
+---
+
+# 100. 最终冻结规则
+
+### Rule 1
+
+原图永远不因为 Thumbnail / Slider / Card 裁切而被修改。
+
+### Rule 2
+
+不同使用场景必须使用不同 Media Variant。
+
+### Rule 3
+
+Grid 统一 Thumbnail，不展示原始比例导致瀑布式混乱。
+
+### Rule 4
+
+Slider、Featured、Avatar 等固定比例由系统 Preset 控制。
+
+### Rule 5
+
+Lightbox 必须使用 Large / Original，不得使用 Thumbnail。
+
+### Rule 6
+
+Lightbox 最大化到接近整个 Viewport，并支持 Zoom / Fullscreen。
+
+### Rule 7
+
+媒体分类使用：
+
+```text
+Folder + Usage Type
+```
+
+不要只依靠文件名。
+
+### Rule 8
+
+媒体删除前必须查询引用。
+
+### Rule 9
+
+所有模块统一使用 MediaPicker。
+
+### Rule 10
+
+前端页面不得直接使用 Original 作为 Card / Slider 图片。
+
+---
+
+## 最终建议
+
+你现在媒体库最值得优先重构的不是“加更多按钮”，而是先把下面这一条链做好：
+
+```text
+上传
+↓
+自动归类
+↓
+生成 Thumbnail
+↓
+Media Library
+↓
+统一 Folder / Usage
+↓
+选到具体业务
+↓
+按业务比例 Crop
+↓
+生成对应 Variant
+↓
+前端使用正确 Variant
+↓
+Lightbox 使用 Large / Original
+```
+
+这样一改，你现在的三个问题：
+
+```text
+分类乱放
+图片尺寸不统一
+Lightbox 太小
+```
+
+会一起从根本上解决。
+
+其中我最建议你优先改的是 **`Folder + Usage Type + Media Variant + Crop Editor + Used By + 全屏 Lightbox`** 这六项。尤其 `Variant` 要和你刚才定下的 Slider 规格直接打通，否则以后文章封面、Slider、广告图又会各自重复处理图片。

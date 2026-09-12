@@ -6,12 +6,11 @@ import { readCacheConfig, readDbConfig } from '../utils/runtimeConfig'
 /**
  * Boot: initialize the SQL store (postgres/mysql/supabase) when
  * configured, load persisted rows into the serving collections and
- * connect Redis when configured. Falls back to memory (with a loud
- * log line) if a configured backend is unreachable - the panel
- * never hard-crashes because of infrastructure.
+ * connect Redis when configured. A configured database fails closed by
+ * default; memory fallback is an explicit escape hatch for development.
  */
 export default defineNitroPlugin(async () => {
-  const db = readDbConfig()
+  const db = await readDbConfig()
   if (db.driver !== 'memory') {
     try {
       const kind = await initStore(db)
@@ -28,11 +27,13 @@ export default defineNitroPlugin(async () => {
       if (db.seedDemo) ensureSeeded()
       console.log('[storage] loaded', rows, 'persisted rows from', kind)
     } catch (e: unknown) {
-      console.error('[storage] SQL init failed, continuing in memory mode:', (e as Error).message)
+      console.error('[storage] SQL init failed:', (e as Error).message)
+      if (!db.allowMemoryFallback) throw e
+      console.warn('[storage] continuing in memory mode because ALLOW_MEMORY_FALLBACK=true')
     }
   }
 
-  const cache = readCacheConfig()
+  const cache = await readCacheConfig()
   if (cache.driver === 'redis') {
     try {
       const kind = await initCache(cache)

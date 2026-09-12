@@ -1,0 +1,3162 @@
+
+可以，而且你这个 AI 模块现在应该从之前的“AI Connector + AI Features”继续往前升级，变成一个真正的 **AI Integration Layer**。
+
+我建议最终拆成三层：
+
+> **Editor AI → Page AI → Site AI**
+
+这样不会把所有 AI 能力堆在编辑器里，也不会让“全站分析”直接耦合数据库和页面。
+
+# Nuxt 全栈博客 AI 集成架构设计
+
+## 1. 总体目标
+
+AI 不应该只是：
+
+```text
+生成标题
+润色文章
+翻译
+```
+
+而应该成为博客系统的一个统一能力层：
+
+```text
+Editor AI
++
+Page AI
++
+Site AI
++
+AI Provider Layer
++
+Site Data Context
+```
+
+最终：
+
+```text
+                ┌──────────────────────┐
+                │   AI Provider Layer  │
+                │ OpenAI / Gemini /... │
+                └──────────┬───────────┘
+                           │
+                    AI Gateway
+                           │
+          ┌────────────────┼────────────────┐
+          │                │                │
+          ▼                ▼                ▼
+     Editor AI          Page AI          Site AI
+          │                │                │
+          ▼                ▼                ▼
+     Content            Page Audit       Site Audit
+     Rewrite            SEO/UI           Content Graph
+     Translate          UX               SEO Analysis
+```
+
+---
+
+# 2. 核心原则
+
+## AI 永远不直接改数据
+
+所有 AI 操作默认：
+
+```text
+Analyze
+↓
+Preview
+↓
+Diff
+↓
+User Accept
+↓
+Apply
+```
+
+禁止：
+
+```text
+AI
+↓
+直接覆盖数据库
+```
+
+尤其：
+
+```text
+文章正文
+页面内容
+SEO
+导航
+商城
+设置
+```
+
+都必须用户确认。
+
+---
+
+# 3. 三层 AI
+
+最终冻结：
+
+```text
+AI Integration
+├── Editor AI
+├── Page AI
+└── Site AI
+```
+
+---
+
+# 4. Editor AI
+
+Editor AI 是：
+
+```text
+针对当前编辑内容
+```
+
+例如：
+
+```text
+文章
+页面
+商品描述
+友链页面
+```
+
+主要面向 Tiptap。
+
+---
+
+# 5. Editor AI 功能入口
+
+Tiptap 里建议两个入口。
+
+### 入口 A：选中文字
+
+用户选中：
+
+```text
+这是一段文字……
+```
+
+出现 Floating Menu：
+
+```text
+AI
+├── 润色
+├── 改写
+├── 简化
+├── 扩写
+├── 缩短
+├── 修正语法
+├── 调整语气
+├── 翻译
+└── 自定义指令
+```
+
+这个最重要。
+
+---
+
+# 6. 不选中文本
+
+光标在文章中：
+
+```text
+/ai
+```
+
+或者 Toolbar：
+
+```text
+✨ AI
+```
+
+打开：
+
+```text
+Continue Writing
+Generate Paragraph
+Create Outline
+Summarize Above
+Improve Section
+```
+
+---
+
+# 7. Selection AI
+
+核心 API 输入：
+
+```ts
+interface EditorAIRequest {
+  feature: string
+  selectedText: string
+  beforeContext?: string
+  afterContext?: string
+  documentTitle?: string
+  locale: string
+  instruction?: string
+}
+```
+
+不要每次把完整文章都发给模型。
+
+---
+
+# 8. Context Window
+
+选中文本时：
+
+建议发送：
+
+```text
+selected text
+
++
+前 1~3 个 block
+
++
+后 1~3 个 block
+
++
+article title
+```
+
+足够模型理解上下文。
+
+---
+
+# 9. Editor AI 操作
+
+P0 建议：
+
+```text
+Improve Writing
+Rewrite
+Shorten
+Expand
+Fix Grammar
+Make Clearer
+Change Tone
+Summarize
+Translate
+```
+
+---
+
+# 10. Tone
+
+不要让用户填写 prompt。
+
+做成：
+
+```text
+Tone
+
+Professional
+Casual
+Technical
+Concise
+Friendly
+Academic
+```
+
+内部映射 Prompt。
+
+---
+
+# 11. Translate
+
+如果你的 P20 多语言已经启用：
+
+这里可以：
+
+```text
+Translate Selection
+```
+
+和：
+
+```text
+Translate Entire Article
+```
+
+分开。
+
+整个文章翻译属于：
+
+```text
+Document AI
+```
+
+不是 selection AI。
+
+---
+
+# 12. AI Result UI
+
+不要直接替换。
+
+推荐：
+
+```text
+┌─────────────────────────────────────┐
+│ AI Suggestion                       │
+│                                     │
+│ 改写后的内容……                     │
+│                                     │
+│ [Replace] [Insert Below] [Retry]   │
+└─────────────────────────────────────┘
+```
+
+最好支持：
+
+```text
+Diff
+```
+
+例如：
+
+```text
+原文 → 新文
+```
+
+---
+
+# 13. Diff 模式
+
+两种：
+
+```text
+Inline Diff
+```
+
+或者：
+
+```text
+Original
+AI Version
+```
+
+第一版推荐：
+
+```text
+side-by-side
+```
+
+或简单：
+
+```text
+Original
+──────
+Suggestion
+```
+
+不用一开始开发复杂 Git Diff。
+
+---
+
+# 14. AI 写作命令
+
+建议统一：
+
+```text
+improve
+rewrite
+shorten
+expand
+grammar
+clarify
+tone
+summarize
+translate
+custom
+```
+
+不要把 API endpoint 写成：
+
+```text
+/ai/improve
+/ai/rewrite
+/ai/shorten
+```
+
+应该统一：
+
+```text
+POST /api/admin/ai/editor
+```
+
+---
+
+# 15. Page AI
+
+第二层非常重要。
+
+你说：
+
+> 页面里面实现页面里面的优化（可选内容优化、UI优化）
+
+这个不要塞到 Tiptap Editor。
+
+应该设计：
+
+```text
+Page AI Assistant
+```
+
+放在 Page Editor 右侧。
+
+---
+
+# 16. Page Editor AI Sidebar
+
+页面编辑：
+
+```text
+┌─────────────────────────────┬──────────────────┐
+│                             │ AI Assistant     │
+│ Page Editor                 │                  │
+│                             │ Content          │
+│                             │ SEO              │
+│                             │ UI / Layout      │
+│                             │ Accessibility    │
+│                             │ Performance      │
+│                             │                  │
+└─────────────────────────────┴──────────────────┘
+```
+
+---
+
+# 17. Page AI 分析模式
+
+Page AI 不应该只是：
+
+```text
+Generate Content
+```
+
+而是：
+
+```text
+Analyze Current Page
+```
+
+然后给建议。
+
+---
+
+# 18. Page AI Categories
+
+建议冻结：
+
+```text
+Content
+SEO
+UI / Layout
+Accessibility
+Conversion
+Performance
+```
+
+---
+
+# 19. Content Optimization
+
+页面内容优化分析：
+
+```text
+标题是否清晰
+摘要是否重复
+段落是否过长
+Heading 是否合理
+内容结构
+CTA 是否明确
+重复内容
+可读性
+信息缺失
+```
+
+结果：
+
+```text
+Content Score
+82 / 100
+
+3 Suggestions
+```
+
+---
+
+# 20. Content Suggestions
+
+例如：
+
+```text
+High
+H1 后面的介绍过长
+
+建议：
+压缩为 2 段，并提前说明页面价值。
+```
+
+按钮：
+
+```text
+[Preview Fix]
+```
+
+---
+
+# 21. SEO Optimization
+
+分析：
+
+```text
+Title
+Meta Description
+H1
+Heading hierarchy
+Canonical
+Internal links
+Image Alt
+OpenGraph
+Structured Data
+Slug
+Keyword consistency
+```
+
+---
+
+# 22. SEO UI
+
+例如：
+
+```text
+SEO
+86 / 100
+
+✓ Title length
+✓ Canonical
+⚠ Meta description too short
+⚠ 3 images missing alt text
+⚠ No internal links
+```
+
+每项：
+
+```text
+[Fix with AI]
+```
+
+---
+
+# 23. UI Optimization
+
+这是你提到的重要功能。
+
+但是：
+
+> AI 不应该直接改 Vue Component。
+
+在 Page Editor 内：
+
+AI 只分析当前页面的：
+
+```text
+Page Schema
+Content Blocks
+Layout Settings
+Rendered DOM Summary
+```
+
+然后提出：
+
+```text
+UI Suggestions
+```
+
+---
+
+# 24. Page UI AI 可以分析什么
+
+例如：
+
+```text
+Hero 高度
+内容宽度
+Card 密度
+Spacing
+Heading hierarchy
+CTA visibility
+Mobile layout
+Visual balance
+Section order
+Too much whitespace
+Too many cards
+Button prominence
+```
+
+---
+
+# 25. UI AI Input
+
+不要把整个 Vue 源代码默认发送。
+
+应该提供结构化数据：
+
+```json
+{
+  "page": "home",
+  "layout": "default",
+  "sections": [
+    {
+      "type": "hero",
+      "height": 520
+    },
+    {
+      "type": "post-grid",
+      "columns": 3
+    }
+  ]
+}
+```
+
+再加：
+
+```text
+viewport
+render metrics
+optional screenshot
+```
+
+---
+
+# 26. 页面视觉分析
+
+P1 可以支持：
+
+```text
+Take Page Screenshot
+↓
+Vision Model
+↓
+UI Analysis
+```
+
+这个很有价值。
+
+例如：
+
+```text
+Desktop Screenshot
+Mobile Screenshot
+```
+
+AI 分析：
+
+```text
+卡片太大
+首屏内容少
+按钮对比度弱
+标题层级过近
+移动端间距太大
+```
+
+---
+
+# 27. Screenshot 分析
+
+建议 Server 或 Browser：
+
+```text
+Playwright
+```
+
+生成：
+
+```text
+1440×900
+390×844
+```
+
+截图。
+
+然后发送 Vision AI。
+
+---
+
+# 28. 不要让 AI 自动重设计页面
+
+UI AI 默认：
+
+```text
+Analyze Only
+```
+
+然后：
+
+```text
+Suggest Change
+```
+
+例如：
+
+```text
+Product Grid
+3 columns → 4 columns
+```
+
+按钮：
+
+```text
+[Apply Suggested Setting]
+```
+
+只有明确映射到现有配置时才能自动 Apply。
+
+---
+
+# 29. UI Change Types
+
+可以定义：
+
+```text
+spacing
+width
+columns
+alignment
+visibility
+order
+typography
+density
+```
+
+AI 只能修改：
+
+```text
+Page Schema 支持的字段
+```
+
+不能生成随意 CSS。
+
+---
+
+# 30. Page AI Schema
+
+例如：
+
+```ts
+interface PageAISuggestion {
+  id: string
+  category:
+    | "content"
+    | "seo"
+    | "ui"
+    | "accessibility"
+    | "performance"
+
+  severity:
+    | "info"
+    | "low"
+    | "medium"
+    | "high"
+
+  title: string
+  description: string
+
+  target?: {
+    type: string
+    id?: string
+    path?: string
+  }
+
+  action?: {
+    type:
+      | "replace_text"
+      | "update_setting"
+      | "add_alt"
+      | "reorder_block"
+      | "manual"
+
+    patch?: unknown
+  }
+}
+```
+
+---
+
+# 31. 页面 AI 不应该返回 Markdown 建议
+
+例如错误：
+
+```text
+AI:
+你应该把 Hero 改小一点。
+```
+
+然后用户自己猜怎么改。
+
+正确：
+
+```text
+Hero height
+
+Current:
+520px
+
+Recommended:
+360px
+
+Reason:
+...
+
+[Apply]
+```
+
+---
+
+# 32. Accessibility AI
+
+Page AI 可以检查：
+
+```text
+missing alt
+heading order
+link text
+button labels
+contrast warnings
+form labels
+aria-label
+```
+
+但：
+
+> 可计算规则优先程序检查。
+
+例如：
+
+```text
+missing alt
+```
+
+不需要 AI。
+
+---
+
+# 33. Rule Engine + AI
+
+页面分析应该：
+
+```text
+Rule Engine
++
+AI Reasoning
+```
+
+而不是所有事情都扔给 LLM。
+
+---
+
+# 34. Rule Engine
+
+例如：
+
+```text
+No H1
+→ deterministic
+```
+
+```text
+Image alt missing
+→ deterministic
+```
+
+```text
+Title > 60
+→ deterministic
+```
+
+```text
+Heading jump H2 → H4
+→ deterministic
+```
+
+这些：
+
+```text
+免费
+快速
+准确
+```
+
+---
+
+# 35. AI 负责
+
+AI 主要处理：
+
+```text
+内容质量
+语义重复
+可读性
+结构建议
+CTA 清晰度
+UI balance
+页面目的
+内部链接机会
+```
+
+---
+
+# 36. Site AI
+
+第三层就是：
+
+> 全站 AI 分析。
+
+这是最有产品价值的一层。
+
+---
+
+# 37. Site AI 不直接读取数据库
+
+不要让模型：
+
+```text
+SELECT *
+```
+
+也不要开放数据库 MCP。
+
+应该建立：
+
+```text
+Site Data API
+```
+
+---
+
+# 38. Site Data Layer
+
+结构：
+
+```text
+Database
+↓
+Site Data Services
+↓
+Site AI Data API
+↓
+AI Context Builder
+↓
+AI Model
+```
+
+AI 只能访问：
+
+```text
+允许暴露的站点数据
+```
+
+---
+
+# 39. Site AI Data API
+
+建议内部 API：
+
+```text
+/api/internal/ai/site/overview
+/api/internal/ai/site/content
+/api/internal/ai/site/posts
+/api/internal/ai/site/pages
+/api/internal/ai/site/categories
+/api/internal/ai/site/tags
+/api/internal/ai/site/products
+/api/internal/ai/site/comments
+/api/internal/ai/site/seo
+/api/internal/ai/site/analytics
+```
+
+这些不是 Public API。
+
+---
+
+# 40. 最好不要 AI 调 HTTP
+
+内部更推荐：
+
+```text
+SiteAIDataService
+```
+
+AI Agent 通过 Tool Registry 调 Service。
+
+HTTP API 只是未来：
+
+```text
+external agent
+```
+
+需要时再暴露。
+
+---
+
+# 41. Site Tools
+
+例如：
+
+```text
+getSiteOverview
+getPosts
+getPost
+getPages
+getCategories
+getTags
+getProducts
+getCommentsSummary
+getSeoSummary
+getTrafficSummary
+searchSiteContent
+```
+
+---
+
+# 42. Tool Calling
+
+模型：
+
+```text
+Analyze my site's SEO
+```
+
+AI 可以：
+
+```text
+getSiteOverview()
+getSeoSummary()
+getPosts({ limit: 100 })
+```
+
+然后分析。
+
+而不是你提前把整个数据库塞进 prompt。
+
+---
+
+# 43. Site AI Dashboard
+
+后台：
+
+```text
+AI
+├── Assistant
+├── Site Analysis
+├── Content Opportunities
+├── SEO
+├── UI Audit
+├── Reports
+├── Providers
+└── Usage
+```
+
+---
+
+# 44. AI Assistant
+
+这是全站聊天：
+
+```text
+Ask your site
+```
+
+例如用户可以问：
+
+```text
+哪些文章超过半年没更新？
+```
+
+```text
+哪些文章 SEO 最差？
+```
+
+```text
+哪些分类内容太少？
+```
+
+```text
+找出没有内部链接的文章。
+```
+
+```text
+哪些页面内容重复？
+```
+
+```text
+最近评论在讨论什么？
+```
+
+```text
+商城哪些商品描述太短？
+```
+
+---
+
+# 45. Site Assistant UI
+
+类似：
+
+```text
+┌──────────────────────────────┐
+│ AI Assistant                 │
+│                              │
+│ Ask anything about your site │
+│                              │
+│ [                           ]│
+│                              │
+│ Suggestions                  │
+│                              │
+│ ○ Analyze SEO                │
+│ ○ Find outdated posts        │
+│ ○ Find content gaps          │
+│ ○ Improve internal linking   │
+└──────────────────────────────┘
+```
+
+---
+
+# 46. Site Overview Context
+
+AI 首先获取：
+
+```text
+siteName
+defaultLocale
+enabledLocales
+
+postCount
+pageCount
+categoryCount
+tagCount
+productCount
+
+latestPublished
+oldestPublished
+
+commentsCount
+pendingComments
+
+indexedPages
+noindexPages
+```
+
+不需要获取文章正文。
+
+---
+
+# 47. Content Analysis
+
+当需要：
+
+```text
+全站内容分析
+```
+
+不要一次读取全部全文。
+
+先获取：
+
+```text
+id
+title
+slug
+excerpt
+category
+tags
+publishedAt
+updatedAt
+wordCount
+seo title
+description
+```
+
+---
+
+# 48. 需要深入分析才读取正文
+
+例如：
+
+```text
+分析这 20 篇文章是否内容重复
+```
+
+再：
+
+```text
+getPostContent(ids)
+```
+
+这是：
+
+```text
+progressive context loading
+```
+
+非常重要。
+
+---
+
+# 49. 全站数据量扩大以后
+
+未来：
+
+```text
+1000+
+10000+
+```
+
+篇内容时：
+
+不能全部喂给模型。
+
+需要：
+
+```text
+Search Index
++
+Embeddings
++
+RAG
+```
+
+---
+
+# 50. 第一版不一定需要 Vector DB
+
+你当前个人博客阶段：
+
+可以先：
+
+```text
+SQL Full Text Search
++
+Metadata Filters
+```
+
+就够。
+
+等：
+
+```text
+内容 > 1000
+```
+
+再考虑：
+
+```text
+pgvector
+Qdrant
+Meilisearch Vector
+```
+
+---
+
+# 51. Content Graph
+
+这是 Site AI 非常值得做的一层。
+
+建立：
+
+```text
+Content Graph
+```
+
+节点：
+
+```text
+Post
+Page
+Category
+Tag
+Product
+Author
+```
+
+边：
+
+```text
+belongs_to
+has_tag
+links_to
+related_to
+translation_of
+```
+
+---
+
+# 52. 内部链接图
+
+解析文章内部链接：
+
+```text
+Post A
+→
+Post B
+```
+
+这样 AI 可以回答：
+
+```text
+孤立文章
+内部链接不足
+哪些文章适合互链
+```
+
+---
+
+# 53. Site AI 分析类型
+
+建议至少：
+
+```text
+Content Health
+SEO Health
+Internal Linking
+Content Gaps
+Outdated Content
+Duplicate Content
+Orphan Content
+Taxonomy Health
+UI Consistency
+Accessibility
+Store Content
+```
+
+---
+
+# 54. Content Health
+
+报告：
+
+```text
+Content Health
+78 / 100
+
+12 articles need attention
+
+High
+3 articles have no excerpt
+
+Medium
+5 articles have weak structure
+
+Low
+4 articles have old screenshots
+```
+
+---
+
+# 55. SEO Health
+
+```text
+SEO
+84 / 100
+
+Missing meta descriptions
+8
+
+Missing image alt
+12
+
+Duplicate titles
+2
+
+Orphan pages
+4
+
+No internal links
+7
+```
+
+---
+
+# 56. Content Gaps
+
+AI 可以根据：
+
+```text
+现有 Categories
+Tags
+Articles
+Search Queries
+Analytics
+```
+
+建议：
+
+```text
+你有大量 Nuxt 内容，
+但缺少以下主题：
+
+Nuxt authentication
+Nuxt caching
+Nuxt deployment
+```
+
+---
+
+# 57. Analytics Integration
+
+如果未来 Analytics 已接：
+
+```text
+GA
+Plausible
+Umami
+自研 Analytics
+```
+
+Site AI 可以读取：
+
+```text
+pageviews
+visitors
+bounce
+referrer
+search query
+CTR
+```
+
+---
+
+# 58. GSC 是更重要的数据源
+
+以后非常值得接：
+
+```text
+Google Search Console
+```
+
+Site AI 就可以分析：
+
+```text
+High impressions
+Low CTR
+
+Ranking 8~20
+
+Content decay
+
+Query opportunities
+```
+
+不过这可以作为外部 Connector P2。
+
+---
+
+# 59. Site AI Report
+
+建议支持：
+
+```text
+Run Analysis
+```
+
+生成：
+
+```text
+Site AI Report
+```
+
+报告保存到数据库。
+
+---
+
+# 60. ai_reports
+
+```text
+id
+type
+scope
+status
+model
+provider_id
+summary
+score nullable
+result_json
+created_by
+started_at
+completed_at
+created_at
+```
+
+---
+
+# 61. Report Types
+
+```text
+site_health
+seo
+content
+internal_links
+ui
+accessibility
+store
+```
+
+---
+
+# 62. Report Result
+
+建议结构化：
+
+```ts
+interface AIReport {
+  score?: number
+
+  summary: string
+
+  findings: Finding[]
+
+  actions: SuggestedAction[]
+}
+```
+
+不要只保存一大段 Markdown。
+
+---
+
+# 63. Finding
+
+```ts
+interface Finding {
+  id: string
+
+  severity:
+    | "info"
+    | "low"
+    | "medium"
+    | "high"
+    | "critical"
+
+  category: string
+
+  title: string
+  description: string
+
+  entityType?: string
+  entityId?: string
+
+  evidence?: unknown
+}
+```
+
+---
+
+# 64. Suggested Action
+
+```ts
+interface SuggestedAction {
+  type:
+    | "edit_content"
+    | "update_seo"
+    | "add_internal_link"
+    | "update_alt"
+    | "open_editor"
+    | "manual"
+
+  entityId?: string
+
+  patch?: unknown
+}
+```
+
+---
+
+# 65. Site AI Actions
+
+第一版：
+
+AI 默认：
+
+```text
+Read + Suggest
+```
+
+允许：
+
+```text
+Open Editor
+Preview Fix
+Apply One Fix
+```
+
+---
+
+# 66. 不要第一版做
+
+```text
+Fix All
+```
+
+非常危险。
+
+尤其：
+
+```text
+100 篇文章
+```
+
+AI 一键修改。
+
+不推荐。
+
+---
+
+# 67. Batch AI
+
+以后 P2 可以：
+
+```text
+Select 10 Posts
+↓
+Generate Missing Meta Descriptions
+↓
+Review
+↓
+Apply
+```
+
+但需要：
+
+```text
+Batch Review Queue
+```
+
+---
+
+# 68. AI Review Queue
+
+未来可以：
+
+```text
+AI Changes
+├── Pending Review
+├── Accepted
+├── Rejected
+└── Applied
+```
+
+每个建议：
+
+```text
+Original
+Proposed
+Reason
+```
+
+---
+
+# 69. AI Suggestions Database
+
+建议新增：
+
+```text
+ai_suggestions
+```
+
+字段：
+
+```text
+id
+feature
+entity_type
+entity_id
+category
+status
+severity
+title
+description
+original_json
+suggestion_json
+provider_id
+model
+created_by
+created_at
+reviewed_at
+applied_at
+```
+
+状态：
+
+```text
+pending
+accepted
+rejected
+applied
+expired
+```
+
+---
+
+# 70. AI Provider Layer
+
+继续沿用你之前已经设计的：
+
+```text
+OpenAI
+Anthropic
+Gemini
+OpenRouter
+OpenAI-compatible
+```
+
+统一：
+
+```text
+AI Gateway
+```
+
+---
+
+# 71. Provider Capability
+
+现在需要再加：
+
+```text
+capabilities
+```
+
+例如：
+
+```text
+text
+vision
+json
+tools
+streaming
+```
+
+因为：
+
+```text
+Editor AI
+```
+
+只需要 text。
+
+```text
+UI Screenshot Audit
+```
+
+需要 vision。
+
+```text
+Site Agent
+```
+
+最好支持 tools。
+
+---
+
+# 72. Provider Model Registry
+
+不要让用户每个功能都手填模型字符串。
+
+AI Settings：
+
+```text
+Writing Model
+[ GPT ... ▼ ]
+
+Site Analysis Model
+[ Claude ... ▼ ]
+
+Vision Model
+[ Gemini ... ▼ ]
+
+Translation Model
+[ ... ▼ ]
+```
+
+---
+
+# 73. Feature Routing
+
+建立：
+
+```text
+AIFeatureRouter
+```
+
+例如：
+
+```text
+editor.rewrite
+→ writing model
+
+page.ui
+→ vision model
+
+site.audit
+→ analysis model
+
+translation
+→ translation model
+```
+
+---
+
+# 74. Fallback
+
+可以：
+
+```text
+Primary Provider
+Fallback Provider
+```
+
+第一版可选。
+
+不一定马上实现。
+
+---
+
+# 75. Prompt Registry
+
+不要把 Prompt 写进 Vue。
+
+建立：
+
+```text
+server/ai/prompts/
+```
+
+例如：
+
+```text
+editor-improve.ts
+editor-rewrite.ts
+page-content-audit.ts
+page-ui-audit.ts
+site-seo-audit.ts
+site-content-audit.ts
+```
+
+---
+
+# 76. Prompt Version
+
+每个 Prompt：
+
+```text
+id
+version
+```
+
+例如：
+
+```text
+site.seo.audit.v1
+```
+
+方便未来：
+
+```text
+结果复现
+debug
+```
+
+---
+
+# 77. Structured Output
+
+所有分析类 AI：
+
+必须优先要求：
+
+```text
+JSON Schema
+```
+
+然后：
+
+```text
+Zod Validate
+```
+
+不要让后端解析 Markdown。
+
+---
+
+# 78. Streaming
+
+适合：
+
+```text
+Editor rewrite
+AI Assistant chat
+```
+
+不一定适合：
+
+```text
+Site Report
+```
+
+Site Report 可以：
+
+```text
+Job
++
+Progress
+```
+
+---
+
+# 79. Site Analysis Job
+
+如果分析全站：
+
+不要一个 HTTP Request 阻塞几十秒。
+
+设计：
+
+```text
+Start Analysis
+↓
+AI Job
+↓
+Collect Data
+↓
+Analyze
+↓
+Save Report
+```
+
+前端：
+
+```text
+Analyzing...
+```
+
+轮询 / SSE。
+
+---
+
+# 80. 任务队列
+
+如果 Nuxt/Nitro 单体：
+
+第一版可以：
+
+```text
+DB-backed job
+```
+
+以后：
+
+```text
+Redis Queue
+```
+
+---
+
+# 81. ai_jobs
+
+```text
+id
+type
+scope
+status
+progress
+provider_id
+model
+input_summary_json
+error_code
+started_at
+completed_at
+created_at
+```
+
+---
+
+# 82. Progress
+
+例如：
+
+```text
+Collecting content
+20%
+
+Analyzing SEO
+45%
+
+Analyzing links
+70%
+
+Generating recommendations
+90%
+```
+
+---
+
+# 83. AI Usage
+
+已有：
+
+```text
+ai_requests
+```
+
+继续记录：
+
+```text
+feature
+provider
+model
+input_tokens
+output_tokens
+latency
+cost
+status
+```
+
+---
+
+# 84. 成本控制
+
+非常重要。
+
+给每个 feature：
+
+```text
+max input tokens
+max output tokens
+```
+
+Site AI 更需要：
+
+```text
+Budget
+```
+
+---
+
+# 85. Site Analysis Budget
+
+例如：
+
+```text
+Quick
+Balanced
+Deep
+```
+
+### Quick
+
+```text
+metadata
+rules
+small AI sample
+```
+
+### Balanced
+
+```text
+metadata
+selected content
+```
+
+### Deep
+
+```text
+more full content
+UI screenshots
+link graph
+```
+
+---
+
+# 86. 管理员不需要填 Token 数量
+
+UI：
+
+```text
+Analysis Depth
+
+○ Quick
+● Balanced
+○ Deep
+```
+
+内部控制 Token。
+
+符合你刚设计的 Settings 原则。
+
+---
+
+# 87. Data Privacy
+
+Site AI 页面要明确：
+
+```text
+What data will be sent
+```
+
+例如：
+
+```text
+Content
+SEO metadata
+Public page structure
+```
+
+默认不要发送：
+
+```text
+password hashes
+payment secrets
+API keys
+private user data
+IP
+sessions
+```
+
+---
+
+# 88. Comments AI
+
+全站分析评论时：
+
+建议只提供：
+
+```text
+approved public comments
+```
+
+或者：
+
+```text
+aggregated summaries
+```
+
+不要默认发送：
+
+```text
+email
+IP
+user agent
+```
+
+---
+
+# 89. AI Data Policy Service
+
+建立：
+
+```text
+AIDataPolicy
+```
+
+负责：
+
+```text
+Allow
+Redact
+Deny
+```
+
+不同实体字段。
+
+---
+
+# 90. Redaction
+
+例如：
+
+```text
+User.email
+→ omit
+```
+
+```text
+AI Provider API Key
+→ always deny
+```
+
+```text
+Comment IP
+→ deny
+```
+
+---
+
+# 91. Tool Permission
+
+Site AI Tool 也需要权限：
+
+```text
+ai.site.read
+
+ai.content.suggest
+
+ai.content.apply
+
+ai.site.report
+
+ai.page.audit
+```
+
+---
+
+# 92. AI 默认没有写权限
+
+建议：
+
+```text
+Read
+Suggest
+```
+
+和：
+
+```text
+Apply
+```
+
+完全分权限。
+
+---
+
+# 93. AI Assistant Tool Model
+
+最终：
+
+```text
+AI Assistant
+↓
+Tool Router
+↓
+Permission Check
+↓
+Site Tool
+↓
+Data Policy
+↓
+Service
+```
+
+---
+
+# 94. Site Tool Registry
+
+目录：
+
+```text
+server/ai/tools/
+├── site-overview.tool.ts
+├── posts.tool.ts
+├── pages.tool.ts
+├── taxonomy.tool.ts
+├── seo.tool.ts
+├── links.tool.ts
+├── comments.tool.ts
+├── store.tool.ts
+└── analytics.tool.ts
+```
+
+---
+
+# 95. 不要让 Tool 直接 Prisma/SQL
+
+Tool：
+
+```text
+PostsService
+```
+
+而不是：
+
+```text
+db.query(...)
+```
+
+这样不会绕过权限和业务逻辑。
+
+---
+
+# 96. UI Audit 的特殊架构
+
+建议：
+
+```text
+Page
+↓
+Page Snapshot Service
+├── Structured DOM
+├── Computed Layout Metrics
+└── Screenshot
+↓
+AI UI Audit
+```
+
+---
+
+# 97. Layout Metrics
+
+可以收集：
+
+```text
+viewport
+section bounds
+font sizes
+spacing
+image sizes
+button sizes
+content width
+columns
+```
+
+这样即使没有 Vision Model：
+
+也能做一部分 UI Audit。
+
+---
+
+# 98. UI Audit Rule Engine
+
+例如：
+
+```text
+button touch target < 40px
+```
+
+自动发现。
+
+```text
+text width > 900px
+```
+
+自动发现。
+
+```text
+H1 48px mobile
+```
+
+自动警告。
+
+---
+
+# 99. Vision AI
+
+负责更主观：
+
+```text
+visual hierarchy
+balance
+density
+prominence
+clutter
+```
+
+---
+
+# 100. UI Fix
+
+如果 Page 是 Schema-driven：
+
+AI 可以输出：
+
+```json
+{
+  "action": "update_setting",
+  "target": "home.hero.height",
+  "from": 520,
+  "to": 360
+}
+```
+
+用户：
+
+```text
+Preview
+Apply
+```
+
+---
+
+# 101. 普通 Vue 页面
+
+如果不是 Schema-driven：
+
+AI 只能：
+
+```text
+Suggest
+```
+
+不能自动改源码。
+
+这是重要边界。
+
+---
+
+# 102. Code AI
+
+以后如果你真想让 AI：
+
+```text
+修改 Vue UI
+```
+
+那其实属于：
+
+```text
+Developer AI
+```
+
+不应该放博客后台。
+
+应该交给：
+
+```text
+Codex / AI Coding Tool
+```
+
+你的 CMS AI 不应该变成 IDE。
+
+---
+
+# 103. AI 菜单
+
+推荐：
+
+```text
+AI
+├── Assistant
+├── Site Analysis
+├── Reports
+├── Suggestions
+├── Providers
+└── Usage
+```
+
+---
+
+# 104. Editor AI 不需要单独菜单
+
+它直接存在：
+
+```text
+Post Editor
+Page Editor
+Product Editor
+```
+
+里。
+
+---
+
+# 105. Page AI 也不一定单独菜单
+
+页面编辑时：
+
+```text
+AI Assistant Sidebar
+```
+
+即可。
+
+---
+
+# 106. Site Analysis 页面
+
+推荐：
+
+```text
+AI Site Analysis
+
+Overall Health
+82
+
+Content      86
+SEO          78
+Links        72
+Accessibility 91
+UI           80
+
+Issues
+23
+
+High Priority
+5
+```
+
+---
+
+# 107. Findings List
+
+```text
+High
+
+8 posts have no internal links
+[View]
+
+3 pages have weak meta descriptions
+[Review]
+
+Homepage hero is visually oversized
+[View Suggestion]
+```
+
+---
+
+# 108. AI Report Detail
+
+```text
+SEO Analysis
+2026-09-11
+
+Score
+78
+
+Summary
+
+High Priority
+...
+
+Medium
+...
+
+Opportunities
+...
+```
+
+---
+
+# 109. Suggestions 页面
+
+统一展示：
+
+```text
+All Suggestions
+```
+
+Filter：
+
+```text
+Content
+SEO
+UI
+Accessibility
+Store
+```
+
+Status：
+
+```text
+Pending
+Applied
+Rejected
+```
+
+---
+
+# 110. Editor AI 和 Suggestions 统一
+
+如果用户：
+
+```text
+AI Generate SEO Description
+```
+
+不一定要进入 ai_suggestions。
+
+即时操作：
+
+可以不存。
+
+但是：
+
+```text
+Site Audit
+```
+
+生成的建议：
+
+应该存。
+
+---
+
+# 111. 日常小 AI 操作
+
+```text
+editor rewrite
+title generate
+excerpt generate
+```
+
+记录：
+
+```text
+ai_requests
+```
+
+即可。
+
+---
+
+# 112. 大型分析
+
+```text
+site audit
+page audit
+```
+
+记录：
+
+```text
+ai_reports
++
+ai_suggestions
+```
+
+---
+
+# 113. 推荐目录
+
+```text
+server/
+└── ai/
+    ├── gateway/
+    │   ├── ai-gateway.ts
+    │   ├── provider-registry.ts
+    │   └── feature-router.ts
+    │
+    ├── providers/
+    │   ├── openai.ts
+    │   ├── anthropic.ts
+    │   ├── gemini.ts
+    │   └── openai-compatible.ts
+    │
+    ├── prompts/
+    │
+    ├── features/
+    │   ├── editor/
+    │   ├── page/
+    │   └── site/
+    │
+    ├── tools/
+    │
+    ├── context/
+    │   ├── context-builder.ts
+    │   ├── site-context.ts
+    │   └── data-policy.ts
+    │
+    ├── rules/
+    │
+    └── jobs/
+```
+
+---
+
+# 114. 前端目录
+
+```text
+components/admin/ai/
+├── AIAssistant.vue
+├── AIChat.vue
+├── AIResult.vue
+├── AISuggestion.vue
+├── AISuggestionList.vue
+├── AIReportCard.vue
+├── AIReportDetail.vue
+├── AIHealthScore.vue
+└── AIUsage.vue
+```
+
+Editor：
+
+```text
+components/editor/ai/
+├── AISelectionMenu.vue
+├── AICommandMenu.vue
+├── AIRewritePreview.vue
+└── AITranslateDialog.vue
+```
+
+Page：
+
+```text
+components/page-editor/ai/
+├── PageAIAssistant.vue
+├── PageAIContent.vue
+├── PageAISEO.vue
+├── PageAIUI.vue
+└── PageAIAccessibility.vue
+```
+
+---
+
+# 115. API
+
+推荐：
+
+```text
+POST /api/admin/ai/editor
+```
+
+```text
+POST /api/admin/ai/page/analyze
+```
+
+```text
+POST /api/admin/ai/page/suggest
+```
+
+```text
+POST /api/admin/ai/site/analyze
+```
+
+```text
+GET /api/admin/ai/reports
+```
+
+```text
+GET /api/admin/ai/reports/:id
+```
+
+```text
+GET /api/admin/ai/suggestions
+```
+
+```text
+POST /api/admin/ai/suggestions/:id/apply
+```
+
+---
+
+# 116. Assistant Chat
+
+推荐：
+
+```text
+POST /api/admin/ai/chat
+```
+
+Streaming：
+
+```text
+SSE
+```
+
+Tool calls Server 执行。
+
+---
+
+# 117. 不暴露 Site AI Tools Public API
+
+例如：
+
+```text
+/api/internal/ai/site/posts
+```
+
+如果实现 HTTP：
+
+必须：
+
+```text
+server-only
+```
+
+外网不可直接调用。
+
+---
+
+# 118. Settings
+
+Settings → AI：
+
+```text
+AI
+
+General
+
+Enable AI Features        [●]
+
+Writing Model
+[ Provider / Model ▼ ]
+
+Analysis Model
+[ Provider / Model ▼ ]
+
+Vision Model
+[ Provider / Model ▼ ]
+
+Translation Model
+[ Provider / Model ▼ ]
+```
+
+---
+
+# 119. Feature Toggles
+
+```text
+Editor AI                 [●]
+Page Content Analysis     [●]
+Page SEO Analysis         [●]
+Page UI Analysis          [●]
+Site Analysis             [●]
+Translation               [●]
+```
+
+---
+
+# 120. Data Permissions
+
+AI Settings：
+
+```text
+Site Analysis Data
+
+[x] Published Posts
+[x] Pages
+[x] Categories / Tags
+[x] Products
+[x] Approved Comments
+
+[ ] Draft Content
+[ ] Analytics
+```
+
+但是：
+
+```text
+Secrets
+Passwords
+Payment credentials
+```
+
+永远不能启用。
+
+---
+
+# 121. Analysis Depth
+
+```text
+Default Analysis Depth
+
+○ Quick
+● Balanced
+○ Deep
+```
+
+管理员不需要理解：
+
+```text
+tokens
+temperature
+context size
+```
+
+这些继续藏 Advanced。
+
+---
+
+# 122. Advanced AI
+
+才提供：
+
+```text
+Temperature
+Max Tokens
+Timeout
+Retry
+```
+
+普通管理员不用。
+
+---
+
+# 123. Phase A1
+
+先完成：
+
+```text
+AI Gateway
+Provider Registry
+Feature Router
+Prompt Registry
+Structured Output
+Usage Logging
+```
+
+这是基础。
+
+---
+
+# 124. Phase A2 — Editor AI
+
+实现：
+
+```text
+Selection AI
+Rewrite
+Improve
+Shorten
+Expand
+Grammar
+Tone
+Translate
+Custom Instruction
+Preview / Replace
+```
+
+---
+
+# 125. Phase A3 — Page AI
+
+实现：
+
+```text
+Content Audit
+SEO Audit
+Accessibility Rules
+UI Rule Audit
+Suggestion Panel
+```
+
+先不要 Vision。
+
+---
+
+# 126. Phase A4 — Page Vision AI
+
+实现：
+
+```text
+Screenshot
+Desktop/Mobile
+Vision Provider
+UI Analysis
+```
+
+---
+
+# 127. Phase A5 — Site Data Layer
+
+实现：
+
+```text
+Site Overview
+Posts
+Pages
+Taxonomy
+SEO
+Links
+Comments
+Store
+```
+
+统一 Tool Registry。
+
+---
+
+# 128. Phase A6 — Site Assistant
+
+实现：
+
+```text
+Ask your site
+Tool Calling
+Progressive Context
+Streaming
+```
+
+---
+
+# 129. Phase A7 — Site Reports
+
+实现：
+
+```text
+Site Health
+SEO
+Content
+Internal Links
+```
+
+保存：
+
+```text
+ai_reports
+ai_suggestions
+```
+
+---
+
+# 130. Phase A8 — Analytics
+
+以后加入：
+
+```text
+Analytics
+Search Console
+```
+
+再扩：
+
+```text
+Content Opportunities
+Traffic Decay
+CTR Opportunities
+```
+
+---
+
+# 131. 最重要的验收标准
+
+### Editor AI
+
+```text
+✓ 选中文本可直接调用 AI
+✓ 不要求手写 Prompt
+✓ 可以自定义指令
+✓ AI 不直接覆盖原文
+✓ 有 Preview
+✓ 支持 Replace / Retry
+```
+
+---
+
+### Page AI
+
+```text
+✓ 能分析当前页面
+✓ Content / SEO / UI 分离
+✓ deterministic issues 不浪费 AI
+✓ UI 建议结构化
+✓ 可映射设置才能 Apply
+✓ 无法自动修改的明确显示 Manual
+```
+
+---
+
+### Site AI
+
+```text
+✓ AI 不直接读数据库
+✓ 只能通过 Tool / Service
+✓ Progressive Data Loading
+✓ 不发送 Secrets / Private Data
+✓ 能分析 Posts / Pages / SEO / Links
+✓ Report 结构化
+✓ Suggestions 可审核
+✓ 无 Fix All
+```
+
+---
+
+# 132. 最终架构
+
+我建议最终冻结为：
+
+```text
+AI Core
+├── Provider Registry
+├── AI Gateway
+├── Feature Router
+├── Prompt Registry
+├── Tool Registry
+├── Context Builder
+├── Data Policy
+├── Usage
+└── Jobs
+
+AI Features
+├── Editor AI
+│   ├── Improve
+│   ├── Rewrite
+│   ├── Translate
+│   └── Generate
+│
+├── Page AI
+│   ├── Content
+│   ├── SEO
+│   ├── UI
+│   └── Accessibility
+│
+└── Site AI
+    ├── Assistant
+    ├── Site Health
+    ├── Content Audit
+    ├── SEO Audit
+    ├── Internal Links
+    ├── Content Gaps
+    └── Reports
+```
+
+---
+
+# 133. 最核心的产品体验
+
+最终用户应该能够做到：
+
+### 编辑文章时
+
+```text
+选中一句话
+↓
+AI
+↓
+润色
+↓
+Preview
+↓
+Replace
+```
+
+### 编辑页面时
+
+```text
+Analyze Page
+↓
+Content 82
+SEO 91
+UI 74
+↓
+查看建议
+↓
+Preview Fix
+↓
+Apply
+```
+
+### 管理全站时
+
+```text
+AI Assistant
+
+“帮我分析整个站有哪些内容需要优化”
+↓
+AI 调用站点 Tool
+↓
+读取 Metadata / SEO / Links
+↓
+必要时读取具体文章
+↓
+生成 Site Report
+↓
+列出可执行 Suggestions
+```
+
+这三套体验就构成一个完整的博客 AI 系统，而不再只是“编辑器里加几个 AI 按钮”。
+
+其中最值得你先做的是 **A1 → A2 → A3 → A5 → A6**：先把统一 AI Gateway 做好，然后编辑器 AI、页面分析、全站数据 Tool、全站 Assistant。**Vision UI 分析和 Analytics/GSC 可以后加**，否则第一版很容易把 AI 模块做得过重。

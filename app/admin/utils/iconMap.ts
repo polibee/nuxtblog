@@ -21,10 +21,12 @@ import {
   SettingsIcon,
   ShieldIcon,
   ShoppingCartIcon,
+  SparklesIcon,
   StarIcon,
   TagIcon,
   Trash2Icon,
   UserIcon,
+  UserRoundIcon,
   UsersIcon,
   EyeIcon
 } from 'lucide-vue-next'
@@ -54,10 +56,12 @@ const map: Record<string, Component> = {
   'settings': SettingsIcon,
   'shield': ShieldIcon,
   'shopping-cart': ShoppingCartIcon,
+  'sparkles': SparklesIcon,
   'star': StarIcon,
   'tag': TagIcon,
   'trash': Trash2Icon,
   'user': UserIcon,
+  'user-round': UserRoundIcon,
   'users': UsersIcon
 }
 

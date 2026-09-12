@@ -24,6 +24,9 @@ export type FieldType
     | 'repeater'
     | 'permissions'
     | 'richtext'
+    | 'localized'
+    | 'multirelation'
+    | 'mediaPicker'
 
 export interface FieldOption {
   label: string
@@ -35,6 +38,8 @@ export interface RelationConfig {
   resource: string
   /** field of related record used as option label */
   labelKey: string
+  /** multirelation only: allow creating a new related record inline */
+  creatable?: boolean
 }
 
 export interface FieldNode {
@@ -59,6 +64,8 @@ export interface FieldNode {
   relation?: RelationConfig
   /** repeater: nested sub-fields repeated per row */
   subFields?: FieldNode[]
+  /** localized: sub-fields rendered per locale tab; value is translations[locale][field] */
+  localizedFields?: FieldNode[]
   /** extra zod rules appended to base rule */
   rules?: ZodTypeAny[]
   /** grid column span */
@@ -177,7 +184,7 @@ export interface AdminResource {
   /** endpoint overrides, e.g. multipart upload for media */
   endpoints?: { create?: string }
   /** per-resource page overrides (admin extension point) */
-  pages?: { list?: Component }
+  pages?: { list?: Component, view?: Component, raw?: Component }
   form?: () => SchemaNode[]
   table?: () => ColumnDefLite[]
   infolist?: () => EntryNode[]

@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   if (!body) {
     throw createError({ statusCode: 422, statusMessage: 'Invalid request body' })
   }
-  const current = readDbConfig()
+  const current = await readDbConfig()
   const driver = (body.driver ?? current.driver) as DbDriver
   if (!['memory', 'postgres', 'mysql', 'supabase'].includes(driver)) {
     throw createError({ statusCode: 422, statusMessage: '"driver" must be memory, postgres, mysql or supabase' })

@@ -7,8 +7,8 @@ const auth = useAuthStore()
 const route = useRoute()
 const { t } = useI18n()
 
-const email = ref('admin@demo.dev')
-const password = ref('password')
+const email = ref('')
+const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
@@ -29,9 +29,22 @@ async function submit(): Promise<void> {
   }
 }
 
-function fill(account: string): void {
-  email.value = account
-  password.value = 'password'
+/* dev-only seed credentials hint (endpoint 404s in production builds) */
+const devCredentials = ref<{ email: string, password: string } | null>(null)
+
+onMounted(async () => {
+  try {
+    const fetchJson = $fetch as unknown as (url: string) => Promise<{ email: string, password: string }>
+    devCredentials.value = await fetchJson('/api/auth/dev-credentials')
+  } catch {
+    devCredentials.value = null
+  }
+})
+
+function fillDev(): void {
+  if (!devCredentials.value) return
+  email.value = devCredentials.value.email
+  password.value = devCredentials.value.password
 }
 </script>
 
@@ -126,35 +139,33 @@ function fill(account: string): void {
         </form>
       </UiCard>
 
-      <!-- demo accounts -->
-      <UiCard class="p-4">
-        <p class="mb-2 text-xs font-medium text-muted-foreground">
-          {{ t('auth.demoNote') }}
+      <UiCard
+        v-if="devCredentials"
+        class="space-y-2 border-dashed p-4"
+      >
+        <p class="text-xs font-medium text-muted-foreground">
+          {{ t('auth.devHint') }}
         </p>
         <div class="grid gap-1 text-xs">
           <button
             class="flex justify-between rounded px-2 py-1 hover:bg-accent"
             type="button"
-            @click="fill('admin@demo.dev')"
+            @click="fillDev"
           >
-            <span>admin@demo.dev</span><span class="text-muted-foreground">{{ t('auth.roleAdmin') }}</span>
-          </button>
-          <button
-            class="flex justify-between rounded px-2 py-1 hover:bg-accent"
-            type="button"
-            @click="fill('editor@demo.dev')"
-          >
-            <span>editor@demo.dev</span><span class="text-muted-foreground">{{ t('auth.roleEditor') }}</span>
-          </button>
-          <button
-            class="flex justify-between rounded px-2 py-1 hover:bg-accent"
-            type="button"
-            @click="fill('viewer@demo.dev')"
-          >
-            <span>viewer@demo.dev</span><span class="text-muted-foreground">{{ t('auth.roleViewer') }}</span>
+            <span>{{ devCredentials.email }}</span>
+            <span class="font-mono text-muted-foreground">{{ devCredentials.password }}</span>
           </button>
         </div>
       </UiCard>
+
+      <p class="text-center text-xs text-muted-foreground">
+        <NuxtLink
+          to="/reset-password"
+          class="transition-colors hover:text-foreground"
+        >
+          {{ t('auth.forgotPassword') }}
+        </NuxtLink>
+      </p>
     </div>
   </div>
 </template>

@@ -1,0 +1,2722 @@
+你现在想到的核心已经够做出一个很完整的个人博客前台了。我建议不要把前台做成“门户站”，而是保持 **内容优先、两栏清晰、信息密度适中、文章页阅读体验最好**。
+
+# Nuxt 全栈博客前端页面设计文档
+
+## 1. 前端整体定位
+
+前台不是后台功能的简单展示层，而应该围绕：
+
+```text
+阅读文章
+发现文章
+浏览分类
+参与评论
+继续阅读
+```
+
+五个核心行为设计。
+
+整体视觉建议：
+
+```text
+简洁
+内容优先
+中等信息密度
+轻卡片化
+不过度圆角
+不过度 Dashboard 化
+桌面端两栏
+移动端单栏
+```
+
+不要把博客前台做成：
+
+```text
+Admin Dashboard 风格
+大量 Widget
+满屏 Card
+复杂渐变
+几十种按钮
+```
+
+---
+
+# 2. 全站布局
+
+桌面端：
+
+```text
+┌─────────────────────────────────────────────┐
+│                  Header                     │
+│ Logo     Navigation        Search / Account │
+├─────────────────────────────────────────────┤
+│                                             │
+│ ┌─────────────────────────┐ ┌─────────────┐ │
+│ │                         │ │             │ │
+│ │       Main Content      │ │   Sidebar   │ │
+│ │                         │ │             │ │
+│ │                         │ │             │ │
+│ └─────────────────────────┘ └─────────────┘ │
+│                                             │
+├─────────────────────────────────────────────┤
+│                  Footer                     │
+└─────────────────────────────────────────────┘
+```
+
+推荐宽度：
+
+```text
+max-width: 1280px ~ 1360px
+```
+
+内容比例：
+
+```text
+Main:
+约 72%
+
+Sidebar:
+约 28%
+```
+
+或者：
+
+```text
+Main 860px
+Sidebar 300px
+Gap 32px
+```
+
+不要侧边栏太宽。
+
+---
+
+# 3. 响应式
+
+建议：
+
+```text
+>= 1200px
+双栏完整模式
+
+768px ~ 1199px
+主内容 + 较窄 Sidebar
+
+< 768px
+单栏
+Sidebar 移到正文之后
+```
+
+移动端不要保留桌面侧边栏。
+
+顺序：
+
+```text
+Header
+Content
+Related
+Sidebar Widgets
+Comments
+Footer
+```
+
+部分 Sidebar Widget 可以在移动端隐藏。
+
+---
+
+# 4. Header
+
+页眉建议保持非常简单。
+
+```text
+Logo / Site Name
+
+Navigation
+
+Search
+
+Theme Toggle
+
+Language
+
+Account
+```
+
+例如：
+
+```text
+Coinowo
+
+首页
+AI
+Crypto
+开发
+关于
+
+                🔍  中文  ◐  登录
+```
+
+如果当前阶段只有中文 UI：
+
+```text
+Language Switcher
+```
+
+可以暂时隐藏。
+
+但组件位置预留。
+
+---
+
+# 5. Header 行为
+
+建议：
+
+### Desktop
+
+正常 Header：
+
+```text
+Logo | Navigation | Search | Theme | User
+```
+
+向下滚动后：
+
+```text
+Sticky Header
+```
+
+但高度缩小。
+
+例如：
+
+```text
+初始 72px
+Sticky 56px
+```
+
+不要做很大的 Hero Header。
+
+---
+
+# 6. Navigation
+
+后台导航已经实现，因此前台只消费：
+
+```text
+Navigation Service
+```
+
+支持：
+
+```text
+一级菜单
+二级菜单
+自定义链接
+Page
+Category
+Post
+```
+
+二级菜单：
+
+```text
+AI
+├── Models
+├── GPU
+└── Deployment
+```
+
+最多建议：
+
+```text
+2 层
+```
+
+博客没必要做 Mega Menu。
+
+---
+
+# 7. Footer
+
+Footer 建议分成 3 个区域：
+
+```text
+Brand
+Navigation
+Legal / Meta
+```
+
+例如：
+
+```text
+Coinowo
+关于 AI、开发、Crypto 的个人博客
+
+博客
+├── 最新文章
+├── 分类
+├── 标签
+└── RSS
+
+关于
+├── About
+├── Contact
+└── Archive
+
+Legal
+├── Privacy
+├── Terms
+└── Cookie
+```
+
+底部：
+
+```text
+© 2026 Coinowo
+
+Powered by Nuxt
+```
+
+可以加：
+
+```text
+RSS
+GitHub
+X
+Telegram
+Email
+```
+
+但不要每个都必须存在。
+
+---
+
+# 8. 全站主要页面
+
+前台至少应有：
+
+```text
+首页
+文章列表
+文章详情
+分类详情
+标签详情
+搜索
+文章归档
+Page 页面
+404
+```
+
+如果启用用户：
+
+```text
+登录
+注册
+账户
+会员
+```
+
+后续多语言：
+
+```text
+Localized Routes
+```
+
+---
+
+# 9. 首页结构
+
+首页建议不要纯文章列表。
+
+推荐：
+
+```text
+Header
+
+可选 Hero / Featured
+
+Main + Sidebar
+
+Latest Posts
+
+Pagination
+
+Footer
+```
+
+---
+
+# 10. 首页 Hero
+
+个人博客不要做大型营销 Hero。
+
+可以做一个非常轻的：
+
+```text
+Coinowo
+
+AI · Development · Crypto
+
+记录技术、研究与实践。
+```
+
+旁边：
+
+```text
+Search
+```
+
+或者直接不做 Hero。
+
+如果首页主要目标是 SEO + 内容消费，我更推荐：
+
+```text
+Featured Posts
++
+Latest Posts
+```
+
+---
+
+# 11. Featured Posts
+
+首页顶部可以有：
+
+```text
+1 个大 Featured
++
+2 个小 Featured
+```
+
+例如：
+
+```text
+┌───────────────────┬───────────────┐
+│                   │ Featured #2   │
+│   Featured #1     ├───────────────┤
+│                   │ Featured #3   │
+└───────────────────┴───────────────┘
+```
+
+但这是可选功能。
+
+第一版甚至只需要：
+
+```text
+Latest Posts
+```
+
+---
+
+# 12. 首页文章显示模式
+
+你提到：
+
+```text
+Card
+List
+```
+
+我建议两种都实现。
+
+页面顶部：
+
+```text
+最新文章                         ▦  ☰
+```
+
+用户可以切换：
+
+```text
+Card View
+List View
+```
+
+保存到：
+
+```text
+localStorage / cookie
+```
+
+不需要数据库。
+
+---
+
+# 13. Card View
+
+推荐：
+
+```text
+┌─────────────────────────────┐
+│ Featured Image              │
+│                             │
+├─────────────────────────────┤
+│ Category                    │
+│                             │
+│ Article Title               │
+│                             │
+│ Excerpt...                  │
+│                             │
+│ Author · Date               │
+│ 👁 2.4k   💬 18   ⏱ 8 min  │
+└─────────────────────────────┘
+```
+
+---
+
+# 14. 文章卡片信息
+
+你目前列的：
+
+```text
+标题
+摘要
+分类
+作者
+发布日期
+评论
+浏览量
+```
+
+已经很好。
+
+我建议再增加：
+
+```text
+Featured Image
+Reading Time
+Tags 可选
+Updated 标识可选
+```
+
+最终：
+
+```text
+Featured Image
+
+Category
+
+Title
+
+Excerpt
+
+Author
+Published Date
+
+Reading Time
+Views
+Comments
+```
+
+---
+
+# 15. 不要把所有信息都显示出来
+
+Card 信息优先级：
+
+### Level 1
+
+```text
+Title
+Featured Image
+```
+
+### Level 2
+
+```text
+Excerpt
+Category
+```
+
+### Level 3
+
+```text
+Author
+Date
+Views
+Comments
+Reading Time
+```
+
+标签不要显示 8 个。
+
+最多：
+
+```text
+2 ~ 3
+```
+
+或者卡片完全不显示 Tag。
+
+---
+
+# 16. List View
+
+List 更适合高信息密度。
+
+```text
+┌────────────┐  Category
+│            │
+│   Image    │  Article Title
+│            │
+└────────────┘  Excerpt...
+
+              Author · Date · 8 min
+              👁 1.2k · 💬 12
+```
+
+推荐桌面：
+
+```text
+Image 220 × 140
+```
+
+内容放右侧。
+
+移动端：
+
+```text
+Image
+↓
+Content
+```
+
+或者缩成：
+
+```text
+120 × 80 thumbnail
+```
+
+---
+
+# 17. Article Card Hover
+
+不要夸张动画。
+
+只做：
+
+```text
+Image scale 1.02
+Title color change
+Card border/shadow very light
+```
+
+100~200ms 足够。
+
+---
+
+# 18. Pagination
+
+第一版建议经典：
+
+```text
+← 上一页
+
+1 2 3 4 5
+
+下一页 →
+```
+
+优于 Infinite Scroll。
+
+原因：
+
+```text
+SEO
+可定位
+返回体验
+Archive 浏览
+```
+
+都更好。
+
+---
+
+# 19. Sidebar
+
+你的两栏设计是否好用，很大程度取决于 Sidebar。
+
+建议 Widget 顺序：
+
+```text
+Search
+
+About Me
+
+Popular / Latest Posts
+
+Categories
+
+Tags
+
+Archive
+
+Newsletter / RSS
+
+AdSlot
+```
+
+不要全部默认开启。
+
+---
+
+# 20. About Widget
+
+个人博客很适合：
+
+```text
+Avatar
+
+William
+
+简短介绍
+
+GitHub / X / Email
+```
+
+例如：
+
+```text
+独立开发者，关注 AI、Web、Crypto。
+```
+
+控制在：
+
+```text
+2 ~ 3 行
+```
+
+---
+
+# 21. Sidebar Latest Posts
+
+建议：
+
+```text
+最新文章
+```
+
+每项：
+
+```text
+Small Thumbnail
+Title
+Date
+```
+
+不要再重复：
+
+```text
+Excerpt
+Author
+Tags
+```
+
+---
+
+# 22. Popular Posts
+
+可以基于：
+
+```text
+Views
+```
+
+或者：
+
+```text
+Views + Comments
+```
+
+第一版直接：
+
+```text
+views DESC
+```
+
+即可。
+
+不要提前搞推荐算法。
+
+---
+
+# 23. Category Widget
+
+例如：
+
+```text
+分类
+
+AI                 32
+开发                21
+Crypto             18
+随笔                 8
+```
+
+可显示数量。
+
+---
+
+# 24. Tag Widget
+
+使用轻量 Tag Cloud：
+
+```text
+Nuxt
+Vue
+AI
+LLM
+GPU
+Crypto
+Trading
+```
+
+不要使用字体大小差异极大的传统 Tag Cloud。
+
+统一 Badge 即可。
+
+---
+
+# 25. Archive Widget
+
+例如：
+
+```text
+2026
+├── 九月 12
+├── 八月 18
+└── 七月 21
+```
+
+Sidebar 可以只显示：
+
+```text
+2026年9月
+2026年8月
+```
+
+点击进入 Archive Page。
+
+---
+
+# 26. Sticky Sidebar
+
+桌面端：
+
+```text
+position: sticky
+```
+
+但不是整个 Sidebar 都 Sticky。
+
+建议只有最后一个区域：
+
+```text
+Latest / Ad / TOC
+```
+
+sticky。
+
+否则 Sidebar 很长时体验不好。
+
+---
+
+# 27. 文章详情页总体设计
+
+这是整个网站最重要的页面。
+
+结构：
+
+```text
+Breadcrumb
+
+Article Header
+
+Featured Image
+
+Article Content
+
+Tags
+
+Share
+
+Previous / Next
+
+Related Posts
+
+Author Card
+
+Comments
+```
+
+两栏：
+
+```text
+Article + Sidebar
+```
+
+---
+
+# 28. Article Header
+
+推荐：
+
+```text
+AI / Models
+
+这是文章标题
+
+这是文章的简短摘要或 Subtitle
+
+William Lee
+2026-09-11
+更新于 2026-09-12
+
+⏱ 8 min
+👁 2,351
+💬 18
+```
+
+不要把这些信息塞进正文 Card。
+
+Article Header 单独一个信息区。
+
+---
+
+# 29. Breadcrumb
+
+非常建议增加。
+
+例如：
+
+```text
+首页
+/
+AI
+/
+文章标题
+```
+
+既方便用户，也方便 SEO。
+
+---
+
+# 30. 文章内容 Card
+
+你提到：
+
+> 文章内容页设计内容卡片
+
+我建议：
+
+桌面：
+
+```text
+Main Column
+┌─────────────────────────────┐
+│ Article                     │
+│                             │
+│ Content                     │
+│                             │
+└─────────────────────────────┘
+```
+
+可以：
+
+```text
+border
+background
+subtle radius
+```
+
+但不要像 Dashboard Card。
+
+内容卡片应该接近：
+
+```text
+Paper
+```
+
+而不是：
+
+```text
+Widget
+```
+
+---
+
+# 31. 正文宽度
+
+这是非常重要的一点。
+
+即使 Main Column 是：
+
+```text
+850px
+```
+
+正文实际文字行宽建议：
+
+```text
+680 ~ 760px
+```
+
+因为太宽不好读。
+
+图片、代码块、表格：
+
+可以：
+
+```text
+full content width
+```
+
+---
+
+# 32. Typography
+
+正文建议：
+
+```text
+font-size:
+16~18px
+
+line-height:
+1.7~1.9
+```
+
+H1：
+
+只用于文章 Title。
+
+正文：
+
+```text
+H2
+H3
+H4
+```
+
+避免正文再次出现 H1。
+
+---
+
+# 33. 代码块
+
+你的博客明显会包含很多技术内容，因此代码体验必须做好。
+
+建议：
+
+```text
+Syntax Highlight
+
+Language Label
+
+Copy Button
+
+Line Numbers 可选
+
+Horizontal Scroll
+
+Filename 可选
+```
+
+例如：
+
+```text
+server/api/posts/index.get.ts
+────────────────────────────
+typescript                    Copy
+...
+```
+
+---
+
+# 34. 表格
+
+必须：
+
+```text
+responsive horizontal scroll
+```
+
+否则移动端一定溢出。
+
+---
+
+# 35. 图片
+
+支持：
+
+```text
+Caption
+Alt
+Lazy Load
+Responsive Size
+Lightbox
+```
+
+点击：
+
+```text
+Lightbox
+```
+
+很适合技术截图。
+
+---
+
+# 36. Blockquote
+
+设计成轻量：
+
+```text
+│ 引用内容
+```
+
+不要巨大引号图标。
+
+---
+
+# 37. Callout
+
+建议额外支持：
+
+```text
+Info
+Note
+Warning
+Tip
+Danger
+```
+
+例如：
+
+```text
+ℹ Note
+这是一个说明。
+```
+
+对技术博客很实用。
+
+---
+
+# 38. Table of Contents
+
+这是你目前没有提到，但我认为必须增加的东西。
+
+文章 Sidebar：
+
+```text
+目录
+
+1. 架构
+2. 安装
+3. 配置
+  3.1 Database
+  3.2 Redis
+4. 部署
+```
+
+根据：
+
+```text
+H2
+H3
+```
+
+自动生成。
+
+---
+
+# 39. TOC 行为
+
+桌面端：
+
+```text
+Sticky
+```
+
+并高亮当前阅读位置：
+
+```text
+IntersectionObserver
+```
+
+例如：
+
+```text
+架构
+安装
+配置      ← active
+部署
+```
+
+移动端：
+
+放在文章开头：
+
+```text
+目录 ▼
+```
+
+折叠显示。
+
+---
+
+# 40. 阅读进度
+
+可以增加非常轻的：
+
+```text
+顶部 Reading Progress Bar
+```
+
+特别适合长文。
+
+例如：
+
+```text
+████████████░░░░░░ 62%
+```
+
+不要做巨大的浮动控件。
+
+---
+
+# 41. Back to Top
+
+长文建议：
+
+```text
+↑
+```
+
+右下角。
+
+只有滚动一段距离后显示。
+
+---
+
+# 42. 上下文文章
+
+你提到的：
+
+```text
+上一篇
+下一篇
+```
+
+非常值得保留。
+
+设计：
+
+```text
+← 上一篇
+Nuxt Server API 设计
+
+下一篇 →
+Nitro 缓存实践
+```
+
+不要只显示：
+
+```text
+上一篇 / 下一篇
+```
+
+必须显示 Title。
+
+---
+
+# 43. Related Posts
+
+上下文之后再增加：
+
+```text
+相关文章
+```
+
+推荐：
+
+```text
+3 篇
+```
+
+算法第一版：
+
+```text
+Same Category
++
+Shared Tags
+```
+
+即可。
+
+不要做 AI Recommendation。
+
+---
+
+# 44. Article Tags
+
+正文结束：
+
+```text
+标签：
+#Nuxt #Vue #SSR
+```
+
+---
+
+# 45. Share
+
+可以：
+
+```text
+复制链接
+X
+Telegram
+Email
+```
+
+国内用户若需要：
+
+```text
+微信复制链接
+```
+
+但不要塞十几个社交网络按钮。
+
+---
+
+# 46. Author Card
+
+即使目前只有一个作者，也值得保留。
+
+```text
+┌─────────────────────────────┐
+│ Avatar   William Lee        │
+│                             │
+│ 独立开发者……                 │
+│                             │
+│ GitHub · X · Website        │
+└─────────────────────────────┘
+```
+
+以后支持多作者不用重构文章页。
+
+---
+
+# 47. 评论区总体结构
+
+你提到参考 Tiptap 评论组件，这是很好的方向。
+
+不要做传统论坛式非常重的评论。
+
+推荐：
+
+```text
+Comments 18
+
+Sort:
+最新 | 最早 | 热门
+
+Comment Editor
+
+Comment Tree
+```
+
+---
+
+# 48. 评论编辑器
+
+Tiptap 可以使用一个精简配置：
+
+```text
+Bold
+Italic
+Inline Code
+Link
+Quote
+Code Block
+Emoji
+```
+
+不要开放：
+
+```text
+Heading
+Large Image
+Iframe
+HTML
+复杂 Table
+```
+
+评论不是文章编辑器。
+
+---
+
+# 49. 评论 Card
+
+推荐：
+
+```text
+Avatar  Username     2小时前
+
+评论正文……
+
+♡ 12    回复    ···
+
+Chrome · Windows
+```
+
+而不是塞大量系统信息。
+
+---
+
+# 50. 系统环境 / 浏览器环境
+
+你提到希望显示：
+
+```text
+系统环境
+浏览器环境
+```
+
+我建议保留，但必须做得克制。
+
+例如：
+
+```text
+Windows 11 · Chrome
+```
+
+或者：
+
+```text
+Android · Chrome Mobile
+```
+
+不要展示：
+
+```text
+完整 User-Agent
+IP
+具体设备序列
+屏幕分辨率
+Canvas Fingerprint
+```
+
+这些既难看，也涉及隐私问题。
+
+---
+
+# 51. 评论环境数据
+
+数据库可以保存：
+
+```text
+browser_family
+browser_major
+
+os_family
+
+device_type
+```
+
+例如：
+
+```text
+Chrome 152
+Windows
+
+Safari 26
+iOS
+
+Chrome
+Android
+```
+
+前台：
+
+```text
+Windows · Chrome
+```
+
+够了。
+
+---
+
+# 52. 不建议展示浏览器完整版本
+
+例如：
+
+不要：
+
+```text
+Chrome 152.0.7721.127
+```
+
+显示：
+
+```text
+Chrome
+```
+
+甚至：
+
+```text
+Chrome 152
+```
+
+足够。
+
+---
+
+# 53. 评论楼中楼
+
+你的这个想法应该保留。
+
+结构：
+
+```text
+Comment #1
+│
+├── Reply #1
+│   │
+│   └── Reply #1.1
+│
+└── Reply #2
+```
+
+---
+
+# 54. 楼中楼最大层级
+
+数据库可以支持无限：
+
+```text
+parent_id
+```
+
+但 UI 不应该无限右缩。
+
+建议：
+
+```text
+视觉最大缩进：
+3 层
+```
+
+更深：
+
+```text
+保持同一级缩进
+```
+
+同时显示：
+
+```text
+回复 @用户名
+```
+
+否则手机端非常难看。
+
+---
+
+# 55. 子评论折叠
+
+例如：
+
+```text
+William
+评论内容……
+
+└─ 查看 12 条回复
+```
+
+展开：
+
+```text
+隐藏回复
+```
+
+这比一次渲染几十条子评论更舒服。
+
+---
+
+# 56. 大量回复分页
+
+例如：
+
+```text
+查看另外 8 条回复
+```
+
+不要展开时一次请求：
+
+```text
+100 条
+```
+
+建议：
+
+```text
+5~10
+```
+
+一批。
+
+---
+
+# 57. 评论操作
+
+普通用户：
+
+```text
+Reply
+Like
+Report
+Copy Link
+```
+
+自己的评论：
+
+```text
+Edit
+Delete
+```
+
+管理员：
+
+```text
+Approve
+Spam
+Trash
+Ban 可后续
+```
+
+---
+
+# 58. Comment Permalink
+
+建议每条评论有：
+
+```text
+#comment-123
+```
+
+点击日期或者菜单：
+
+```text
+复制评论链接
+```
+
+分享后可以直接定位到评论。
+
+---
+
+# 59. 评论排序
+
+第一版：
+
+```text
+最新
+最早
+```
+
+如果以后有点赞：
+
+```text
+热门
+```
+
+热门可以：
+
+```text
+likes DESC
+```
+
+不需要复杂评分算法。
+
+---
+
+# 60. 评论 Loading
+
+发表评论后不要整页刷新。
+
+Nuxt：
+
+```text
+optimistic / async update
+```
+
+或者提交成功后刷新评论数据。
+
+---
+
+# 61. 评论防刷 UX
+
+前台可以有：
+
+```text
+评论太快，请稍后再试
+```
+
+但是不要显示：
+
+```text
+Rate Limit 429 bucket exceeded
+```
+
+技术错误。
+
+---
+
+# 62. 评论未审核状态
+
+如果启用审核：
+
+用户提交：
+
+```text
+你的评论正在等待审核。
+```
+
+评论可以对本人显示：
+
+```text
+Pending
+```
+
+其他访客看不到。
+
+---
+
+# 63. 评论空状态
+
+不要只有：
+
+```text
+0 Comments
+```
+
+设计：
+
+```text
+还没有评论
+
+成为第一个参与讨论的人。
+```
+
+然后编辑器。
+
+---
+
+# 64. Search
+
+你目前没有提到 Search Page，但必须有。
+
+Header：
+
+```text
+Search
+```
+
+点击：
+
+桌面：
+
+```text
+Command / Dialog Search
+```
+
+或者独立：
+
+```text
+/search?q=nuxt
+```
+
+---
+
+# 65. Search Result
+
+显示：
+
+```text
+搜索：Nuxt
+
+找到 24 篇文章
+
+Article Result
+├── Title
+├── Excerpt
+├── Category
+└── Date
+```
+
+Highlight Query 可选。
+
+---
+
+# 66. Search Empty
+
+```text
+没有找到相关内容。
+
+尝试：
+Nuxt
+Vue
+AI
+```
+
+不要空白页面。
+
+---
+
+# 67. Category Page
+
+例如：
+
+```text
+AI
+关于 AI 模型、GPU 与部署的文章。
+
+32 篇文章
+```
+
+下面直接复用：
+
+```text
+PostList
+```
+
+---
+
+# 68. Tag Page
+
+类似：
+
+```text
+#Nuxt
+
+18 篇文章
+```
+
+不需要复杂介绍。
+
+---
+
+# 69. Archive Page
+
+这个很适合个人博客。
+
+例如：
+
+```text
+文章归档
+
+2026
+
+September
+├── Sep 11  Article A
+├── Sep 09  Article B
+└── Sep 02  Article C
+
+August
+...
+```
+
+这比 Pagination 更适合老用户快速找文章。
+
+---
+
+# 70. All Categories Page
+
+建议：
+
+```text
+/categories
+```
+
+显示：
+
+```text
+AI               32
+Development      24
+Crypto           18
+Life              5
+```
+
+可以附：
+
+```text
+Description
+```
+
+---
+
+# 71. All Tags Page
+
+```text
+/tags
+```
+
+显示 Tag Grid。
+
+---
+
+# 72. Page 页面
+
+例如：
+
+```text
+About
+Privacy
+Terms
+Contact
+```
+
+复用：
+
+```text
+PageLayout
+```
+
+但：
+
+```text
+Comments
+Author Card
+Related Posts
+```
+
+默认关闭。
+
+---
+
+# 73. 404
+
+一定认真设计。
+
+例如：
+
+```text
+404
+
+这里没有这篇文章。
+
+返回首页
+搜索文章
+```
+
+下面可以显示：
+
+```text
+Latest Posts
+```
+
+---
+
+# 74. 500
+
+生产错误：
+
+```text
+页面暂时无法加载
+
+请稍后重试。
+```
+
+不要泄漏：
+
+```text
+Stack Trace
+Database Error
+```
+
+---
+
+# 75. 多语言前端预留
+
+你的数据模型已经准备了 Translation，因此组件不能假定：
+
+```text
+全部文章都有当前语言版本
+```
+
+前端组件统一消费：
+
+```text
+ResolvedPost
+ResolvedCategory
+ResolvedPage
+```
+
+而不要自己：
+
+```text
+post.translations.find(...)
+```
+
+到处寻找 Locale。
+
+---
+
+# 76. Language Switcher
+
+后续开启：
+
+```text
+中文
+English
+日本語
+```
+
+文章存在对应 Translation：
+
+点击：
+
+```text
+跳到同一 Entity 的另一语言 URL
+```
+
+不存在：
+
+可以：
+
+```text
+disabled
+```
+
+或者不显示该语言。
+
+不要跳到英文首页冒充英文文章版本。
+
+---
+
+# 77. SEO
+
+所有页面至少输出：
+
+```text
+title
+description
+canonical
+OpenGraph
+Twitter Card
+```
+
+文章：
+
+```text
+Article Schema
+```
+
+Breadcrumb：
+
+```text
+BreadcrumbList
+```
+
+---
+
+# 78. Article Structured Data
+
+文章建议：
+
+```text
+headline
+description
+image
+author
+datePublished
+dateModified
+```
+
+---
+
+# 79. View Count
+
+你希望 Card 显示浏览量，那么要先定义浏览规则。
+
+建议：
+
+```text
+同 Session
+同文章
+30 分钟内
+```
+
+只算一次。
+
+不要页面每刷新一次：
+
+```text
+views++
+```
+
+否则数据意义很差。
+
+---
+
+# 80. View Count 展示
+
+格式化：
+
+```text
+923
+
+1.2K
+
+18K
+```
+
+中文也可以：
+
+```text
+1.2k
+```
+
+统一 Formatter。
+
+---
+
+# 81. Reading Time
+
+从文章正文计算：
+
+中文和英文阅读速度不同。
+
+第一版可以简单：
+
+```text
+中文：
+按字符数
+
+英文：
+按 word count
+```
+
+得到：
+
+```text
+预计阅读 8 分钟
+```
+
+---
+
+# 82. Date
+
+Card：
+
+```text
+2026-09-11
+```
+
+Article：
+
+```text
+2026年9月11日
+```
+
+或者统一相对时间。
+
+我建议：
+
+Card：
+
+```text
+9月11日
+```
+
+内容页：
+
+```text
+2026年9月11日
+```
+
+评论：
+
+```text
+2小时前
+```
+
+---
+
+# 83. Updated At
+
+如果文章修改较大：
+
+```text
+发布于 2026-09-01
+更新于 2026-09-11
+```
+
+很有价值。
+
+---
+
+# 84. Advertisement
+
+你刚设计了 Advertising Module，所以前端必须从第一版预留：
+
+```text
+<AdSlot>
+```
+
+位置。
+
+建议：
+
+```text
+site.header
+
+home.feed.inline
+
+article.before_content
+
+article.inline.1
+
+article.after_content
+
+sidebar.top
+
+sidebar.bottom
+
+page.after_content
+
+site.footer
+```
+
+但没有广告时：
+
+```text
+完全不占高度
+```
+
+不要留下大块空白。
+
+---
+
+# 85. Sidebar 广告
+
+不要：
+
+```text
+About
+Ad
+Category
+Ad
+Latest
+Ad
+```
+
+太密。
+
+建议 Sidebar 最多：
+
+```text
+1 个广告
+```
+
+例如：
+
+```text
+sidebar.bottom
+```
+
+---
+
+# 86. 内容页广告
+
+建议最多：
+
+```text
+Before Content
+Inline 1
+After Content
+```
+
+实际启用：
+
+```text
+1~2 个
+```
+
+即可。
+
+个人博客不应该影响阅读。
+
+---
+
+# 87. Dark Mode
+
+前台建议支持：
+
+```text
+System
+Light
+Dark
+```
+
+技术博客尤其有价值。
+
+但文章：
+
+```text
+code highlight
+table
+blockquote
+callout
+comment
+```
+
+必须一起适配。
+
+---
+
+# 88. Accessibility
+
+需要：
+
+```text
+Semantic HTML
+
+Keyboard Navigation
+
+Focus States
+
+Alt Text
+
+ARIA where needed
+
+Color Contrast
+```
+
+尤其：
+
+```text
+Navigation
+Search Dialog
+Comment Tree
+Language Switcher
+```
+
+不能只支持鼠标。
+
+---
+
+# 89. 前端组件架构
+
+建议：
+
+```text
+components/
+├── site/
+│   ├── SiteHeader.vue
+│   ├── SiteFooter.vue
+│   ├── MainNavigation.vue
+│   ├── MobileNavigation.vue
+│   ├── SearchButton.vue
+│   └── LanguageSwitcher.vue
+│
+├── post/
+│   ├── PostCard.vue
+│   ├── PostListItem.vue
+│   ├── PostMeta.vue
+│   ├── PostHeader.vue
+│   ├── PostContent.vue
+│   ├── PostTOC.vue
+│   ├── PostNavigation.vue
+│   ├── RelatedPosts.vue
+│   ├── AuthorCard.vue
+│   └── ShareButtons.vue
+│
+├── taxonomy/
+│   ├── CategoryBadge.vue
+│   ├── CategoryList.vue
+│   └── TagList.vue
+│
+├── comment/
+│   ├── CommentSection.vue
+│   ├── CommentEditor.vue
+│   ├── CommentItem.vue
+│   ├── CommentThread.vue
+│   ├── CommentMeta.vue
+│   └── CommentReplies.vue
+│
+├── sidebar/
+│   ├── Sidebar.vue
+│   ├── AboutWidget.vue
+│   ├── LatestPostsWidget.vue
+│   ├── PopularPostsWidget.vue
+│   ├── CategoriesWidget.vue
+│   ├── TagsWidget.vue
+│   └── ArchiveWidget.vue
+│
+└── advertising/
+    └── AdSlot.vue
+```
+
+---
+
+# 90. Layout
+
+建议：
+
+```text
+layouts/
+├── default.vue
+├── article.vue
+├── page.vue
+├── auth.vue
+└── account.vue
+```
+
+其中：
+
+```text
+default
+```
+
+首页、分类、标签、搜索使用。
+
+```text
+article
+```
+
+专门优化正文。
+
+---
+
+# 91. 页面结构
+
+```text
+pages/
+├── index.vue
+│
+├── posts/
+│   ├── index.vue
+│   └── [slug].vue
+│
+├── category/
+│   └── [slug].vue
+│
+├── tag/
+│   └── [slug].vue
+│
+├── categories.vue
+├── tags.vue
+├── archive.vue
+├── search.vue
+│
+└── [...slug].vue
+```
+
+多语言 URL 后续再在现有 Locale Routing 基础上扩展。
+
+---
+
+# 92. 首页最终推荐结构
+
+```text
+Header
+
+┌───────────────────────────────────────┐
+│ Featured / Latest Header              │
+└───────────────────────────────────────┘
+
+┌────────────────────────┬──────────────┐
+│ Latest Posts           │ Search       │
+│                        │              │
+│ [Card/List Toggle]     │ About Me     │
+│                        │              │
+│ Post                   │ Latest Posts │
+│ Post                   │              │
+│ Post                   │ Categories   │
+│ Ad                     │              │
+│ Post                   │ Tags         │
+│ Post                   │              │
+│                        │ Ad           │
+│ Pagination             │              │
+└────────────────────────┴──────────────┘
+
+Footer
+```
+
+---
+
+# 93. 文章详情最终结构
+
+```text
+Header
+
+Breadcrumb
+
+┌────────────────────────────┬───────────┐
+│ Article Header             │ TOC       │
+│                            │           │
+│ Featured Image             │           │
+│                            │           │
+│ Ad                         │           │
+│                            │           │
+│ Article Content            │           │
+│                            │           │
+│ Inline Ad                  │           │
+│                            │           │
+│ Article Content            │           │
+│                            │           │
+│ Tags                       │           │
+│ Share                      │           │
+│                            │           │
+│ Previous / Next            │           │
+│                            │           │
+│ Related Posts              │           │
+│                            │           │
+│ Author Card                │           │
+│                            │           │
+│ Comments                   │           │
+└────────────────────────────┴───────────┘
+
+Footer
+```
+
+---
+
+# 94. 评论最终 UI
+
+```text
+评论 24
+
+[最新] [最早] [热门]
+
+┌──────────────────────────────────────┐
+│ Avatar  William             2小时前  │
+│                                      │
+│ 我认为这里可以直接使用 Nitro Cache… │
+│                                      │
+│ Windows · Chrome                     │
+│                                      │
+│ ♡ 8     回复      ⋯                  │
+│                                      │
+│ ├─ Alice                     1小时前 │
+│ │  回复内容……                        │
+│ │                                    │
+│ │  macOS · Safari                    │
+│ │                                    │
+│ └─ 查看另外 5 条回复                 │
+└──────────────────────────────────────┘
+```
+
+这个方向比传统 WordPress 评论区更现代，也比论坛式楼层更适合博客。
+
+---
+
+# 95. 我建议额外增加的功能
+
+你原来没有提到、但非常值得加入的是：
+
+```text
+Breadcrumb
+
+Table of Contents
+
+Reading Progress
+
+Reading Time
+
+Related Posts
+
+Author Card
+
+Search
+
+Archive
+
+All Categories
+
+All Tags
+
+Featured Image
+
+Share
+
+Dark Mode
+
+404 / 500
+
+Article Structured Data
+
+Responsive Images
+
+Code Copy
+
+Image Lightbox
+
+Comment Permalink
+
+Comment Like
+
+Comment Sort
+
+Mobile Navigation
+```
+
+这些大多数并不复杂，但会明显提高完整度。
+
+---
+
+# 96. 第一版不要做
+
+不要一开始加入：
+
+```text
+AI 推荐文章
+
+实时聊天室
+
+Reaction 十几个 Emoji
+
+关注作者
+
+消息中心
+
+复杂 Feed
+
+无限滚动
+
+瀑布流
+
+文章收藏夹
+
+用户积分
+
+等级
+
+徽章
+
+评论勋章
+
+复杂设备 Fingerprint
+
+动态推荐 Sidebar
+
+Mega Menu
+```
+
+这些会把个人博客重新拖成社区平台。
+
+---
+
+# 97. 前端开发 Phase
+
+建议前台严格分阶段。
+
+```text
+F01 Site Shell
+Header
+Footer
+Navigation
+Responsive Layout
+
+F02 Post Listing
+PostCard
+PostList
+Pagination
+Category/Tag Meta
+
+F03 Sidebar
+Search
+About
+Latest
+Popular
+Categories
+Tags
+Archive
+
+F04 Article Reading
+Post Header
+Content
+Typography
+Code
+Table
+Image
+TOC
+Reading Progress
+
+F05 Article Discovery
+Previous/Next
+Related
+Author Card
+Share
+
+F06 Comments
+Editor
+Tree
+Nested Reply
+Collapse
+Environment Meta
+Moderation states
+
+F07 Search + Archive
+Search
+Archive
+Categories
+Tags
+
+F08 Error + Empty
+404
+500
+Loading
+Empty
+
+F09 Responsive + Accessibility
+
+F10 SEO + Performance
+
+F11 Advertising Integration
+
+F12 Multi-language Frontend Activation
+```
+
+每个 Phase 完成再开始下一个。
+
+---
+
+# 98. 最终设计原则
+
+前端必须始终遵守：
+
+```text
+内容 > Widget
+
+阅读 > 动画
+
+结构 > 装饰
+
+信息层级 > 信息数量
+
+桌面两栏
+移动单栏
+
+正文优先
+Sidebar 辅助
+
+Card 用于发现
+Article 用于阅读
+
+评论支持讨论
+但不做论坛
+
+多语言由数据驱动
+广告由 AdSlot 驱动
+导航由后台数据驱动
+```
+
+最终你这个博客前台应该呈现为：
+
+> **一个现代、信息密度适中、技术内容阅读体验很强的两栏个人博客（通用博客，不只是技术博客），而不是一个 CMS 默认主题，也不是一个 Dashboard 风格网站。**
+
+你现在最值得重点打磨的其实不是再增加更多前台模块，而是三个核心体验：**文章列表的信息层级、长文阅读（TOC/代码/图片/表格）、评论楼中楼**。这三块做好以后，整个前台质感基本就定下来了。

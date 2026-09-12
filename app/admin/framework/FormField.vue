@@ -3,12 +3,18 @@ import { useField } from 'vee-validate'
 import type { FieldOption, FieldNode } from '~/admin/core/types'
 import type { Paginated } from '#shared/types/api'
 import type { RowRecord } from '~/admin/tables/useResourceTable'
+import LocalizedField from '~/admin/extensions/localized-field/LocalizedField.vue'
+import { notifyError } from '~/admin/notifications/notify'
 
 const props = defineProps<{ node: FieldNode }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const name = toRef(() => props.node.name)
-const { value, errorMessage } = useField<unknown>(name)
+// node.defaultValue seeds the field on create; form.setValues(record)
+// on edit pages takes precedence over this fallback
+const { value, errorMessage } = useField<unknown>(name, undefined, {
+  initialValue: props.node.defaultValue
+})
 
 /* v-model target: casts are not allowed inside the directive itself */
 const stringValue = computed<string>({
@@ -23,7 +29,7 @@ const relationOptions = ref<FieldOption[]>([])
 
 onMounted(async () => {
   const rel = props.node.relation
-  if (props.node.kind !== 'relation' || !rel) return
+  if ((props.node.kind !== 'relation' && props.node.kind !== 'multirelation') || !rel) return
   try {
     const res = await $fetch<Paginated<RowRecord>>(`/api/admin/${rel.resource}`, {
       query: { perPage: 200 }
@@ -38,7 +44,9 @@ onMounted(async () => {
 })
 
 const options = computed<FieldOption[]>(() =>
-  props.node.kind === 'relation' ? relationOptions.value : (props.node.options ?? [])
+  props.node.kind === 'relation' || props.node.kind === 'multirelation'
+    ? relationOptions.value
+    : (props.node.options ?? [])
 )
 
 const inputType = computed(() => {
@@ -100,6 +108,45 @@ function togglePerm(key: string): void {
   if (index >= 0) current.splice(index, 1)
   else current.push(key)
   value.value = current
+}
+
+/* multirelation: value is an array of related ids */
+function isMultiSelected(optionValue: string | number): boolean {
+  return Array.isArray(value.value) && (value.value as Array<string | number>).includes(optionValue)
+}
+
+function toggleMulti(optionValue: string | number): void {
+  const current = Array.isArray(value.value) ? [...value.value as Array<string | number>] : []
+  const index = current.indexOf(optionValue)
+  if (index >= 0) current.splice(index, 1)
+  else current.push(optionValue)
+  value.value = current
+}
+
+/* inline create for creatable multirelations (taxonomy quick-add) */
+const createName = ref('')
+const creating = ref(false)
+
+async function createAndSelect(): Promise<void> {
+  const rel = props.node.relation
+  const name = createName.value.trim()
+  if (!rel || !rel.creatable || !name || creating.value) return
+  creating.value = true
+  try {
+    const created = await $fetch<RowRecord>('/api/admin/' + rel.resource, {
+      method: 'POST',
+      body: { translations: { [locale.value]: { name } } }
+    })
+    const tr = created.translations as Record<string, Record<string, unknown>> | undefined
+    const label = String(created[rel.labelKey] ?? tr?.[locale.value]?.name ?? tr ? Object.values(tr ?? {})[0]?.name ?? created.id : created.id)
+    relationOptions.value = [...relationOptions.value, { label, value: created.id as number }]
+    toggleMulti(created.id as number)
+    createName.value = ''
+  } catch (e) {
+    notifyError(t('common.save'), (e as Error).message)
+  } finally {
+    creating.value = false
+  }
 }
 </script>
 
@@ -174,6 +221,14 @@ function togglePerm(key: string): void {
       :disabled="node.disabled"
     />
 
+    <!-- media library picker (modal grid) -->
+    <MediaPickerField
+      v-else-if="node.kind === 'mediaPicker'"
+      :model-value="typeof value === 'number' ? value : null"
+      :disabled="node.disabled"
+      @update:model-value="value = $event"
+    />
+
     <!-- file upload -->
     <template v-else-if="node.kind === 'file'">
       <label
@@ -227,6 +282,56 @@ function togglePerm(key: string): void {
       >
         + {{ node.label }}
       </UiButton>
+    </div>
+
+    <!-- localized: per-locale tabbed editor (translations[locale][field]) -->
+    <LocalizedField
+      v-else-if="node.kind === 'localized'"
+      :node="node"
+    />
+
+    <!-- multirelation: checkbox list, value = array of related ids -->
+    <div
+      v-else-if="node.kind === 'multirelation'"
+      class="max-h-56 space-y-1 overflow-y-auto rounded-lg border p-3"
+    >
+      <label
+        v-for="option in options"
+        :key="String(option.value)"
+        class="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-accent/50"
+      >
+        <input
+          type="checkbox"
+          :checked="isMultiSelected(option.value)"
+          class="h-3.5 w-3.5 rounded border-input"
+          @change="toggleMulti(option.value)"
+        >
+        <span>{{ option.label }}</span>
+      </label>
+      <p
+        v-if="options.length === 0"
+        class="px-1 text-xs text-muted-foreground"
+      >
+        {{ t('common.loading') }}
+      </p>
+      <form
+        v-if="node.relation?.creatable"
+        class="flex gap-1 border-t pt-2"
+        @submit.prevent="createAndSelect"
+      >
+        <input
+          v-model="createName"
+          :placeholder="t('admin.relation.quickCreate')"
+          class="h-7 min-w-0 flex-1 rounded-md border bg-background px-2 text-xs"
+        >
+        <button
+          type="submit"
+          class="h-7 shrink-0 rounded-md border px-2 text-xs hover:bg-accent disabled:opacity-50"
+          :disabled="creating || createName.trim() === ''"
+        >
+          +
+        </button>
+      </form>
     </div>
 
     <!-- permission matrix -->

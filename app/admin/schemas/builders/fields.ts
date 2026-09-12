@@ -14,6 +14,7 @@ interface FieldOptions {
   colSpan?: 1 | 2 | 3 | 4
   relation?: RelationConfig
   subFields?: FieldNode[]
+  localizedFields?: FieldNode[]
 }
 
 function make(kind: FieldType, name: string, label: string, opts: FieldOptions = {}): FieldNode {
@@ -86,6 +87,11 @@ export function repeaterInput(
   return make('repeater', name, label, { ...opts, subFields })
 }
 
+/** media library modal picker: value = media id (nullable) */
+export function mediaPicker(name: string, label: string, opts?: FieldOptions): FieldNode {
+  return make('mediaPicker', name, label, opts)
+}
+
 /** permission matrix (string[] of granted permission keys) */
 export function permissionsInput(name: string, label: string, opts?: FieldOptions): FieldNode {
   return make('permissions', name, label, opts)
@@ -94,4 +100,24 @@ export function permissionsInput(name: string, label: string, opts?: FieldOption
 /** tiptap rich text editor (stores HTML) */
 export function richTextInput(name: string, label: string, opts?: FieldOptions): FieldNode {
   return make('richtext', name, label, opts)
+}
+
+/** localized editor: value is translations[locale][field]; sub-fields render per locale tab */
+export function localizedInput(
+  name: string,
+  label: string,
+  subFields: FieldNode[],
+  opts?: Omit<FieldOptions, 'subFields' | 'relation'>
+): FieldNode {
+  return make('localized', name, label, { ...opts, localizedFields: subFields })
+}
+
+/** multi-select of related resource ids; value is an array of ids */
+export function multiRelationInput(
+  name: string,
+  label: string,
+  relation: { resource: string, labelKey: string, creatable?: boolean },
+  opts?: Omit<FieldOptions, 'subFields' | 'relation'>
+): FieldNode {
+  return make('multirelation', name, label, { ...opts, relation })
 }

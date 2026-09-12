@@ -1,0 +1,1 @@
+ALTER TABLE `post_translations` MODIFY COLUMN `noindex` boolean NOT NULL;

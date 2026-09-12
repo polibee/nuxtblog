@@ -1,48 +1,48 @@
 import type { Translator } from '~/admin/core/types'
+import { localizedInput } from '~/admin/schemas/builders/fields'
 
-export default (t: Translator) => defineResource({
-  name: 'taxonomy',
-  model: 'Term',
-  label: t('res.taxonomy.label'),
-  labelPlural: t('res.taxonomy.plural'),
-  icon: 'tag',
-  group: t('res.taxonomy.group'),
-  sort: 45,
-  permissionPrefix: 'taxonomy',
-  searchable: ['name', 'slug'],
+/* Factory shared by the categories/tags resources (P04). The kind only
+   changes the API segment, permission prefix and labels. */
 
-  table: () => [
-    treeColumn('name', t('res.taxonomy.field.name')),
-    badgeColumn('key', t('res.taxonomy.field.type'), {
-      category: { label: t('res.taxonomy.category'), variant: 'default' },
-      tag: { label: t('res.taxonomy.tag'), variant: 'secondary' }
-    }),
-    textColumn('slug', t('res.taxonomy.field.slug')),
-    numberColumn('childCount', t('res.taxonomy.col.children'))
-  ],
+export default function makeTaxonomyResource(kind: 'category' | 'tag') {
+  return (t: Translator) => {
+    const label = kind === 'category' ? t('res.taxonomy.categoriesLabel') : t('res.taxonomy.tagsLabel')
+    const prefix = kind === 'category' ? 'categories' : 'tags'
+    return defineResource({
+      name: prefix,
+      model: kind === 'category' ? 'Category' : 'Tag',
+      label,
+      labelPlural: label,
+      icon: kind === 'category' ? 'tag' : 'star',
+      group: t('res.taxonomy.group'),
+      sort: kind === 'category' ? 41 : 42,
+      permissionPrefix: prefix,
+      searchable: ['name', 'alias'],
 
-  form: () => [
-    section(t('res.taxonomy.section'), [
-      grid(2, [
-        textInput('name', t('res.taxonomy.field.name'), { required: true, placeholder: 'Artificial Intelligence' }),
-        selectInput('key', t('res.taxonomy.field.type'), [
-          { label: t('res.taxonomy.category'), value: 'category' },
-          { label: t('res.taxonomy.tag'), value: 'tag' }
-        ], { defaultValue: 'category' }),
-        textInput('slug', t('res.taxonomy.field.slug')),
-        relationInput('parentId', t('res.taxonomy.field.parent'), { resource: 'taxonomy', labelKey: 'name' }, { placeholder: t('res.taxonomy.parentPlaceholder') })
-      ])
-    ])
-  ],
+      table: () => [
+        textColumn('title', t('res.taxonomy.field.name'), { sortable: true }),
+        textColumn('alias', t('res.posts.field.alias')),
+        dateColumn('createdAt', t('res.posts.col.created'))
+      ],
 
-  infolist: () => [
-    textEntry('name', t('res.taxonomy.field.name')),
-    textEntry('path', t('res.taxonomy.field.name')),
-    badgeEntry('key', t('res.taxonomy.field.type'), {
-      category: { label: t('res.taxonomy.category'), variant: 'default' },
-      tag: { label: t('res.taxonomy.tag'), variant: 'secondary' }
-    }),
-    textEntry('slug', t('res.taxonomy.field.slug')),
-    textEntry('childCount', t('res.taxonomy.col.children'))
-  ]
-})
+      form: () => [
+        section(t('res.taxonomy.section'), [
+          textInput('alias', t('res.posts.field.alias'), {
+            required: true,
+            colSpan: 2,
+            helpText: t('res.posts.help.alias')
+          }),
+          localizedInput('translations', t('res.taxonomy.field.localized'), [
+            textInput('name', t('res.taxonomy.field.name'), { required: true }),
+            textarea('description', t('res.taxonomy.field.description'), { rows: 2 })
+          ])
+        ])
+      ],
+
+      infolist: () => [
+        textEntry('title', t('res.taxonomy.field.name')),
+        textEntry('alias', t('res.posts.field.alias'))
+      ]
+    })
+  }
+}

@@ -26,5 +26,3 @@ export interface AuthUser {
   role: AdminRole
   permissions: string[]
 }
-
-export const DEMO_ACCOUNTS_NOTE = 'admin@demo.dev / editor@demo.dev / viewer@demo.dev · password'

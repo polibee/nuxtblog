@@ -1,0 +1,2260 @@
+可以。你现在这个 AI Assistant 不应该只是“聊天框 + Scope 下拉 + 消息列表”，而应该升级成一个真正的 **AI Workspace**。AI Elements Vue 很适合，因为它本身就是建立在 shadcn-vue 上的，而且组件会直接加入你自己的代码库，不会破坏你现在“保持原始 shadcn-vue 设计语言”的原则。官方现有组件已经覆盖 Conversation、Message、Prompt Input、Sources、Tool、Task 等基础能力；Message 还支持分支、Markdown、代码块、附件和消息操作，Tool 能展示工具调用状态，Task 可以展示多步骤工作流。
+
+我建议把当前 AI Assistant 重新冻结成下面这个设计。
+
+# 1. AI Assistant 从 Chat 升级成 Workspace
+
+后台：
+
+```text
+AI
+├── Assistant
+├── Prompts
+├── Reports
+├── Suggestions
+├── Providers
+└── Usage
+```
+
+其中：
+
+```text
+Assistant
+```
+
+负责：
+
+> 对话、数据分析、工具调用、页面分析、跨模块分析。
+
+而：
+
+```text
+Prompts
+```
+
+专门负责：
+
+> 自定义提示词、快捷提示词、系统预设提示词。
+
+不要把“提示词管理”塞进 Settings。
+
+---
+
+# 2. Assistant 页面整体布局
+
+建议桌面三栏，但右侧 Inspector 可以收起：
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ AI Assistant                              New Chat   ···            │
+├────────────────┬───────────────────────────────────┬────────────────┤
+│ Conversations  │ Conversation                      │ Context        │
+│                │                                   │                │
+│ + New Chat     │ AI messages                       │ Scope          │
+│                │ Tool calls                        │ Entire Site    │
+│ Today          │ Sources                           │                │
+│ SEO Review     │ Tasks                             │ Context        │
+│ Profile Audit  │                                   │ + Post A       │
+│ Store Review   │                                   │ + Profile      │
+│                │                                   │                │
+│ Yesterday      │                                   │ Prompt         │
+│ ...            │                                   │ SEO Auditor    │
+│                │                                   │                │
+│                │                                   │ Model          │
+│                │                                   │ Analysis       │
+├────────────────┴───────────────────────────────────┴────────────────┤
+│             Prompt Input                                            │
+│ [ + ] [Prompt] [Scope]  Ask about your site...              [↑]    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+我不建议把 Scope、Prompt、Model 全部堆在输入框上方做几个大 Select。
+
+输入区域应该保持干净。
+
+---
+
+# 3. AI Elements Vue 怎么用
+
+建议明确复用：
+
+```text
+Conversation
+ConversationContent
+ConversationScrollButton
+```
+
+作为主消息区。
+
+官方 Conversation/Message 示例就是围绕流式聊天构建的。
+
+消息使用：
+
+```text
+Message
+MessageContent
+MessageResponse
+MessageActions
+MessageAction
+MessageBranch
+```
+
+这样直接获得：
+
+- User / Assistant 不同布局
+- Markdown
+- Streaming
+- GFM Table
+- Code Block
+- Copy
+- Retry
+- Branch
+- Like / Dislike
+
+官方 Message 本身支持消息分支、操作按钮、Markdown、代码块以及附件显示能力，非常适合替换你当前较简单的消息实现。
+
+---
+
+# 4. 不要改 AI Elements 的视觉语言
+
+和你之前 shadcn-vue 的原则一样：
+
+```text
+直接复用 AI Elements Vue
++
+只做业务组合
++
+不重新设计组件颜色
+```
+
+允许：
+
+```text
+布局
+宽度
+间距
+显示/隐藏
+业务状态组合
+```
+
+不要：
+
+```text
+重新做气泡颜色
+渐变 AI 主题
+发光边框
+紫色 AI 按钮
+复杂动画
+```
+
+这样 AI 模块和整个后台不会像两个产品。
+
+---
+
+# 5. Prompt Input 应该升级
+
+底部输入框建议：
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ Ask about your site...                                      │
+│                                                              │
+│ [＋] [Prompt ▾] [Entire Site ▾] [Balanced]            [ ↑ ] │
+└──────────────────────────────────────────────────────────────┘
+```
+
+这里使用：
+
+```text
+PromptInput
+PromptInputTextarea
+PromptInputSubmit
+```
+
+AI Elements 官方已经把 Prompt Input 和 `useChat` 的流式状态组合好了。
+
+但你的业务层在外面扩展。
+
+---
+
+# 6. 输入框只保留四个核心操作
+
+我建议：
+
+### `+`
+
+添加 Context：
+
+```text
+Post
+Page
+Profile
+Product
+Report
+Media
+```
+
+以后再加附件。
+
+### Prompt
+
+选择自定义提示词。
+
+### Scope
+
+```text
+Entire Site
+Current Page
+Posts
+Pages
+Profile
+SEO
+Store
+Comments
+Media
+```
+
+### Depth
+
+```text
+Quick
+Balanced
+Deep
+```
+
+不要直接显示：
+
+```text
+Temperature
+Max Tokens
+Top P
+```
+
+这些放 Advanced。
+
+---
+
+# 7. 自定义 Prompt 是这次重点
+
+我建议把 Prompt 分成三层。
+
+```text
+System Prompt
+      ↓
+Saved Prompt
+      ↓
+User Message
+```
+
+其中 System Prompt 由系统管理，普通用户不直接改核心安全部分。
+
+Saved Prompt 才是你说的：
+
+> 自定义提示词。
+
+---
+
+# 8. Prompt 类型
+
+推荐：
+
+```text
+Built-in
+Personal
+Module
+```
+
+### Built-in
+
+系统预设：
+
+```text
+Site Audit
+SEO Auditor
+Content Reviewer
+Profile Reviewer
+Store Reviewer
+Internal Link Finder
+Content Gap Analyst
+Comment Insights
+```
+
+不能删除。
+
+可以：
+
+```text
+Duplicate
+```
+
+然后修改成个人版本。
+
+---
+
+### Personal
+
+用户自己创建：
+
+```text
+My SEO Review
+My Writing Style
+Weekly Site Review
+Product Description Reviewer
+```
+
+---
+
+### Module Prompt
+
+业务模块自己注册：
+
+例如 SEO 模块：
+
+```text
+SEO Audit
+Internal Linking
+Search Intent
+```
+
+Profile 模块：
+
+```text
+Resume Review
+Project Description Review
+```
+
+Store：
+
+```text
+Product Copy Review
+Catalog Analysis
+```
+
+模块禁用后 Prompt 自动隐藏。
+
+---
+
+# 9. Prompt Manager
+
+新增：
+
+```text
+AI → Prompts
+```
+
+页面：
+
+```text
+Prompts
+
+[ Search prompts... ]                       [+ New Prompt]
+
+Built-in
+┌───────────────────────────────────────────┐
+│ SEO Auditor                              │
+│ Analyze technical and semantic SEO       │
+│ Site · SEO                               │
+│                               Duplicate  │
+└───────────────────────────────────────────┘
+
+My Prompts
+┌───────────────────────────────────────────┐
+│ My Content Reviewer                      │
+│ Posts · Balanced                         │
+│                               Edit  ···  │
+└───────────────────────────────────────────┘
+```
+
+---
+
+# 10. 自定义 Prompt 编辑器
+
+不要只给一个：
+
+```text
+Prompt
+[大 Textarea]
+```
+
+那太原始。
+
+建议：
+
+```text
+Prompt Editor
+
+Name
+[ Site SEO Reviewer ]
+
+Description
+[ Audit my site for actionable SEO issues. ]
+
+Icon
+[ Search ]
+
+Default Scope
+[ SEO ]
+
+Default Depth
+[ Balanced ]
+
+Model Profile
+[ Analysis ]
+
+Instructions
+┌───────────────────────────────────────────┐
+│ Analyze the selected scope...             │
+│                                           │
+│ Prioritize actionable issues...           │
+└───────────────────────────────────────────┘
+
+Response Preferences
+[x] Include sources
+[x] Prioritize recommendations
+[x] Use structured sections
+[ ] Be concise
+
+Available Tools
+● Automatic
+○ Restricted
+
+[ Save ]
+```
+
+---
+
+# 11. Prompt 不应该允许覆盖安全 System Prompt
+
+最终组合：
+
+```text
+Core System Policy
+        +
+Feature System Prompt
+        +
+Custom Prompt
+        +
+Scope Context
+        +
+User Message
+```
+
+例如：
+
+```text
+Core:
+你只能通过允许的 tools 访问站点数据。
+不得泄露 secrets。
+不得直接写数据库。
+
+Feature:
+你是网站分析助手……
+
+Custom:
+重点关注 SEO 与内容质量，不分析商城。
+
+User:
+最近哪些文章应该优化？
+```
+
+这样自定义 Prompt 很强，但不会绕过权限和 Data Policy。
+
+---
+
+# 12. Prompt 变量
+
+这个功能建议做，而且很好用。
+
+支持：
+
+```text
+{{site.name}}
+{{site.locale}}
+{{scope.name}}
+{{current_page.title}}
+{{current_date}}
+```
+
+但不要允许：
+
+```text
+{{database.*}}
+{{env.*}}
+{{api_key}}
+```
+
+变量必须来自白名单 Registry。
+
+---
+
+# 13. Prompt Variable Picker
+
+Prompt Editor 旁边：
+
+```text
+Insert Variable
+├── Site
+│   ├── Site Name
+│   ├── Default Language
+│   └── Site URL
+├── Context
+│   ├── Scope
+│   ├── Entity Title
+│   └── Entity Type
+└── Runtime
+    └── Current Date
+```
+
+点击插入：
+
+```text
+{{scope.name}}
+```
+
+用户不用记变量名。
+
+---
+
+# 14. Prompt 也可以定义 Suggested Questions
+
+这个非常适合你的系统。
+
+比如：
+
+```text
+SEO Auditor
+```
+
+定义快捷问题：
+
+```text
+• What are the biggest SEO issues?
+• Which posts are missing metadata?
+• Find internal linking opportunities.
+• Which pages should I optimize first?
+```
+
+选择该 Prompt 后，在空聊天页面自动显示：
+
+```text
+Suggested
+
+[ Find the biggest SEO issues ]
+[ Find missing metadata ]
+[ Find internal links ]
+```
+
+点击直接发送。
+
+---
+
+# 15. Prompt 和 Scope 不要绑定死
+
+比如：
+
+```text
+SEO Auditor
+```
+
+默认：
+
+```text
+Scope = SEO
+```
+
+但用户可以临时切换：
+
+```text
+Current Page
+```
+
+然后问：
+
+```text
+只检查这个页面。
+```
+
+所以：
+
+```text
+Prompt.defaultScope
+```
+
+只是默认，不是强制。
+
+---
+
+# 16. Prompt 可以限制 Scope
+
+有些 Prompt 则确实应该限制。
+
+比如：
+
+```text
+Product Reviewer
+```
+
+允许：
+
+```text
+Store
+Current Product
+```
+
+不允许：
+
+```text
+Comments
+```
+
+数据：
+
+```text
+allowedScopes
+```
+
+这样 Tool Router 也能更有效率。
+
+---
+
+# 17. Prompt + Tool Policy
+
+自定义提示词也应该能控制：
+
+```text
+Tools
+```
+
+但普通用户不要逐个看 50 个工具。
+
+使用：
+
+```text
+Tool Access
+
+● Automatic
+○ Read only
+○ Custom
+```
+
+Custom 展开：
+
+```text
+Content
+[x] Read Posts
+[x] Search Content
+
+SEO
+[x] SEO Summary
+[x] Internal Links
+
+Store
+[ ] Products
+```
+
+仍然不能超过用户本身权限。
+
+---
+
+# 18. 自定义 Prompt 的 Tool Restriction 还能省 Token
+
+比如：
+
+```text
+My SEO Prompt
+```
+
+只允许：
+
+```text
+seo.*
+content.posts.*
+pages.*
+```
+
+那么 AI Gateway 不需要把：
+
+```text
+store
+comments
+media
+profile
+payments
+```
+
+几十个工具 Schema 都发送给模型。
+
+这和我们刚才设计的 Tool Router 正好结合。
+
+---
+
+# 19. Message UI
+
+Assistant 的消息不要做传统大气泡。
+
+AI Elements 默认的思路正好适合：
+
+```text
+User
+→ secondary bubble / right-ish
+
+Assistant
+→ full-width content
+```
+
+官方 Message 就是偏这种 minimalist flat design。
+
+非常适合后台分析系统。
+
+---
+
+# 20. Assistant Message Actions
+
+每条 AI 回复下面：
+
+```text
+Copy
+Retry
+Good
+Bad
+More
+```
+
+More：
+
+```text
+Create Report
+Save as Suggestion
+Continue from here
+```
+
+如果是可修改建议：
+
+```text
+Preview changes
+```
+
+不要直接：
+
+```text
+Apply
+```
+
+直到进入 Suggestion Review。
+
+---
+
+# 21. Response Branch 非常有价值
+
+AI Elements Vue 的 Message 支持 response branching。
+
+因此 Retry 不一定覆盖旧答案。
+
+可以：
+
+```text
+Response
+1 / 3
+‹   ›
+```
+
+例如：
+
+```text
+第一次：普通分析
+第二次：换模型重新分析
+第三次：Deep 模式
+```
+
+都保留。
+
+这比简单“重新生成并覆盖”好很多。
+
+---
+
+# 22. Sources 必须正式加入
+
+你这个 AI 不是闲聊机器人，而是“分析 CMS 数据”。
+
+所以每个重要回答都应该能看到：
+
+```text
+Sources 6
+```
+
+AI Elements Vue 已经有专门 `Sources`、`SourcesTrigger`、`SourcesContent`、`Source` 组件用于折叠展示引用来源。
+
+你的 Source 不是主要指公网 URL，而应该扩展成：
+
+```text
+Post
+Page
+Profile
+Product
+Report
+Comment Summary
+Analytics Report
+```
+
+例如：
+
+```text
+Sources (4)
+
+Nuxt 4 博客框架起步
+Post
+[Open]
+
+Profile
+Page
+[Open]
+
+SEO Health Report
+Report
+[Open]
+```
+
+---
+
+# 23. Internal Source 不要强制 href 外部 URL
+
+你可以包装官方 Source：
+
+```text
+AIReference
+```
+
+支持：
+
+```ts
+type AIReference = {
+  type: "post" | "page" | "product" | "profile" | "report"
+  id: string
+  title: string
+  adminUrl?: string
+  publicUrl?: string
+}
+```
+
+点击：
+
+```text
+Open in Admin
+Open Page
+```
+
+---
+
+# 24. Tool Calls 不应该隐藏
+
+用户问：
+
+```text
+帮我分析整站 SEO。
+```
+
+AI 调：
+
+```text
+site.overview
+seo.summary
+content.posts.list
+```
+
+可以显示：
+
+```text
+Analyzed site overview
+Checked SEO metadata
+Reviewed 42 posts
+```
+
+而不是让用户看到：
+
+```json
+{
+  "tool": "seo.summary",
+  "args": {}
+}
+```
+
+AI Elements Vue 官方 Tool 支持 pending/running/completed/error/approval 等状态，并可折叠查看输入输出。
+
+你应该在它外面再做一层业务标题。
+
+---
+
+# 25. Tool 默认显示友好名称
+
+例如：
+
+```text
+Checking site SEO
+✓ Complete
+```
+
+展开 Advanced：
+
+```text
+Tool
+seo.summary
+
+Input
+...
+
+Output
+...
+```
+
+普通用户不需要看 JSON。
+
+开发者才展开。
+
+---
+
+# 26. 长任务使用 Task
+
+比如：
+
+```text
+Deep Site Analysis
+```
+
+模型可能需要：
+
+```text
+1. Load site overview
+2. Analyze SEO
+3. Analyze content
+4. Analyze internal links
+5. Build recommendations
+```
+
+使用 AI Elements Vue `Task`：
+
+```text
+Analyzing site
+
+✓ Site overview
+✓ SEO metadata
+● Content quality
+○ Internal links
+○ Recommendations
+
+2 / 5 complete
+```
+
+官方 Task 就支持 pending/in-progress/completed/error 和完成计数。
+
+这比一直显示：
+
+```text
+Thinking...
+```
+
+高级很多。
+
+---
+
+# 27. Assistant 空状态重新设计
+
+不要：
+
+```text
+How can I help you?
+```
+
+这么通用。
+
+建议：
+
+```text
+AI Assistant
+
+Analyze your content, SEO, profile, store,
+comments and site data.
+
+Scope: Entire Site
+Prompt: General Assistant
+
+Suggested
+
+[ Audit the site ]
+[ Find SEO problems ]
+[ Review my Profile ]
+[ Find content gaps ]
+```
+
+如果 Scope = Store：
+
+自动变：
+
+```text
+[ Review product descriptions ]
+[ Find missing product metadata ]
+[ Compare products ]
+```
+
+---
+
+# 28. Prompt Library 可以影响空状态
+
+例如选择：
+
+```text
+Internal Link Finder
+```
+
+空状态立即显示：
+
+```text
+Internal Link Finder
+
+Find useful linking opportunities based on
+your existing content.
+
+[ Find opportunities across all posts ]
+[ Analyze current post ]
+[ Find orphan posts ]
+```
+
+这样 Prompt 不只是后台的“文本模板”。
+
+它直接成为一个 AI 工作模式。
+
+---
+
+# 29. 我建议 Prompt 有两个概念
+
+不要全部叫 Prompt。
+
+后台对用户：
+
+```text
+AI Preset
+```
+
+或者：
+
+```text
+Assistant Preset
+```
+
+内部才叫：
+
+```text
+prompt
+```
+
+因为它实际上包含：
+
+```text
+Instructions
+Scope
+Model Profile
+Tool Policy
+Depth
+Suggested Questions
+Output Preferences
+```
+
+已经不只是 Prompt 字符串。
+
+---
+
+# 30. 我更推荐前台名称 `Preset`
+
+UI：
+
+```text
+Preset
+[ SEO Auditor ▼ ]
+```
+
+比：
+
+```text
+Prompt
+[ SEO Auditor ▼ ]
+```
+
+更容易理解。
+
+后台菜单可以：
+
+```text
+AI → Prompts
+```
+
+但实体内部正式叫：
+
+```text
+AssistantPreset
+```
+
+这样架构更合理。
+
+---
+
+# 31. AssistantPreset 数据结构
+
+建议：
+
+```text
+ai_assistant_presets
+
+id
+name
+slug
+description
+icon
+
+type
+builtin | custom | module
+
+instructions
+
+default_scope
+default_depth
+model_profile
+
+tool_policy
+allowed_scopes_json
+allowed_tool_groups_json
+
+response_preferences_json
+suggested_questions_json
+
+enabled
+sort_order
+
+created_by
+created_at
+updated_at
+```
+
+不要直接存：
+
+```text
+system_prompt
+```
+
+作为唯一字段。
+
+---
+
+# 32. Response Preferences
+
+第一版支持：
+
+```text
+Length
+● Adaptive
+○ Concise
+○ Detailed
+
+Format
+[x] Structured headings
+[x] Sources
+[x] Actionable recommendations
+
+Behavior
+[x] Ask tools when needed
+[x] Prioritize existing site data
+```
+
+但我建议这些选项数量保持克制。
+
+---
+
+# 33. Prompt 版本
+
+这个必须加，因为你前面还有 AI Cache。
+
+例如：
+
+```text
+prompt_version
+```
+
+每次修改 Instructions：
+
+```text
+v7
+→ v8
+```
+
+对应缓存 Key：
+
+```text
+sourceFingerprint
++
+presetId
++
+presetVersion
+```
+
+否则改了 Prompt 之后还可能命中旧分析缓存。
+
+---
+
+# 34. Built-in Prompt 不直接修改
+
+例如：
+
+```text
+SEO Auditor
+Built-in
+```
+
+按钮：
+
+```text
+Duplicate & Customize
+```
+
+创建：
+
+```text
+SEO Auditor - Custom
+```
+
+原因：
+
+以后系统升级 Built-in Prompt：
+
+```text
+v3 → v4
+```
+
+不会覆盖用户自己改过的东西。
+
+---
+
+# 35. Prompt Import/Export 暂时不用
+
+第一版不需要：
+
+```text
+Prompt Marketplace
+Import JSON
+Export JSON
+Share Prompt
+```
+
+这是典型容易做重的地方。
+
+先有：
+
+```text
+Create
+Duplicate
+Edit
+Disable
+Delete custom
+```
+
+够了。
+
+---
+
+# 36. Chat Context 右侧 Inspector
+
+我很建议加。
+
+右栏：
+
+```text
+Context
+
+Scope
+Entire Site
+
+Preset
+SEO Auditor
+
+Depth
+Balanced
+
+Attached Context
+Profile
+3 Posts
+
+Tools
+Automatic · Read only
+
+Model
+Analysis Model
+
+Usage
+2.8k context tokens
+```
+
+这解决一个问题：
+
+> 用户随时知道 AI 当前“知道什么、能访问什么”。
+
+---
+
+# 37. Context Token 预估
+
+结合前面 Token Optimization：
+
+可以显示：
+
+```text
+Context
+~2.8K tokens
+```
+
+不要显示：
+
+```text
+2874 exact tokens
+```
+
+普通用户没必要这么细。
+
+当过大：
+
+```text
+Large context
+Some content will be summarized automatically.
+```
+
+---
+
+# 38. Context Picker
+
+点击：
+
+```text
++ Add Context
+```
+
+Dialog：
+
+```text
+Add context
+
+Search...
+
+Content
+○ Post
+○ Page
+
+Site
+○ Profile
+○ SEO Report
+
+Commerce
+○ Product
+```
+
+然后搜索：
+
+```text
+Nuxt
+```
+
+选：
+
+```text
+Nuxt 4 博客框架起步
+```
+
+成为 Chip：
+
+```text
+[ Post · Nuxt 4 博客框架起步 × ]
+```
+
+---
+
+# 39. 不把附件和 Context 混为一谈
+
+区别：
+
+```text
+Context
+→ 系统里的实体
+
+Attachment
+→ 用户临时上传文件
+```
+
+以后 AI Elements 的附件 UI 可以用，但数据模型不要混。
+
+---
+
+# 40. Current Page 自动附加
+
+例如用户从：
+
+```text
+/admin/profile
+```
+
+打开全局 AI Drawer：
+
+自动：
+
+```text
+Context:
+[ Current Page · Profile ]
+```
+
+可以删除。
+
+这会很好用。
+
+---
+
+# 41. 可以做一个全局 AI Trigger
+
+除了：
+
+```text
+AI → Assistant
+```
+
+以后可以在后台 Header：
+
+```text
+[ ✨ ]
+```
+
+打开：
+
+```text
+Assistant Drawer
+```
+
+自动获得当前页面 Context。
+
+但我建议：
+
+**第二阶段做。**
+
+第一版先做好完整 Assistant 页面。
+
+---
+
+# 42. Assistant 与 Page AI 互通
+
+Page AI Finding：
+
+```text
+Projects section is too dense.
+```
+
+按钮：
+
+```text
+Discuss
+```
+
+打开 Assistant：
+
+```text
+Context:
+Profile Page
+Finding #284
+
+Preset:
+Page Reviewer
+```
+
+Prompt 自动：
+
+```text
+Explain this finding and suggest the best way to improve it.
+```
+
+---
+
+# 43. Assistant 与 Reports 互通
+
+Report：
+
+```text
+SEO Health Report
+```
+
+按钮：
+
+```text
+Discuss with AI
+```
+
+打开：
+
+```text
+Context:
+SEO Health Report #33
+```
+
+然后可以问：
+
+```text
+哪些问题应该先修？
+```
+
+无需重新分析一遍。
+
+---
+
+# 44. Assistant 与 Suggestions 互通
+
+聊天里生成：
+
+```text
+I recommend updating 3 SEO descriptions.
+```
+
+操作：
+
+```text
+Create Suggestions
+```
+
+进入：
+
+```text
+AI Suggestions
+```
+
+产生三条待审核 Suggestion。
+
+依旧遵循：
+
+```text
+Chat
+→ Suggest
+→ Preview
+→ Accept
+→ Apply
+```
+
+不能 Chat 直接改数据。
+
+---
+
+# 45. 消息里的结构化 UI
+
+不要所有 AI 输出都是 Markdown。
+
+建议支持 `message.parts`：
+
+```text
+text
+tool
+sources
+task
+suggestion
+report
+entity_reference
+```
+
+例如：
+
+```text
+AI：
+I found 3 posts worth optimizing.
+
+[ Post Card ]
+[ Post Card ]
+[ Post Card ]
+
+Sources (5)
+```
+
+比让模型生成：
+
+```markdown
+1. [Post...]
+```
+
+强得多。
+
+---
+
+# 46. Entity Card 可以自己包装
+
+例如：
+
+```text
+AIEntityReference.vue
+```
+
+显示：
+
+```text
+Post
+
+Nuxt 4 博客框架起步
+Published · SEO 72
+
+[Open]
+```
+
+不需要改 AI Elements Core。
+
+组合即可。
+
+---
+
+# 47. 后端 Chat Request
+
+建议扩展成：
+
+```ts
+{
+  conversationId?: string
+
+  message: string
+
+  presetId?: string
+
+  scope: {
+    type: string
+    entityId?: string
+  }
+
+  context: [
+    {
+      type: string
+      id: string
+    }
+  ]
+
+  depth: "quick" | "balanced" | "deep"
+}
+```
+
+注意：
+
+不要前端发送：
+
+```text
+systemPrompt
+toolDefinitions
+full page text
+```
+
+这些由服务器解析。
+
+---
+
+# 48. Prompt 安全边界
+
+服务器：
+
+```text
+Preset ID
+↓
+Preset Service
+↓
+权限验证
+↓
+Prompt Registry
+↓
+Core Policies
+↓
+Compose
+```
+
+而不是：
+
+```text
+frontend sends arbitrary system message
+```
+
+Custom Prompt 永远是：
+
+```text
+custom instructions
+```
+
+不是：
+
+```text
+system override
+```
+
+---
+
+# 49. Custom Prompt 长度也要限制
+
+例如：
+
+```text
+Name           80
+Description    200
+Instructions   8K chars
+Suggested Q    max 8
+```
+
+避免有人存巨大 Prompt，每次烧 Token。
+
+而且 Usage 页面最好显示：
+
+```text
+Preset instruction size:
+~420 tokens
+```
+
+---
+
+# 50. Prompt 也要优化缓存
+
+固定 Prompt 放 Provider Cache Prefix：
+
+```text
+Core Policy
+Tool Policy
+Preset Instructions
+```
+
+尽量保持稳定。
+
+动态：
+
+```text
+Scope
+Context
+User message
+```
+
+放后面。
+
+这样自定义 Prompt 也能利用你上一轮设计的 Provider Prompt Cache。
+
+---
+
+# 51. Conversation 标题自动生成
+
+第一次聊天：
+
+```text
+帮我看看整站 SEO
+```
+
+可以小模型生成：
+
+```text
+Site SEO Review
+```
+
+但为了省 Token，第一版甚至直接：
+
+```text
+truncate first user message
+```
+
+就够了。
+
+例如：
+
+```text
+帮我看看整站 SEO
+```
+
+直接作为标题。
+
+不要为了标题额外调用一次模型。
+
+---
+
+# 52. Chat History 左栏
+
+建议：
+
+```text
+Conversations
+
++ New Chat
+
+Today
+Site SEO Review
+Profile Review
+
+Yesterday
+Product Descriptions
+
+Previous 7 Days
+...
+```
+
+操作：
+
+```text
+Rename
+Archive
+Delete
+```
+
+不需要 Folder 第一版。
+
+---
+
+# 53. 临时 Chat
+
+可以考虑：
+
+```text
+Temporary Chat
+```
+
+不保存 Conversation。
+
+但这也是第二阶段。
+
+第一版保存即可。
+
+---
+
+# 54. Mobile / 小屏
+
+三栏不能直接压。
+
+移动：
+
+```text
+Conversation
+```
+
+作为主界面。
+
+左聊天历史：
+
+```text
+Drawer
+```
+
+右 Context：
+
+```text
+Sheet
+```
+
+Prompt Input sticky bottom。
+
+AI Elements 的基础组件本身是响应式和键盘可访问的，适合继续建立在其上。
+
+---
+
+# 55. Nuxt 集成注意点
+
+AI Elements Vue 官方对 Nuxt + `shadcn-nuxt` 有专门说明：AI Elements 目录可以和现有 `components/ui` 一起注册到 `componentDir`，避免 Nuxt 自动导入相关警告。
+
+你的项目建议保持：
+
+```text
+components/
+├── ui/
+│   └── shadcn-vue
+│
+├── ai-elements/
+│   └── upstream AI Elements Vue
+│
+└── admin/
+    └── ai/
+        └── 你的业务组件
+```
+
+这个边界很重要。
+
+---
+
+# 56. 不要直接修改 ai-elements/
+
+最好：
+
+```text
+components/ai-elements/
+```
+
+尽量保持 upstream。
+
+业务包装：
+
+```text
+components/admin/ai/
+```
+
+例如：
+
+```text
+AIChatMessage.vue
+AIToolActivity.vue
+AIReferenceList.vue
+AIPromptSelector.vue
+AIContextPicker.vue
+```
+
+这样以后 AI Elements Vue 更新时比较容易同步。
+
+---
+
+# 57. 推荐目录
+
+```text
+components/admin/ai/
+├── assistant/
+│   ├── AIAssistantLayout.vue
+│   ├── AIConversationSidebar.vue
+│   ├── AIConversationHeader.vue
+│   ├── AIConversation.vue
+│   ├── AIMessageRenderer.vue
+│   ├── AIPromptComposer.vue
+│   ├── AIPresetSelector.vue
+│   ├── AIScopeSelector.vue
+│   ├── AIDepthSelector.vue
+│   ├── AIContextInspector.vue
+│   ├── AIContextPicker.vue
+│   ├── AIContextChip.vue
+│   ├── AIReference.vue
+│   ├── AIToolActivity.vue
+│   ├── AITaskProgress.vue
+│   └── AIEmptyState.vue
+│
+├── prompts/
+│   ├── PromptList.vue
+│   ├── PromptEditor.vue
+│   ├── PromptInstructions.vue
+│   ├── PromptVariablePicker.vue
+│   ├── PromptToolPolicy.vue
+│   └── PromptPreview.vue
+│
+├── reports/
+└── suggestions/
+```
+
+---
+
+# 58. AI Elements 的映射
+
+可以直接冻结：
+
+| 你的功能 | AI Elements Vue |
+|---|---|
+| 对话滚动 | Conversation |
+| 消息 | Message |
+| Markdown 输出 | MessageResponse |
+| Copy / Retry | MessageActions |
+| 多次重新生成 | MessageBranch |
+| 输入 | PromptInput |
+| 来源 | Sources |
+| Tool 调用 | Tool |
+| 深度分析进度 | Task |
+| 文件附件 | Attachments，后续 |
+| 业务实体 | 自己包装 |
+
+这样不用重复造基础 AI UI。
+
+---
+
+# 59. 第一版 Preset
+
+我建议直接内置：
+
+```text
+General Assistant
+Site Auditor
+SEO Auditor
+Content Reviewer
+Internal Link Finder
+Profile Reviewer
+Store Reviewer
+Comment Analyst
+```
+
+够了。
+
+不要内置 30 个 Prompt。
+
+---
+
+# 60. 默认 General Assistant
+
+配置：
+
+```text
+Scope:
+Entire Site
+
+Depth:
+Balanced
+
+Tools:
+Automatic Read Only
+
+Model:
+Analysis
+```
+
+行为：
+
+```text
+优先回答用户问题
+需要数据时才调用 tool
+不为了“显得智能”每次都扫整站
+```
+
+这点能进一步节省 Token。
+
+---
+
+# 61. Site Auditor
+
+适合：
+
+```text
+整个站有什么值得优化？
+```
+
+允许：
+
+```text
+Site
+Content
+SEO
+Profile
+Store
+Comments Summary
+```
+
+默认：
+
+```text
+Balanced
+```
+
+---
+
+# 62. SEO Auditor
+
+允许：
+
+```text
+SEO
+Posts
+Pages
+Profile
+Products
+```
+
+回答优先：
+
+```text
+问题
+影响
+优先级
+建议
+Sources
+```
+
+---
+
+# 63. Content Reviewer
+
+默认 Scope：
+
+```text
+Current Content / Posts
+```
+
+侧重：
+
+```text
+clarity
+structure
+duplication
+content gaps
+internal links
+```
+
+---
+
+# 64. Profile Reviewer
+
+正好对应刚才的 `/profile`：
+
+```text
+Experience
+Projects
+Skills
+Social
+Current Focus
+SEO
+```
+
+可以问：
+
+```text
+我的 Profile 哪些内容显得重复？
+```
+
+---
+
+# 65. Prompt UI 最终体验
+
+用户进入 Assistant：
+
+```text
+Preset: General Assistant
+Scope: Entire Site
+Depth: Balanced
+```
+
+选择：
+
+```text
+SEO Auditor
+```
+
+自动变：
+
+```text
+Scope: SEO
+Suggested:
+[ Find missing metadata ]
+[ Find internal link opportunities ]
+[ Prioritize SEO issues ]
+```
+
+再切：
+
+```text
+Scope: Current Page
+```
+
+然后输入：
+
+```text
+这个页面还有什么问题？
+```
+
+AI 只拿：
+
+```text
+Current Page
++
+SEO tools
++
+SEO preset
+```
+
+不会把整站全部塞进去。
+
+这同时解决了：
+
+> UX、准确性、Tool 路由、Token 成本。
+
+---
+
+# 66. 我建议现在正式把 AI Assistant 定义成
+
+```text
+AI Assistant
+=
+Conversation UI
++
+Preset
++
+Scope
++
+Context
++
+Tools
++
+Sources
++
+Tasks
++
+Suggestions
+```
+
+而不是：
+
+```text
+AI Assistant
+=
+Textarea + Markdown
+```
+
+这会有明显的产品层级提升。
+
+---
+
+## 推荐开发阶段
+
+### C1 — AI Elements UI Foundation
+
+接入：
+
+```text
+Conversation
+Message
+PromptInput
+Sources
+Tool
+Task
+```
+
+先把当前简陋 Chat UI 替掉。官方组件已经具备消息渲染、流式响应、工具状态、来源和任务流程所需的大部分基础设施。
+
+### C2 — Assistant Workspace
+
+实现：
+
+```text
+Conversation Sidebar
+Scope
+Context Inspector
+Depth
+Context Picker
+References
+```
+
+### C3 — Prompt / Preset System
+
+实现：
+
+```text
+Built-in Presets
+Custom Presets
+Prompt Editor
+Variables
+Suggested Questions
+Tool Policies
+Preset Versioning
+```
+
+### C4 — Structured AI Parts
+
+实现：
+
+```text
+Tool Activities
+Tasks
+Entity References
+Suggestions
+Reports
+```
+
+### C5 — Integration
+
+最后打通：
+
+```text
+Page AI → Discuss
+Report → Discuss
+Suggestion → Discuss
+Profile → Ask AI
+Post → Ask AI
+Product → Ask AI
+```
+
+这里我尤其建议把 **“自定义提示词”升级为 `Assistant Preset`**：用户看到的不只是一个 prompt 文本，而是一整套“AI 工作模式”，包括 Instructions、默认 Scope、模型类型、分析深度、Tool 范围、回答偏好和快捷问题。这样既比普通 Prompt 管理器好用，又能直接与你前面做的 Tool Router、缓存、Token Budget、AI Data Policy 对接。

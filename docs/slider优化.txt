@@ -1,0 +1,1433 @@
+可以，之前把 Slider 放成“整容器通栏”对你这个**两栏个人博客首页**确实偏大了。更适合的做法是：
+
+> **Slider 只放在左侧 Main Content 顶部，与文章列表同宽；右侧 Sidebar 从顶部正常开始。**
+
+这样首页结构会更紧凑，也更像内容型博客。
+
+# Nuxt 博客首页 Slider 左栏化优化设计
+
+## 1. 调整目标
+
+原设计：
+
+```text
+Header
+
+┌────────────────────────────────────────────┐
+│               Full Width Slider            │
+└────────────────────────────────────────────┘
+
+┌───────────────────────────┬────────────────┐
+│ Main Content              │ Sidebar        │
+└───────────────────────────┴────────────────┘
+```
+
+问题：
+
+```text
+Slider 太宽
+PC 视觉占比过大
+首屏几乎被 Slider 占据
+文章内容下移
+侧边栏首屏利用率低
+不符合“内容优先”的个人博客定位
+```
+
+改成：
+
+```text
+Header
+
+┌────────────────────────────┬───────────────┐
+│ Slider                     │ Sidebar       │
+│                            │               │
+│ Latest Posts               │ Search        │
+│                            │ About         │
+│ Post                       │ Latest        │
+│ Post                       │ Categories    │
+│ Post                       │ Tags          │
+│                            │               │
+└────────────────────────────┴───────────────┘
+
+Footer
+```
+
+Slider：
+
+```text
+只属于 Main Column
+```
+
+不占：
+
+```text
+Sidebar Column
+```
+
+---
+
+# 2. 首页主布局
+
+建议首页 Container：
+
+```text
+max-width: 1280px
+```
+
+左右比例：
+
+```text
+Main:
+约 72%
+
+Sidebar:
+约 28%
+```
+
+更具体可以直接冻结：
+
+```text
+Main:
+minmax(0, 1fr)
+
+Sidebar:
+300px ~ 320px
+
+Gap:
+28px ~ 32px
+```
+
+例如：
+
+```text
+Container = 1280px
+
+Sidebar = 300px
+Gap = 32px
+
+Main ≈ 948px
+```
+
+这样 Slider 实际最大宽度只有：
+
+```text
+约 900~950px
+```
+
+比之前 1280px 通栏小很多。
+
+---
+
+# 3. 推荐 Grid
+
+Nuxt 页面布局概念：
+
+```text
+grid-template-columns:
+minmax(0, 1fr) 300px;
+```
+
+大屏可以：
+
+```text
+minmax(0, 1fr) 320px
+```
+
+推荐不要让 Sidebar 超过：
+
+```text
+320px
+```
+
+否则 Main 又太窄。
+
+---
+
+# 4. Slider 新比例
+
+之前：
+
+```text
+16:7
+```
+
+在 900~950px 左栏宽度下仍然会显得偏高。
+
+建议 PC 首页 Slider 改为：
+
+```text
+16:6
+```
+
+或者更接近 Banner：
+
+```text
+2.5:1
+```
+
+我的推荐：
+
+```text
+Desktop:
+16:6
+```
+
+约等于：
+
+```text
+2.67:1
+```
+
+例如 Main Width：
+
+```text
+920px
+```
+
+Slider Height：
+
+```text
+约 345px
+```
+
+视觉会明显更轻。
+
+---
+
+# 5. 不建议继续 16:7
+
+如果：
+
+```text
+920 × 402
+```
+
+再加标题文案，会稍微偏重。
+
+改成：
+
+```text
+920 × 345
+```
+
+会更适合博客。
+
+所以建议新的固定标准：
+
+```text
+Desktop Slider:
+16:6
+```
+
+---
+
+# 6. 后台推荐图片尺寸同步调整
+
+旧规范：
+
+```text
+1600 × 700
+16:7
+```
+
+建议调整为：
+
+```text
+1440 × 540
+```
+
+或者：
+
+```text
+1600 × 600
+```
+
+比例均为：
+
+```text
+8:3
+≈ 16:6
+```
+
+我建议统一：
+
+```text
+Recommended:
+1600 × 600
+```
+
+最低：
+
+```text
+1200 × 450
+```
+
+---
+
+# 7. 图片仍然使用 object-cover
+
+前端：
+
+```text
+width: 100%
+height: 100%
+object-fit: cover
+```
+
+外层：
+
+```text
+aspect-ratio: 8 / 3
+```
+
+这样不论原图：
+
+```text
+1920×1080
+1600×900
+3000×2000
+```
+
+最终 Slider 高度始终一致。
+
+---
+
+# 8. 最大高度
+
+即使超宽屏：
+
+建议：
+
+```text
+max-height: 360px
+```
+
+或者：
+
+```text
+380px
+```
+
+我更推荐：
+
+```text
+360px
+```
+
+因此：
+
+```text
+aspect-ratio: 8 / 3;
+max-height: 360px;
+```
+
+不会越放越大。
+
+---
+
+# 9. 首页结构建议
+
+最终首页：
+
+```text
+Header
+
+Container
+
+┌──────────────────────────────┬───────────────┐
+│                              │ Search        │
+│ Slider                       │               │
+│ 约 900×340                   │ About Me      │
+│                              │               │
+│ Latest Posts        ▦  ☰     │ Latest Posts  │
+│                              │               │
+│ Post Card                    │ Categories    │
+│                              │               │
+│ Post Card                    │ Tags          │
+│                              │               │
+│ Post Card                    │               │
+│                              │ AdSlot        │
+│ Pagination                   │               │
+└──────────────────────────────┴───────────────┘
+
+Footer
+```
+
+这样首屏右侧不会浪费。
+
+---
+
+# 10. Slider 和文章列表之间的距离
+
+不要太大。
+
+推荐：
+
+```text
+24px
+```
+
+Slider 下方：
+
+```text
+margin-bottom: 24px
+```
+
+然后直接：
+
+```text
+最新文章
+```
+
+不要再插：
+
+```text
+48px / 64px
+```
+
+大间距。
+
+---
+
+# 11. Slider 圆角
+
+如果你的博客整体采用 shadcn 风格：
+
+推荐：
+
+```text
+border-radius:
+12px
+```
+
+最多：
+
+```text
+16px
+```
+
+不要：
+
+```text
+24px / 32px
+```
+
+会太像营销站。
+
+---
+
+# 12. Slider 文案区域缩小
+
+因为 Slider 整体缩小后，文案也要更克制。
+
+建议：
+
+```text
+Title:
+24~32px
+
+Description:
+14~16px
+
+CTA:
+Small / Default Button
+```
+
+不要再用：
+
+```text
+48~64px
+```
+
+Hero Heading。
+
+---
+
+# 13. 文案最大宽度
+
+推荐：
+
+```text
+max-width:
+55% ~ 60%
+```
+
+例如：
+
+```text
+Title
+Description
+CTA
+```
+
+全部放左下。
+
+防止整张 Slider 被文字盖住。
+
+---
+
+# 14. 文案长度
+
+继续限制：
+
+```text
+Title:
+最多 50~60 字符
+
+Description:
+最多 100~120 字符
+```
+
+首页 Slider 不应该像文章摘要一样长。
+
+---
+
+# 15. 图片焦点
+
+因为现在横向比例更宽、更矮：
+
+建议媒体库增加或继续使用：
+
+```text
+focal point
+```
+
+例如：
+
+```text
+center
+left
+right
+```
+
+第一版至少支持：
+
+```text
+object-position
+```
+
+后台可配置：
+
+```text
+Center
+Left
+Right
+```
+
+避免人物刚好被裁掉。
+
+---
+
+# 16. 更推荐的实现：焦点坐标
+
+如果媒体库以后支持：
+
+```text
+focal_x
+focal_y
+```
+
+例如：
+
+```text
+50%
+35%
+```
+
+则前端：
+
+```text
+object-position: 50% 35%;
+```
+
+比简单：
+
+```text
+left / center / right
+```
+
+更灵活。
+
+但这属于增强项。
+
+---
+
+# 17. Sidebar 顶部对齐
+
+关键规则：
+
+```text
+Slider 顶部
+=
+Sidebar 顶部
+```
+
+不要出现：
+
+```text
+Slider 从顶部开始
+Sidebar 再下移 60px
+```
+
+两栏顶部视觉要齐。
+
+例如：
+
+```text
+┌───────────────────────────┬─────────────┐
+│ Slider                    │ Search      │
+│                           │             │
+│                           │ About       │
+└───────────────────────────┴─────────────┘
+```
+
+这样页面结构会非常稳定。
+
+---
+
+# 18. Sidebar 第一项建议
+
+如果 Slider 左侧视觉已经比较强，
+
+右侧第一项不建议再放：
+
+```text
+大型图片广告
+```
+
+推荐：
+
+```text
+Search
+```
+
+或者：
+
+```text
+About Me
+```
+
+例如：
+
+```text
+Search
+↓
+About
+↓
+Latest
+↓
+Categories
+↓
+Ad
+```
+
+---
+
+# 19. Slider 不应该高于 Sidebar 首屏太多
+
+理想：
+
+```text
+Slider 高度 ≈
+Search + About + 一部分 Latest
+```
+
+例如：
+
+```text
+Slider:
+340px
+```
+
+Sidebar：
+
+```text
+Search       48px
+Gap          16px
+About       160px
+Gap          16px
+Latest      开始
+```
+
+视觉非常平衡。
+
+---
+
+# 20. 大屏布局
+
+例如：
+
+```text
+>= 1440px
+```
+
+不要继续把 Main 放大无限。
+
+Container：
+
+```text
+max-width: 1280px
+```
+
+或：
+
+```text
+1320px
+```
+
+即可。
+
+Slider 最大：
+
+```text
+约 950px
+```
+
+不会在 2K/4K 显示器变成巨幅广告牌。
+
+---
+
+# 21. 1200px 左右屏幕
+
+建议：
+
+```text
+Sidebar:
+280px
+```
+
+Gap：
+
+```text
+24px
+```
+
+Slider：
+
+```text
+约 800px
+```
+
+仍保持：
+
+```text
+8:3
+```
+
+高度：
+
+```text
+约 300px
+```
+
+非常适合。
+
+---
+
+# 22. Tablet
+
+例如：
+
+```text
+768px ~ 1023px
+```
+
+这里建议：
+
+```text
+隐藏 Sidebar
+```
+
+或把 Sidebar：
+
+```text
+放到 Main 后面
+```
+
+Slider：
+
+```text
+width: 100%
+```
+
+但因为屏幕本身已经窄：
+
+可以继续：
+
+```text
+16:7
+```
+
+或者：
+
+```text
+8:3
+```
+
+两者都行。
+
+为了保持实现简单：
+
+```text
+Tablet:
+8:3
+```
+
+---
+
+# 23. Mobile
+
+手机不要继续：
+
+```text
+8:3
+```
+
+会太扁。
+
+移动端仍建议：
+
+```text
+4:3
+```
+
+如果有 mobile image：
+
+```text
+4:3
+```
+
+例如：
+
+```text
+390×293
+```
+
+效果更好。
+
+---
+
+# 24. 响应式规格最终冻结
+
+推荐：
+
+```text
+Desktop >= 1024px
+
+Slider:
+Main Column only
+
+Aspect:
+8:3
+
+Max Height:
+360px
+```
+
+```text
+Tablet 768~1023px
+
+Slider:
+Full content width
+
+Aspect:
+8:3
+```
+
+```text
+Mobile < 768px
+
+Slider:
+Full width
+
+Aspect:
+4:3
+```
+
+---
+
+# 25. 图片后台规格更新
+
+后台 Slider Editor 提示：
+
+```text
+Desktop 推荐：
+1600 × 600
+
+比例：
+8:3
+
+前端最大显示高度：
+360px
+```
+
+Mobile：
+
+```text
+900 × 675
+
+4:3
+```
+
+---
+
+# 26. 不要固定绝对宽度
+
+不要：
+
+```text
+width: 900px
+```
+
+写死。
+
+正确：
+
+```text
+width: 100%
+```
+
+由：
+
+```text
+Main Column
+```
+
+控制宽度。
+
+这样：
+
+```text
+Sidebar 宽度改变
+Container 改变
+Responsive
+```
+
+Slider 都能自动跟随。
+
+---
+
+# 27. Nuxt 首页布局结构
+
+推荐概念：
+
+```vue
+<div class="blog-layout">
+  <main class="min-w-0">
+    <SiteSlider slider-key="home.hero" />
+
+    <LatestPosts />
+  </main>
+
+  <aside>
+    <BlogSidebar />
+  </aside>
+</div>
+```
+
+关键是：
+
+```text
+SiteSlider
+```
+
+必须放：
+
+```text
+main
+```
+
+内部。
+
+不要放：
+
+```text
+blog-layout
+```
+
+外面。
+
+---
+
+# 28. CSS 结构原则
+
+Desktop：
+
+```text
+display: grid
+
+grid-template-columns:
+minmax(0, 1fr) 300px
+
+gap:
+32px
+```
+
+Slider：
+
+```text
+width: 100%
+aspect-ratio: 8 / 3
+max-height: 360px
+overflow: hidden
+```
+
+---
+
+# 29. 首页 Card 模式下
+
+如果首页文章使用：
+
+```text
+2-column Card Grid
+```
+
+那么 Main ≈ 900px：
+
+每个 Card：
+
+```text
+约 430px
+```
+
+非常合适。
+
+结构：
+
+```text
+Slider
+
+Latest Posts
+
+┌────────────┐ ┌────────────┐
+│ Post Card  │ │ Post Card  │
+└────────────┘ └────────────┘
+
+┌────────────┐ ┌────────────┐
+│ Post Card  │ │ Post Card  │
+└────────────┘ └────────────┘
+```
+
+右边一直保持 Sidebar。
+
+---
+
+# 30. List 模式
+
+List：
+
+```text
+Slider
+
+Latest Posts
+
+┌───────┐ Article
+│ image │ Title
+│       │ Excerpt
+└───────┘ Meta
+
+...
+```
+
+也非常自然。
+
+---
+
+# 31. Slider 不参与 Sidebar Sticky
+
+Sidebar：
+
+可以：
+
+```text
+部分 sticky
+```
+
+Slider：
+
+正常文档流。
+
+不要 Slider Sticky。
+
+---
+
+# 32. 如果 Slider 只有一张
+
+仍然：
+
+```text
+8:3
+```
+
+作为：
+
+```text
+Featured Banner
+```
+
+使用。
+
+这样即使不开轮播，也不会布局改变。
+
+---
+
+# 33. 如果 Slider 关闭
+
+直接：
+
+```text
+Latest Posts
+```
+
+顶到 Main Column 顶部。
+
+右侧：
+
+```text
+Sidebar
+```
+
+仍从顶部开始。
+
+例如：
+
+```text
+┌────────────────────────────┬───────────────┐
+│ Latest Posts               │ Search        │
+│                            │ About         │
+└────────────────────────────┴───────────────┘
+```
+
+不要保留 Slider 空槽。
+
+---
+
+# 34. Slider 左栏化之后广告位置
+
+这样也更利于你刚才设计的广告系统。
+
+首页：
+
+```text
+Main
+├── Slider
+├── Latest Posts
+├── Post
+├── Post
+├── AdSlot home.feed.inline
+└── Post
+```
+
+Sidebar：
+
+```text
+Search
+About
+Latest
+Categories
+Tags
+AdSlot sidebar.bottom
+```
+
+两边职责不会冲突。
+
+---
+
+# 35. 最终首页推荐尺寸
+
+如果 Container：
+
+```text
+1280px
+```
+
+建议：
+
+```text
+Sidebar:
+300px
+
+Gap:
+32px
+
+Main:
+948px
+```
+
+Slider：
+
+```text
+948 × 356
+```
+
+约：
+
+```text
+8:3
+```
+
+这是我认为比较理想的尺寸。
+
+相比原来的：
+
+```text
+1280 × 560
+```
+
+或者：
+
+```text
+1280 × 480+
+```
+
+视觉面积会缩小非常明显。
+
+---
+
+# 36. 如果你还觉得大
+
+第二档可以用：
+
+```text
+3:1
+```
+
+比如：
+
+```text
+948 × 316
+```
+
+也很好。
+
+所以推荐提供两个内部 preset：
+
+```text
+Comfortable:
+8:3
+
+Compact:
+3:1
+```
+
+但后台不建议让管理员每次自由切。
+
+站点级：
+
+```text
+Slider Display Style
+```
+
+选择一次即可。
+
+---
+
+# 37. 我更推荐默认 Compact
+
+结合你的：
+
+```text
+个人技术博客
+两栏
+高信息密度
+文章优先
+```
+
+我其实更建议最终直接：
+
+```text
+Desktop:
+3:1
+```
+
+例如：
+
+```text
+Main 930px
+
+Slider Height:
+310px
+```
+
+这个比例会更舒服。
+
+因此可以最终冻结：
+
+```text
+Desktop:
+3:1
+
+Mobile:
+4:3
+```
+
+而不是继续做传统 Hero Banner。
+
+---
+
+# 38. 最终推荐方案
+
+我建议你的博客正式采用：
+
+```text
+PC 首页：
+
+Container
+1280px
+
+Main
+约 930~950px
+
+Sidebar
+300px
+
+Gap
+32px
+```
+
+Slider：
+
+```text
+只在 Main Column
+
+width:
+100%
+
+aspect-ratio:
+3 / 1
+
+max-height:
+320px
+
+object-fit:
+cover
+```
+
+后台 Desktop 图片：
+
+```text
+推荐：
+1500 × 500
+```
+
+或者：
+
+```text
+1800 × 600
+```
+
+Mobile：
+
+```text
+900 × 675
+4:3
+```
+
+---
+
+# 39. 最终首页视觉
+
+```text
+┌────────────────────────────────────────────────┐
+│ Header                                         │
+├────────────────────────────────────────────────┤
+│                                                │
+│ ┌────────────────────────────┐ ┌──────────────┐ │
+│ │       Slider  3:1          │ │ Search       │ │
+│ │                            │ │              │ │
+│ └────────────────────────────┘ │ About        │ │
+│                                │              │ │
+│ Latest Posts          ▦  ☰     │ Latest       │ │
+│                                │              │ │
+│ ┌──────────┐ ┌──────────┐      │ Categories   │ │
+│ │ Post     │ │ Post     │      │              │ │
+│ └──────────┘ └──────────┘      │ Tags         │ │
+│                                │              │ │
+│ ┌──────────┐ ┌──────────┐      │ Ad           │ │
+│ │ Post     │ │ Post     │      │              │ │
+│ └──────────┘ └──────────┘      │              │ │
+│                                │              │ │
+└────────────────────────────┬───┴──────────────┘
+                             │
+                           Footer
+```
+
+---
+
+# 40. 最终冻结规则
+
+### Rule 1
+
+首页 Slider 不再通栏。
+
+### Rule 2
+
+Slider 必须位于：
+
+```text
+Main Content Column
+```
+
+内部。
+
+### Rule 3
+
+Sidebar 与 Slider 顶部对齐。
+
+### Rule 4
+
+PC Slider 默认：
+
+```text
+3:1
+```
+
+### Rule 5
+
+Main Column 最大约：
+
+```text
+930~950px
+```
+
+因此 Slider 不再成为大型 Hero。
+
+### Rule 6
+
+PC Slider：
+
+```text
+max-height: 320px
+```
+
+### Rule 7
+
+Mobile：
+
+```text
+4:3
+```
+
+使用独立 Mobile Image。
+
+### Rule 8
+
+图片统一：
+
+```text
+object-cover
+```
+
+### Rule 9
+
+后台 Desktop 推荐图调整为：
+
+```text
+1500×500
+```
+
+### Rule 10
+
+Slider 关闭后不保留任何空白占位。
+
+我建议你这次直接从原来的 **`16:7 通栏 Slider` 改成 `左侧 Main Column + PC 3:1`**。对你这个两栏技术博客会合适很多：轮播图仍然有存在感，但不会压住文章和侧边栏，首屏能同时看到 Slider、Sidebar 和“最新文章”入口。

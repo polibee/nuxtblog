@@ -1,0 +1,2521 @@
+可以。既然商城已经开发完成，这次不建议再动商城业务逻辑，重点只优化 **商品列表排版、商品卡片尺寸、信息层级、响应式布局和图片比例**。
+
+你这个博客商城更适合做成“内容型商城”，不要像淘宝那样把卡片做得很密，也不要像 SaaS Landing Page 那样把单张商品卡做得太大。
+
+# Nuxt 博客商城商品卡片与列表排版优化方案
+
+## 1. 优化目标
+
+当前重点解决：
+
+```text
+商品卡片太大 / 太小
+图片比例不统一
+卡片高度不一致
+标题长度导致布局跳动
+价格和按钮层级不清晰
+PC 一屏显示商品数量不合理
+移动端卡片过于拥挤
+数字商品和普通商品展示信息混乱
+```
+
+这次只优化：
+
+```text
+Store Frontend UI
+```
+
+不修改：
+
+```text
+商品
+订单
+支付
+库存
+优惠
+会员
+后台业务
+```
+
+---
+
+# 2. 商城整体定位
+
+你的站点主体仍然是：
+
+```text
+个人博客
++
+轻商城
+```
+
+因此商城视觉应该：
+
+```text
+简洁
+内容优先
+中等信息密度
+轻卡片
+图片统一
+和博客主站一致
+```
+
+不要做：
+
+```text
+电商平台式超密集瀑布流
+```
+
+也不要做：
+
+```text
+一行两个巨大商品卡片
+```
+
+---
+
+# 3. 商城页面最大宽度
+
+建议继续和博客主站保持统一：
+
+```text
+max-width: 1280px
+```
+
+商城列表页建议：
+
+```text
+Full Width
+```
+
+不要再使用博客：
+
+```text
+Main + Sidebar
+```
+
+两栏布局。
+
+原因是商品 Grid 本身需要横向空间。
+
+最终：
+
+```text
+Header
+
+Store Container
+├── Store Header
+├── Category / Filter
+├── Product Grid
+└── Pagination
+
+Footer
+```
+
+---
+
+# 4. PC 商品 Grid
+
+我建议你的默认规格直接冻结为：
+
+```text
+>= 1280px
+4 columns
+```
+
+例如：
+
+```text
+Container: 1280px
+
+Gap:
+24px
+
+Card width:
+约 290px
+```
+
+这是非常合适的博客商城尺寸。
+
+---
+
+# 5. 不建议 PC 默认 3 列
+
+1280px 下如果只：
+
+```text
+3 columns
+```
+
+单张卡片会达到：
+
+```text
+380~400px
+```
+
+非常容易显得：
+
+```text
+商品图巨大
+页面像 Landing Page
+一屏商品太少
+```
+
+如果你现在觉得商品卡片太大，很可能就是：
+
+> Grid 列数太少。
+
+所以优先改：
+
+```text
+3 columns
+→
+4 columns
+```
+
+---
+
+# 6. 不建议默认 5 列
+
+5 列：
+
+```text
+约 230px
+```
+
+对于你的商城又略小。
+
+尤其需要显示：
+
+```text
+标题
+价格
+描述
+标签
+按钮
+```
+
+会显得拥挤。
+
+所以 PC 最推荐：
+
+```text
+4 columns
+```
+
+---
+
+# 7. 响应式列数
+
+推荐冻结：
+
+```text
+>= 1280px
+4 列
+```
+
+```text
+1024 ~ 1279px
+3 列
+```
+
+```text
+640 ~ 1023px
+2 列
+```
+
+```text
+< 640px
+2 列
+```
+
+但是手机的小卡片需要切换成：
+
+```text
+Compact Product Card
+```
+
+---
+
+# 8. 超小手机
+
+如果：
+
+```text
+< 420px
+```
+
+仍然可以：
+
+```text
+2 columns
+```
+
+但：
+
+```text
+Gap:
+12px
+```
+
+并隐藏：
+
+```text
+长描述
+复杂按钮
+次要 Metadata
+```
+
+不要直接退成一列。
+
+商城手机端：
+
+```text
+2 列
+```
+
+通常浏览效率更高。
+
+---
+
+# 9. 推荐 Grid Gap
+
+Desktop：
+
+```text
+24px
+```
+
+Tablet：
+
+```text
+20px
+```
+
+Mobile：
+
+```text
+12~16px
+```
+
+不要 PC：
+
+```text
+40px
+```
+
+间距太大，会进一步放大商品卡片视觉。
+
+---
+
+# 10. 商品卡片不要固定绝对高度
+
+不推荐：
+
+```css
+height: 520px;
+```
+
+应该：
+
+```text
+Card
+├── Fixed Ratio Image
+└── Flexible Content
+```
+
+同时通过：
+
+```text
+标题行数限制
+描述行数限制
+固定 Footer 区域
+```
+
+确保卡片视觉高度一致。
+
+---
+
+# 11. 商品图比例
+
+这个是整个商品卡最重要的规则。
+
+推荐默认：
+
+```text
+4:3
+```
+
+而不是：
+
+```text
+1:1
+```
+
+原因：
+
+你的商城可能包含：
+
+```text
+数字产品
+软件
+会员
+教程
+模板
+虚拟商品
+卡密
+工具
+```
+
+这种商品不一定是传统实物。
+
+`4:3` 更适合：
+
+```text
+Screenshot
+Product Cover
+Software UI
+Course Cover
+```
+
+---
+
+# 12. 推荐商品图规格
+
+后台推荐上传：
+
+```text
+1200 × 900
+```
+
+比例：
+
+```text
+4:3
+```
+
+最低：
+
+```text
+800 × 600
+```
+
+前端：
+
+```text
+aspect-ratio: 4 / 3;
+overflow: hidden;
+```
+
+---
+
+# 13. 图片适配
+
+普通商品：
+
+```text
+object-cover
+```
+
+但是数字产品 Logo / 软件 Logo：
+
+可以允许：
+
+```text
+object-contain
+```
+
+因此建议商品增加：
+
+```text
+image_fit
+```
+
+值：
+
+```text
+cover
+contain
+```
+
+默认：
+
+```text
+cover
+```
+
+---
+
+# 14. contain 商品背景
+
+如果：
+
+```text
+image_fit = contain
+```
+
+图片区域应该有统一：
+
+```text
+muted background
+```
+
+例如使用当前 shadcn Theme 的：
+
+```text
+muted
+```
+
+不要让透明 Logo：
+
+```text
+漂浮在不同颜色背景上
+```
+
+---
+
+# 15. 商品卡片结构
+
+推荐：
+
+```text
+┌──────────────────────────┐
+│                          │
+│       Product Image      │
+│           4:3            │
+│                          │
+├──────────────────────────┤
+│ Category                 │
+│                          │
+│ Product Title            │
+│                          │
+│ Short Description        │
+│                          │
+│ ¥99                      │
+│                查看详情 →│
+└──────────────────────────┘
+```
+
+不要塞太多内容。
+
+---
+
+# 16. 商品卡应该显示哪些内容
+
+默认推荐：
+
+```text
+商品图片
+Category / Type
+商品标题
+简短描述
+价格
+优惠价格
+Badge
+```
+
+可以显示：
+
+```text
+销量
+```
+
+但不是必须。
+
+不要默认显示：
+
+```text
+SKU
+库存数
+创建时间
+浏览量
+作者
+完整标签
+```
+
+这些会让卡片太乱。
+
+---
+
+# 17. 商品标题
+
+建议：
+
+```text
+font-size:
+16px
+```
+
+Desktop 可以：
+
+```text
+16~17px
+```
+
+限制：
+
+```text
+2 lines
+```
+
+CSS：
+
+```text
+line-clamp-2
+```
+
+标题区域保持：
+
+```text
+min-height ≈ 两行
+```
+
+即使只有一行标题，也保留第二行空间。
+
+这样商品卡不会：
+
+```text
+一张高
+一张低
+```
+
+---
+
+# 18. 不要显示巨大标题
+
+商品列表不是商品详情页。
+
+不要：
+
+```text
+20px
+22px
+24px
+```
+
+默认 Product Card Title。
+
+我建议：
+
+```text
+16px
+font-medium / semibold
+```
+
+足够。
+
+---
+
+# 19. 商品描述
+
+描述：
+
+```text
+14px
+muted foreground
+```
+
+最多：
+
+```text
+2 lines
+```
+
+推荐：
+
+```text
+40~80 字
+```
+
+后台商品摘要最好有：
+
+```text
+short_description
+```
+
+不要直接截商品详情正文。
+
+---
+
+# 20. 手机端描述
+
+Mobile：
+
+直接隐藏：
+
+```text
+description
+```
+
+或者最多：
+
+```text
+1 line
+```
+
+我更推荐：
+
+```text
+< 640px
+隐藏 description
+```
+
+否则两列卡片太高。
+
+---
+
+# 21. Category
+
+Category 只用很轻的文本：
+
+```text
+模板
+软件
+会员
+```
+
+不要每个 Category 都：
+
+```text
+大型 Badge
+```
+
+可以：
+
+```text
+12px muted
+```
+
+放标题上方。
+
+---
+
+# 22. Badge
+
+Badge 只留给真正状态：
+
+```text
+热门
+新品
+限时
+免费
+会员
+```
+
+最多：
+
+```text
+1~2 个
+```
+
+例如商品图片左上：
+
+```text
+[热门]
+```
+
+右上：
+
+```text
+[-20%]
+```
+
+不要一张商品出现：
+
+```text
+热门
+精选
+新品
+推荐
+数字商品
+虚拟商品
+会员
+```
+
+七八个 Badge。
+
+---
+
+# 23. 商品价格
+
+价格应该成为卡片第二视觉重点。
+
+推荐：
+
+```text
+Current Price:
+18~20px
+semibold
+```
+
+例如：
+
+```text
+¥49
+```
+
+---
+
+# 24. 原价
+
+有优惠：
+
+```text
+¥49   ¥79
+```
+
+原价：
+
+```text
+13px
+line-through
+muted
+```
+
+不要和现价一样大。
+
+---
+
+# 25. 免费商品
+
+不要显示：
+
+```text
+¥0.00
+```
+
+前端建议：
+
+```text
+免费
+```
+
+更直观。
+
+后台仍然：
+
+```text
+price = 0
+```
+
+---
+
+# 26. 会员商品
+
+如果商品会员免费：
+
+可以：
+
+```text
+¥49
+会员免费
+```
+
+或者：
+
+```text
+会员专享
+```
+
+不要把会员规则写成两行长说明。
+
+---
+
+# 27. CTA Button 是否需要每张卡都有
+
+我建议：
+
+> Desktop 不需要每张 Product Card 都放一个巨大按钮。
+
+整个 Card 可以点击。
+
+底部只需要：
+
+```text
+查看详情 →
+```
+
+甚至可以完全不显示 CTA。
+
+因为：
+
+```text
+标题
+图片
+Card
+```
+
+本身都可以点击。
+
+---
+
+# 28. 为什么不要大按钮
+
+如果一行 4 张卡：
+
+每张底部都有：
+
+```text
+[立即购买]
+```
+
+会让整个商城像广告页。
+
+你的站点更适合：
+
+```text
+轻量浏览
+↓
+商品详情
+↓
+购买
+```
+
+---
+
+# 29. 快速购买
+
+如果真的需要：
+
+Hover Desktop 时：
+
+```text
+Add to Cart
+```
+
+或者：
+
+```text
+Quick Buy
+```
+
+再出现。
+
+但第一版不推荐。
+
+---
+
+# 30. Card 整体点击
+
+建议整个：
+
+```text
+Card Image
+Title
+```
+
+都进入：
+
+```text
+/product/[slug]
+```
+
+但是内部：
+
+```text
+收藏
+加入购物车
+```
+
+按钮使用独立事件。
+
+---
+
+# 31. 商品 Card Padding
+
+图片区域：
+
+```text
+padding = 0
+```
+
+内容：
+
+Desktop：
+
+```text
+16px
+```
+
+Mobile：
+
+```text
+12px
+```
+
+不要：
+
+```text
+24~32px
+```
+
+那会造成卡片太大。
+
+---
+
+# 32. Card Border
+
+保持你的 shadcn 风格：
+
+```text
+border
+bg-card
+text-card-foreground
+```
+
+圆角：
+
+```text
+10~12px
+```
+
+推荐：
+
+```text
+12px
+```
+
+---
+
+# 33. Shadow
+
+不要默认：
+
+```text
+large shadow
+```
+
+建议：
+
+```text
+border
++
+很轻的 hover shadow
+```
+
+普通状态：
+
+```text
+shadow-none
+```
+
+或者：
+
+```text
+shadow-sm
+```
+
+Hover：
+
+```text
+shadow-md
+```
+
+---
+
+# 34. Hover 效果
+
+Desktop：
+
+```text
+Card:
+轻微上移 2px
+
+Image:
+scale 1.02~1.04
+
+Border:
+略增强
+```
+
+不要：
+
+```text
+translateY(-10px)
+scale(1.1)
+```
+
+太夸张。
+
+---
+
+# 35. 图片 Hover
+
+图片外层：
+
+```text
+overflow-hidden
+```
+
+图片：
+
+```text
+transition-transform
+duration 300ms
+```
+
+Hover：
+
+```text
+scale 1.03
+```
+
+足够。
+
+---
+
+# 36. Card 信息区高度
+
+为了统一，可以设计：
+
+```text
+Content
+
+Category        20px
+Title           48px
+Description     42px
+Spacer
+Price           28px
+```
+
+因此 Desktop 商品 Card：
+
+图片约：
+
+```text
+290 × 218
+```
+
+内容区：
+
+```text
+约 150~170px
+```
+
+总高度：
+
+```text
+约 390~410px
+```
+
+比较合理。
+
+---
+
+# 37. 当前如果卡片特别大
+
+如果你现在 Card：
+
+```text
+宽 380px
+高 550px+
+```
+
+建议目标直接压到：
+
+```text
+宽 280~300px
+高 390~420px
+```
+
+PC 一屏视觉会舒服很多。
+
+---
+
+# 38. Desktop 最终尺寸示例
+
+Container：
+
+```text
+1280px
+```
+
+Grid：
+
+```text
+4 columns
+```
+
+Gap：
+
+```text
+24px
+```
+
+可用宽：
+
+```text
+1280 - 72
+= 1208px
+```
+
+每张：
+
+```text
+302px
+```
+
+如果 Container 有左右 Padding：
+
+实际大约：
+
+```text
+285~295px
+```
+
+这是非常好的商品卡大小。
+
+---
+
+# 39. Store Header
+
+商城顶部不要做巨大 Hero。
+
+推荐：
+
+```text
+商城
+
+数字产品、工具与资源。
+
+[Search Product]
+```
+
+高度控制。
+
+不要再：
+
+```text
+500px Hero
+```
+
+否则商城首屏更拥挤。
+
+---
+
+# 40. Category Filter
+
+推荐横向：
+
+```text
+全部
+模板
+工具
+会员
+课程
+其他
+```
+
+使用：
+
+```text
+Tabs / compact buttons
+```
+
+不要左边再增加一个巨大 Category Sidebar。
+
+---
+
+# 41. 如果分类很多
+
+超过：
+
+```text
+6~8 个
+```
+
+改：
+
+```text
+Category Select
++
+Top Categories
+```
+
+不要让顶部两三行全是分类。
+
+---
+
+# 42. Filter Toolbar
+
+结构：
+
+```text
+全部商品  42
+
+[Category ▼] [Price ▼]
+
+                 [最新 ▼]
+```
+
+Desktop 一行即可。
+
+---
+
+# 43. 排序
+
+建议：
+
+```text
+最新
+价格低到高
+价格高到低
+热门
+```
+
+不要第一版加入十几个排序选项。
+
+---
+
+# 44. 搜索框
+
+搜索商品可以：
+
+```text
+max-width: 320px
+```
+
+不要：
+
+```text
+width: 100%
+```
+
+占满整个商城顶部。
+
+Mobile：
+
+再：
+
+```text
+width: 100%
+```
+
+---
+
+# 45. Featured Products
+
+如果需要精选商品：
+
+不要再做一套巨型 Card。
+
+可以：
+
+```text
+Featured
+```
+
+还是使用普通 ProductCard。
+
+只是：
+
+```text
+featured badge
+```
+
+即可。
+
+保持布局一致。
+
+---
+
+# 46. 数字商品和实体商品
+
+如果以后两种都有：
+
+Card 不需要不同组件。
+
+统一：
+
+```text
+ProductCard
+```
+
+通过 Badge：
+
+```text
+数字
+实体
+```
+
+或者 Category 区分。
+
+不要出现：
+
+```text
+DigitalProductCard
+PhysicalProductCard
+MembershipProductCard
+```
+
+三套视觉。
+
+---
+
+# 47. Product Card Variant
+
+最多建议两个：
+
+```text
+default
+compact
+```
+
+### default
+
+Desktop / Tablet Grid。
+
+### compact
+
+Mobile 或推荐列表。
+
+不要设计：
+
+```text
+default
+large
+small
+mini
+horizontal
+feature
+hero
+marketing
+```
+
+太多 Variant 后面很难统一。
+
+---
+
+# 48. Compact Card
+
+Mobile：
+
+```text
+┌───────────────┐
+│               │
+│    Image      │
+│     4:3       │
+│               │
+├───────────────┤
+│ Category      │
+│ Title         │
+│ Title         │
+│ ¥49           │
+└───────────────┘
+```
+
+隐藏：
+
+```text
+Description
+CTA
+销量
+其他 metadata
+```
+
+---
+
+# 49. Mobile 两栏尺寸
+
+例如：
+
+```text
+390px viewport
+```
+
+Padding：
+
+```text
+16px × 2
+```
+
+Gap：
+
+```text
+12px
+```
+
+可用：
+
+```text
+346px
+```
+
+每张：
+
+```text
+173px
+```
+
+减 Gap 后约：
+
+```text
+167px
+```
+
+图片：
+
+```text
+167 × 125
+```
+
+非常合理。
+
+---
+
+# 50. Mobile 标题
+
+```text
+14px
+line-clamp-2
+```
+
+价格：
+
+```text
+16px
+```
+
+Category：
+
+```text
+11~12px
+```
+
+Content Padding：
+
+```text
+10~12px
+```
+
+---
+
+# 51. 手机不要显示按钮
+
+两列 Card 再塞：
+
+```text
+立即购买
+```
+
+一定会拥挤。
+
+Mobile：
+
+```text
+Card click
+→ Product Detail
+```
+
+即可。
+
+---
+
+# 52. Tablet
+
+Tablet 2 列时：
+
+可以保留：
+
+```text
+Description
+```
+
+最多两行。
+
+商品卡会比较舒服。
+
+---
+
+# 53. Product Image Placeholder
+
+没有图片：
+
+不要显示破图。
+
+统一：
+
+```text
+Product Placeholder
+```
+
+仍然保持：
+
+```text
+4:3
+```
+
+显示：
+
+```text
+Package / Image icon
+```
+
+避免卡片高度变化。
+
+---
+
+# 54. 图片 Loading
+
+使用：
+
+```text
+aspect-ratio: 4/3
+```
+
+预留空间。
+
+加载期间：
+
+```text
+Skeleton
+```
+
+避免：
+
+```text
+CLS
+```
+
+---
+
+# 55. Nuxt Image
+
+商品图片统一：
+
+```text
+NuxtImg / NuxtPicture
+```
+
+不要直接加载 Original。
+
+Grid：
+
+例如：
+
+```text
+product_card
+```
+
+Variant：
+
+```text
+600 × 450
+```
+
+足够。
+
+不要：
+
+```text
+3000 × 2200
+```
+
+下载后 CSS 压缩。
+
+---
+
+# 56. Media Preset
+
+你刚才设计媒体库时，可以增加：
+
+```text
+product_card
+product_gallery
+```
+
+推荐：
+
+```text
+product_card:
+1200 × 900
+4:3
+```
+
+```text
+product_gallery:
+1600px max
+```
+
+---
+
+# 57. 商品卡图不要直接使用 gallery 原图
+
+冻结：
+
+```text
+Product Card
+→ product_card
+```
+
+```text
+Product Detail Gallery
+→ product_gallery
+```
+
+```text
+Lightbox
+→ large / original
+```
+
+---
+
+# 58. 商品状态 Badge
+
+建议：
+
+```text
+Sold Out
+```
+
+不要让整个 Card 灰掉。
+
+只：
+
+```text
+图片加轻 Overlay
++
+售罄 Badge
+```
+
+标题、价格仍清晰。
+
+---
+
+# 59. 库存紧张
+
+不建议 Card 显示：
+
+```text
+仅剩 3 件！
+```
+
+除非商城真的需要这种营销。
+
+你的博客商城保持克制：
+
+商品详情页再显示。
+
+---
+
+# 60. Sale Badge
+
+折扣：
+
+```text
+-20%
+```
+
+放图片右上。
+
+不要：
+
+```text
+SALE SALE SALE
+```
+
+大面积红块。
+
+继续复用主题的：
+
+```text
+destructive
+```
+
+语义即可，不要另造视觉系统。
+
+---
+
+# 61. 免费资源
+
+可以使用：
+
+```text
+Free
+```
+
+Badge。
+
+价格区：
+
+```text
+免费
+```
+
+足够。
+
+---
+
+# 62. 商品卡底部对齐
+
+整个内容区使用：
+
+```text
+display: flex
+flex-direction: column
+```
+
+价格：
+
+```text
+margin-top: auto
+```
+
+这样即使标题、描述不同：
+
+```text
+所有价格
+```
+
+仍在同一水平区域。
+
+非常重要。
+
+---
+
+# 63. 推荐组件结构
+
+```text
+components/store/
+├── ProductGrid.vue
+├── ProductCard.vue
+├── ProductCardImage.vue
+├── ProductPrice.vue
+├── ProductBadge.vue
+├── ProductFilters.vue
+├── ProductSort.vue
+├── ProductSearch.vue
+└── ProductEmptyState.vue
+```
+
+---
+
+# 64. ProductCard 不要分散逻辑
+
+统一：
+
+```text
+ProductCard.vue
+```
+
+负责：
+
+```text
+Image
+Badge
+Category
+Title
+Description
+Price
+```
+
+避免页面自己重复拼卡片。
+
+---
+
+# 65. ProductPrice 独立
+
+建议：
+
+```text
+ProductPrice.vue
+```
+
+统一处理：
+
+```text
+正常价格
+Sale Price
+Original Price
+Free
+Member Price
+Currency
+```
+
+这样所有页面价格格式一致。
+
+---
+
+# 66. 推荐 ProductCard Props
+
+概念上：
+
+```text
+product
+variant
+showCategory
+showDescription
+showBadge
+```
+
+不要传：
+
+```text
+20~30 个 boolean
+```
+
+主要由：
+
+```text
+variant
+```
+
+控制。
+
+---
+
+# 67. 列表页默认
+
+```text
+variant = default
+```
+
+Mobile CSS 自动进入 compact 表现。
+
+不需要 JS 判断：
+
+```text
+isMobile
+```
+
+来换整个组件。
+
+---
+
+# 68. 商城首页如果也有推荐区
+
+推荐：
+
+```text
+Featured Products
+4 cards
+
+Latest Products
+Grid
+```
+
+Featured 也不要放：
+
+```text
+2 个超大 Card
+```
+
+否则又回到“商品太大”。
+
+---
+
+# 69. Product Detail 推荐商品
+
+详情页底部：
+
+```text
+Related Products
+```
+
+Desktop：
+
+```text
+4 cards
+```
+
+同样复用：
+
+```text
+ProductCard
+```
+
+---
+
+# 70. 空状态
+
+没有商品：
+
+```text
+暂无商品
+```
+
+可以配轻图标。
+
+不要保留：
+
+```text
+4 个空 Card Skeleton
+```
+
+一直显示。
+
+---
+
+# 71. Skeleton
+
+Loading：
+
+和真实商品：
+
+```text
+同样 4:3 Image
+同样 Card Width
+同样基本高度
+```
+
+避免加载完成后页面跳动。
+
+---
+
+# 72. Pagination
+
+商城建议：
+
+```text
+Pagination
+```
+
+不要：
+
+```text
+Infinite Scroll
+```
+
+作为默认。
+
+原因：
+
+```text
+SEO
+返回列表位置
+页面缓存
+可访问性
+```
+
+都更稳定。
+
+---
+
+# 73. 每页数量
+
+4 列：
+
+建议：
+
+```text
+12
+16
+20
+```
+
+默认：
+
+```text
+16
+```
+
+即：
+
+```text
+4 × 4
+```
+
+页面非常整齐。
+
+如果商品少：
+
+```text
+12
+```
+
+也很好。
+
+---
+
+# 74. 推荐默认每页
+
+我建议：
+
+```text
+16 products/page
+```
+
+以后商品很多也够用。
+
+---
+
+# 75. Card Grid 页面视觉
+
+最终 Desktop：
+
+```text
+┌───────────────────────────────────────────────┐
+│ 商城                             Search       │
+│                                               │
+│ 全部  模板  工具  会员       排序：最新      │
+│                                               │
+│ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐     │
+│ │ Image │ │ Image │ │ Image │ │ Image │     │
+│ │       │ │       │ │       │ │       │     │
+│ ├───────┤ ├───────┤ ├───────┤ ├───────┤     │
+│ │Title  │ │Title  │ │Title  │ │Title  │     │
+│ │Desc   │ │Desc   │ │Desc   │ │Desc   │     │
+│ │¥49    │ │¥29    │ │Free   │ │¥99    │     │
+│ └───────┘ └───────┘ └───────┘ └───────┘     │
+│                                               │
+│ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐     │
+│ │ ...   │ │ ...   │ │ ...   │ │ ...   │     │
+│ └───────┘ └───────┘ └───────┘ └───────┘     │
+│                                               │
+│                 Pagination                    │
+└───────────────────────────────────────────────┘
+```
+
+---
+
+# 76. 推荐最终尺寸冻结
+
+Desktop：
+
+```text
+Container:
+1280px
+
+Columns:
+4
+
+Gap:
+24px
+
+Product Card:
+约 280~300px
+
+Image:
+4:3
+
+Content Padding:
+16px
+
+Title:
+16px / 2 lines
+
+Description:
+14px / 2 lines
+
+Price:
+18~20px
+```
+
+Tablet：
+
+```text
+2~3 columns
+```
+
+Mobile：
+
+```text
+2 columns
+
+Gap:
+12px
+
+Description:
+hidden
+
+Button:
+hidden
+
+Title:
+14px / 2 lines
+
+Price:
+16px
+```
+
+---
+
+# 77. 如果现在 Card 主要问题是“太高”
+
+优先依次修改：
+
+```text
+1. 图片比例改成 4:3
+
+2. Description 限制 2 行
+
+3. Title 限制 2 行
+
+4. Padding 改成 16px
+
+5. 移除大型 CTA Button
+
+6. 减少 Metadata
+
+7. 价格 margin-top:auto
+```
+
+基本就能直接缩短：
+
+```text
+20%~35%
+```
+
+的卡片高度。
+
+---
+
+# 78. 如果现在 Card 主要问题是“太宽”
+
+优先：
+
+```text
+3 columns
+→
+4 columns
+```
+
+而不是：
+
+```text
+设置固定 width: 260px
+```
+
+Grid 自己控制宽度更合理。
+
+---
+
+# 79. 如果 Card 太小
+
+反过来不要直接扩大图片。
+
+优先：
+
+```text
+5 columns
+→
+4 columns
+```
+
+保持：
+
+```text
+Container 1280
+```
+
+即可。
+
+---
+
+# 80. 不建议增加商品 Sidebar
+
+你博客首页：
+
+```text
+Main + Sidebar
+```
+
+很合理。
+
+但是商城：
+
+```text
+Product Grid
+```
+
+我建议不要继承这个布局。
+
+否则：
+
+```text
+商城 Main 只有 900px
+```
+
+商品只能：
+
+```text
+3 列
+```
+
+卡片会再次变大，或者四列变太挤。
+
+商城用：
+
+```text
+Full Width Layout
+```
+
+更好。
+
+---
+
+# 81. 商品详情页可以保持 Full Width
+
+详情页：
+
+```text
+Gallery + Product Info
+```
+
+双栏。
+
+例如：
+
+```text
+60 / 40
+```
+
+这和商品列表 Grid 是两个独立布局。
+
+---
+
+# 82. 与博客统一，而不是完全一样
+
+博客：
+
+```text
+Post Card
+```
+
+和商城：
+
+```text
+Product Card
+```
+
+可以共享：
+
+```text
+圆角
+边框
+颜色
+Typography
+Hover
+```
+
+但不应该尺寸完全一样。
+
+因为：
+
+```text
+Post
+重摘要
+
+Product
+重图片 + 标题 + 价格
+```
+
+---
+
+# 83. 不建议商品卡显示浏览量
+
+博客文章可以：
+
+```text
+Views
+Comments
+```
+
+商品：
+
+不需要。
+
+如果需要社会证明：
+
+最多：
+
+```text
+已售 128
+```
+
+但也建议弱化。
+
+---
+
+# 84. Accessibility
+
+整个 Card 不要：
+
+```text
+<div @click>
+```
+
+模拟链接。
+
+标题或 Card Overlay 应使用真正：
+
+```text
+NuxtLink
+```
+
+图片要：
+
+```text
+alt
+```
+
+价格：
+
+可正确被 Screen Reader 读取。
+
+---
+
+# 85. 长商品名测试
+
+必须测试：
+
+```text
+A
+```
+
+以及：
+
+```text
+这是一个非常非常长的商品标题用来测试商品卡片是否会被撑高
+```
+
+两张 Card：
+
+```text
+Price baseline
+```
+
+应该仍然基本一致。
+
+---
+
+# 86. 不同价格测试
+
+测试：
+
+```text
+免费
+
+¥9.9
+
+¥99
+
+¥9,999.00
+
+¥49 ¥199
+
+会员免费
+```
+
+确保价格区不跳动。
+
+---
+
+# 87. 图片测试
+
+必须测试：
+
+```text
+1:1
+4:3
+16:9
+竖图
+透明 PNG
+无图
+```
+
+Card 外框始终：
+
+```text
+4:3
+```
+
+不允许商品图片决定卡片高度。
+
+---
+
+# 88. 开发验收标准
+
+```text
+✓ PC 1280px 默认 4 列
+
+✓ 商品卡宽度约 280~300px
+
+✓ 图片统一 4:3
+
+✓ 不同原图不会改变 Card 高度
+
+✓ 标题最多两行
+
+✓ 描述最多两行
+
+✓ Card Footer / Price 基本对齐
+
+✓ 移动端两列
+
+✓ 手机隐藏 Description
+
+✓ 手机不显示大型 CTA
+
+✓ 没有图片时仍保持 4:3
+
+✓ Loading 不产生明显 CLS
+
+✓ Product Card 使用优化图片 Variant
+
+✓ 商品 Card 可键盘访问
+
+✓ Dark Mode 正常
+
+✓ 商品名很长不破坏布局
+
+✓ Sale / Free / Member Price 不破坏布局
+
+✓ 1024px / 1280px / 1440px 均无异常
+
+✓ 商城列表不使用博客 Sidebar
+```
+
+---
+
+# 89. 最终推荐方案
+
+我建议你现在直接把商城列表页冻结成：
+
+```text
+Store Container:
+1280px
+
+Desktop:
+4 Columns
+
+Tablet:
+2~3 Columns
+
+Mobile:
+2 Columns
+
+Product Image:
+4:3
+
+Desktop Card:
+约 285~300px 宽
+约 390~420px 高
+
+Mobile:
+Compact Card
+```
+
+商品 Card 只保留：
+
+```text
+Image
+Category
+Title
+Short Description
+Price
+Badge
+```
+
+移动端进一步缩成：
+
+```text
+Image
+Category
+Title
+Price
+```
+
+这是最适合你现在 **博客 + 轻商城** 定位的一套排版。
+
+如果你当前商城正好是 **PC 三列商品卡**，那最优先的修改其实很简单：直接改成 **1280px 容器 + 四列 + 24px Gap + 图片 4:3 + 标题/摘要各最多两行**。这几个调整通常就能把“商品卡太大、页面很空”的问题基本解决。

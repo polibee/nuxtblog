@@ -1,0 +1,3 @@
+ALTER TABLE `locales` ADD CONSTRAINT `locales_content_requires_enabled` CHECK (`content_enabled` = false OR `enabled` = true);--> statement-breakpoint
+ALTER TABLE `locales` ADD CONSTRAINT `locales_ui_requires_enabled` CHECK (`ui_enabled` = false OR `enabled` = true);--> statement-breakpoint
+ALTER TABLE `locales` ADD CONSTRAINT `locales_fallback_locale_id_locales_id_fk` FOREIGN KEY (`fallback_locale_id`) REFERENCES `locales`(`id`) ON DELETE set null ON UPDATE no action;

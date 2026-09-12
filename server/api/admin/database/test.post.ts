@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   const target = body?.target ?? 'database'
 
   if (target === 'cache') {
-    const base = readCacheConfig()
+    const base = await readCacheConfig()
     const result = await testCacheConnection({
       driver: (body?.driver as 'redis' | 'memory') ?? base.driver,
       url: body?.url ?? base.url,
@@ -41,10 +41,10 @@ export default defineEventHandler(async (event) => {
     return result
   }
 
-  const current = readDbConfig()
+  const current = await readDbConfig()
   const config = {
     ...current,
-    driver: (body?.driver ?? current.driver) as ReturnType<typeof readDbConfig>['driver'],
+    driver: (body?.driver ?? current.driver) as typeof current.driver,
     url: body?.url ?? current.url,
     host: body?.host ?? current.host,
     port: Number(body?.port ?? current.port),

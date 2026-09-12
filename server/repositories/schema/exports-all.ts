@@ -1,0 +1,23 @@
+/* Barrel re-exporting every schema table for the backup engine.
+   Same object references as the individual modules (no duplication). */
+
+export * from './advertising'
+export * from './backup'
+export * from './comments'
+export * from './exports'
+export * from './locales'
+export * from './media'
+export * from './membership'
+export * from './navigations'
+export * from './orders'
+export * from './pages'
+export * from './payments'
+export * from './posts'
+export * from './products'
+export * from './redirects'
+export * from './friend-links'
+export * from './settings'
+export * from './sidebar-cards'
+export * from './slider'
+export * from './taxonomy'
+export * from './users'

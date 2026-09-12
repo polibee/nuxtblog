@@ -9,7 +9,9 @@ export default defineNuxtConfig({
 
   components: [
     { path: '~/admin/ui', pathPrefix: false },
-    { path: '~/admin/framework', pathPrefix: false }
+    { path: '~/admin/framework', pathPrefix: false },
+    { path: '~/components/public', pathPrefix: false },
+    { path: '~/modules/advertising/components', pathPrefix: false }
   ],
 
   // Framework DSL auto-imports (builders available everywhere)
@@ -38,7 +40,6 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   routeRules: {
-    '/': { redirect: { to: '/admin', statusCode: 302 } },
     '/api/**': { cors: true }
   },
 
@@ -46,7 +47,8 @@ export default defineNuxtConfig({
 
   nitro: {
     storage: {
-      media: { driver: 'fs', base: './.data/media' }
+      media: { driver: 'fs', base: './.data/media' },
+      exports: { driver: 'fs', base: './.data/exports' }
     }
   },
 

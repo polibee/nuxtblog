@@ -1,0 +1,3381 @@
+可以。你现在这几个 Phase 已经不是“从零设计”，而是要在现有 Nuxt 全栈博客基础上补齐最后一批**系统能力**。我建议不要重新拆架构，而是按你当前状态做“增量补齐”，尤其 P14 和 P19 已经有部分完成，应该避免重复开发。
+
+# Nuxt 全栈博客 P14 / P15 / P16 / P19 / P20 开发设计
+
+## 1. 当前状态
+
+当前剩余工作：
+
+```text
+P14 Tools / Backup
+🟡 部分完成
+
+已完成：
+- CSV 数据导出
+
+未完成：
+- 完整站点备份
+- 完整恢复
+- Entity + Translation
+- Relations
+- 聚合数据
+- Manifest
+- Restore 演练
+```
+
+```text
+P15 AI Connector
+❌ 未实现
+```
+
+```text
+P16 AI Features
+❌ 未实现
+```
+
+```text
+P19 System Hardening
+🟡 大部分完成
+
+已完成：
+- Security Headers
+- Upload MIME 白名单
+- Magic Number 验证
+- Cookie 安全
+- CSV Injection 防护
+
+缺少：
+- script 级 CSP
+- 持久化 Audit Log
+- 最终安全审计
+- 系统级限流/异常审计完善
+```
+
+```text
+P20 Multi-language Activation
+🟡 Infrastructure Ready
+
+已有：
+- locales.url_prefix
+- resolveLocale()
+- cache key 含 locale
+
+未完成：
+- Locale URL Prefix
+- Language Switcher
+- hreflang
+- localized sitemap
+- localized RSS
+- 第二 UI Locale
+```
+
+推荐实施顺序：
+
+```text
+P14 Backup
+↓
+P15 AI Connector
+↓
+P16 AI Features
+↓
+P19 Hardening
+↓
+P20 Multilingual Activation
+```
+
+其中：
+
+> P19 必须在 P20 完成后再执行一次最终回归测试。
+
+---
+
+# P14 Tools / Backup
+
+# 2. P14 重新定位
+
+P14 不只是：
+
+```text
+CSV Export
+```
+
+而应该真正承担：
+
+```text
+数据迁移
+站点备份
+站点恢复
+配置迁移
+灾难恢复
+```
+
+CSV Export 继续保留，但是：
+
+```text
+CSV ≠ Backup
+```
+
+---
+
+# 3. Backup 类型
+
+建议支持三种：
+
+```text
+1. Content Export
+2. Full Site Backup
+3. Database Backup Adapter
+```
+
+第一版最重要的是：
+
+```text
+Full Site Backup
+```
+
+---
+
+# 4. Content Export
+
+你已经有 CSV。
+
+继续用于：
+
+```text
+Posts
+Users
+Comments
+Categories
+Tags
+```
+
+方便：
+
+```text
+Excel
+分析
+手工处理
+迁移
+```
+
+但不能承担 Restore。
+
+---
+
+# 5. Full Backup
+
+正式备份格式建议：
+
+```text
+ZIP
+```
+
+内部：
+
+```text
+backup-2026-09-11.zip
+
+├── manifest.json
+│
+├── data/
+│   ├── locales.json
+│   ├── settings.json
+│   ├── localized-settings.json
+│   │
+│   ├── users.json
+│   │
+│   ├── media.json
+│   ├── media-translations.json
+│   ├── media-folders.json
+│   │
+│   ├── posts.json
+│   ├── post-translations.json
+│   ├── categories.json
+│   ├── category-translations.json
+│   ├── tags.json
+│   ├── tag-translations.json
+│   ├── post-categories.json
+│   ├── post-tags.json
+│   │
+│   ├── pages.json
+│   ├── page-translations.json
+│   │
+│   ├── navigations.json
+│   ├── navigation-items.json
+│   ├── navigation-item-translations.json
+│   │
+│   ├── comments.json
+│   ├── memberships.json
+│   ├── membership-plans.json
+│   ├── membership-plan-translations.json
+│   │
+│   ├── advertising...
+│   └── slider...
+│
+└── media/
+    └── files...
+```
+
+---
+
+# 6. Manifest
+
+这是必须有的。
+
+```json
+{
+  "format": "nuxt-blog-backup",
+  "version": "1.0",
+  "appVersion": "1.0.0",
+  "schemaVersion": "2026.09",
+  "createdAt": "2026-09-11T12:00:00Z",
+  "database": "mysql",
+  "defaultLocale": "zh-CN",
+  "locales": [
+    "zh-CN",
+    "en-US"
+  ],
+  "modules": [
+    "posts",
+    "pages",
+    "media",
+    "comments",
+    "membership",
+    "advertising",
+    "slider"
+  ],
+  "includesMedia": true
+}
+```
+
+---
+
+# 7. 为什么 Manifest 必须存在
+
+Restore 前必须判断：
+
+```text
+Backup Format
+Schema Version
+Application Version
+Required Modules
+Locales
+Media Presence
+```
+
+不能直接：
+
+```text
+读 ZIP
+↓
+往数据库插
+```
+
+---
+
+# 8. 每个 Module 声明 Backup Provider
+
+不要 P14 自己知道所有表。
+
+建议：
+
+```ts
+interface BackupProvider {
+  key: string
+
+  version: number
+
+  export(): Promise<BackupDataset>
+
+  validate(
+    data: unknown
+  ): Promise<ValidationResult>
+
+  restore(
+    data: BackupDataset,
+    context: RestoreContext
+  ): Promise<void>
+}
+```
+
+Registry：
+
+```text
+BackupRegistry
+├── LocaleBackupProvider
+├── SettingsBackupProvider
+├── UserBackupProvider
+├── MediaBackupProvider
+├── PostBackupProvider
+├── PageBackupProvider
+├── NavigationBackupProvider
+├── CommentBackupProvider
+├── MembershipBackupProvider
+├── AdvertisingBackupProvider
+└── SliderBackupProvider
+```
+
+这样未来插件也可以：
+
+```text
+registerBackupProvider()
+```
+
+---
+
+# 9. Entity + Translation 必须一起 Backup
+
+例如 Posts：
+
+```text
+posts
++
+post_translations
++
+post_categories
++
+post_tags
+```
+
+必须看成一个：
+
+```text
+Post Aggregate Backup
+```
+
+不能：
+
+```text
+posts 单独
+post_translations 单独恢复
+```
+
+然后期待关系自动正常。
+
+---
+
+# 10. Restore 顺序
+
+必须严格：
+
+```text
+Locales
+↓
+Users
+↓
+Media Folders
+↓
+Media
+↓
+Settings
+↓
+Categories
+↓
+Tags
+↓
+Posts
+↓
+Post Translations
+↓
+Post Relations
+↓
+Pages
+↓
+Navigation
+↓
+Comments
+↓
+Membership
+↓
+Advertising
+↓
+Slider
+```
+
+实际由依赖图决定。
+
+---
+
+# 11. Restore ID Mapping
+
+非常重要。
+
+不能假设：
+
+```text
+旧 ID = 新 ID
+```
+
+必须支持：
+
+```text
+Backup ID
+↓
+Restore ID
+```
+
+例如：
+
+```text
+old post id = 100
+
+new post id = 342
+```
+
+映射：
+
+```ts
+context.mapId(
+  "posts",
+  100,
+  342
+)
+```
+
+关系恢复：
+
+```text
+post_categories.post_id
+```
+
+通过 Mapping 转换。
+
+---
+
+# 12. 为什么必须 Mapping
+
+否则：
+
+```text
+Media ID
+User ID
+Post ID
+Category ID
+```
+
+只要目标库已有数据：
+
+Restore 就会冲突。
+
+---
+
+# 13. Restore 模式
+
+建议两种。
+
+### Replace
+
+```text
+清空业务数据
+↓
+Restore Backup
+```
+
+用于灾难恢复。
+
+### Merge
+
+```text
+保留现有数据
+↓
+导入 Backup
+↓
+重新映射 ID
+```
+
+用于迁移。
+
+第一版可以先：
+
+```text
+Replace
+```
+
+做好。
+
+Merge 后续。
+
+---
+
+# 14. Restore Preview
+
+上传 Backup 后不要马上恢复。
+
+先显示：
+
+```text
+Backup Date
+Application Version
+Schema Version
+
+Posts            128
+Pages              8
+Media            934
+Users             42
+Comments         336
+Locales             2
+```
+
+然后：
+
+```text
+Validate Backup
+```
+
+---
+
+# 15. Restore Validation
+
+检查：
+
+```text
+Manifest
+JSON Schema
+Module Version
+Missing Files
+Media Integrity
+Relation Integrity
+Duplicate Locale
+Unsupported Version
+```
+
+所有通过：
+
+```text
+READY
+```
+
+才允许 Restore。
+
+---
+
+# 16. Restore Transaction
+
+数据库 Restore：
+
+尽量：
+
+```text
+transaction
+```
+
+如果全部恢复失败：
+
+```text
+rollback
+```
+
+Media Files 是例外。
+
+因此：
+
+```text
+Temporary Media Import
+↓
+DB Transaction
+↓
+Commit
+↓
+Move Files
+```
+
+或者：
+
+```text
+staging directory
+```
+
+避免半恢复。
+
+---
+
+# 17. Backup 不应该包含
+
+默认排除：
+
+```text
+sessions
+password reset tokens
+CSRF tokens
+API secrets
+AI API keys
+payment secrets
+webhook secrets
+cache
+temporary files
+logs
+```
+
+用户 Password Hash：
+
+需要根据 Restore 策略决定。
+
+站点完整灾备：
+
+```text
+可以包含 hash
+```
+
+Portable Export：
+
+```text
+建议不包含
+```
+
+两个概念分开。
+
+---
+
+# 18. Secret Handling
+
+Settings 中：
+
+```text
+OpenAI API Key
+Stripe Secret
+Webhook Secret
+```
+
+备份默认：
+
+```text
+redacted
+```
+
+例如：
+
+```json
+{
+  "provider": "openai",
+  "apiKeyConfigured": true
+}
+```
+
+而不是导出实际 Key。
+
+---
+
+# 19. Media Backup
+
+提供选项：
+
+```text
+Include Media Files
+```
+
+如果关闭：
+
+只保存：
+
+```text
+Media Metadata
+```
+
+如果开启：
+
+```text
+/media/*
+```
+
+一起压缩。
+
+---
+
+# 20. Backup 后台
+
+```text
+工具
+└── Backup
+```
+
+页面：
+
+```text
+Create Backup
+
+Backup Type:
+● Full Site
+○ Data Only
+
+Include Media:
+[x]
+
+[Create Backup]
+```
+
+---
+
+# 21. Restore 页面
+
+```text
+Restore
+
+Upload Backup ZIP
+
+↓
+Validate
+
+↓
+Preview
+
+↓
+Confirm Restore
+```
+
+必须二次确认：
+
+```text
+输入 RESTORE
+```
+
+才能执行 Replace Restore。
+
+---
+
+# 22. Backup History
+
+可以保存：
+
+```text
+backup_jobs
+```
+
+字段：
+
+```text
+id
+type
+status
+file_path
+file_size
+manifest_version
+created_by
+started_at
+completed_at
+error
+created_at
+```
+
+---
+
+# 23. JobQueue
+
+大站点 Backup 不应一直占：
+
+```text
+HTTP Request
+```
+
+如果你已有 JobQueue：
+
+```text
+BackupJob
+RestoreJob
+```
+
+如果暂时没有：
+
+第一版小站点可以同步。
+
+但接口必须设计成：
+
+```text
+Job-friendly
+```
+
+---
+
+# 24. P14 最重要的验收
+
+不能只：
+
+```text
+Backup Created ✓
+```
+
+真正验收是：
+
+```text
+Fresh Database
+↓
+Restore Backup
+↓
+Start Application
+↓
+Verify Data
+```
+
+---
+
+# 25. Disaster Recovery Drill
+
+必须正式做一次：
+
+```text
+Production-like database A
+↓
+Create Backup
+↓
+New empty database B
+↓
+Restore
+↓
+Run Application
+```
+
+检查：
+
+```text
+Posts
+Translations
+Media
+Navigation
+Comments
+Membership
+Advertising
+Slider
+Settings
+Locales
+```
+
+全部一致。
+
+这才可以：
+
+```text
+P14 COMPLETE
+```
+
+---
+
+# P15 AI Connector
+
+# 26. P15 目标
+
+P15 只解决：
+
+> 怎么统一接 AI Provider。
+
+不实现任何具体博客 AI 功能。
+
+架构：
+
+```text
+Blog Module
+     │
+     ▼
+AIService
+     │
+     ▼
+Provider Registry
+     │
+ ┌───┼─────┬──────┐
+ ▼   ▼     ▼      ▼
+OpenAI Anthropic Gemini OpenAI-Compatible
+```
+
+---
+
+# 27. 第一版 Provider
+
+建议：
+
+```text
+OpenAI
+Anthropic
+Gemini
+OpenRouter
+Custom OpenAI Compatible
+```
+
+不要写死当前模型。
+
+---
+
+# 28. 数据模型
+
+建议：
+
+```text
+ai_providers
+```
+
+字段：
+
+```text
+id
+
+name
+
+provider_type
+
+base_url
+
+api_key_encrypted
+
+enabled
+
+default_model
+
+config_json
+
+created_at
+updated_at
+```
+
+---
+
+# 29. Provider Type
+
+机器值：
+
+```text
+openai
+anthropic
+gemini
+openrouter
+openai_compatible
+```
+
+---
+
+# 30. API Key 必须加密
+
+不能：
+
+```text
+plaintext DB
+```
+
+需要：
+
+```text
+Application Encryption Key
+↓
+AES-GCM / existing secret encryption service
+```
+
+后台返回：
+
+```text
+sk-****abcd
+```
+
+永远不返回完整 Key。
+
+---
+
+# 31. AI Provider Interface
+
+```ts
+interface AIProvider {
+  generateText(
+    request: GenerateTextRequest
+  ): Promise<GenerateTextResult>
+
+  streamText?(
+    request: GenerateTextRequest
+  ): AsyncIterable<AIStreamChunk>
+
+  analyzeImage?(
+    request: AnalyzeImageRequest
+  ): Promise<AnalyzeImageResult>
+}
+```
+
+未来：
+
+```text
+generateImage
+embedding
+speech
+```
+
+不要 P15 一次全做。
+
+---
+
+# 32. Unified Model
+
+业务模块不应该知道：
+
+```text
+OpenAI messages
+Anthropic content blocks
+Gemini parts
+```
+
+统一：
+
+```ts
+interface AIMessage {
+  role: "system" | "user" | "assistant"
+  content: string
+}
+```
+
+Provider Adapter 自己转换。
+
+---
+
+# 33. AI Request
+
+```ts
+interface GenerateTextRequest {
+  model?: string
+  messages: AIMessage[]
+  temperature?: number
+  maxTokens?: number
+  responseFormat?: "text" | "json"
+}
+```
+
+---
+
+# 34. AI Result
+
+```ts
+interface GenerateTextResult {
+  text: string
+
+  model: string
+
+  provider: string
+
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    totalTokens?: number
+  }
+
+  latencyMs?: number
+}
+```
+
+---
+
+# 35. Provider Test
+
+后台：
+
+```text
+AI
+└── Providers
+```
+
+新增 Provider 后：
+
+```text
+[Test Connection]
+```
+
+结果：
+
+```text
+Connected
+
+Model:
+gpt-...
+
+Latency:
+832 ms
+```
+
+不要保存 Provider 前完全不知道 Key 是否正确。
+
+---
+
+# 36. Default Provider
+
+Settings：
+
+```text
+ai.default_provider_id
+```
+
+可选：
+
+```text
+ai.default_text_model
+ai.default_translation_model
+```
+
+但是模型也可以由 Provider 默认配置控制。
+
+---
+
+# 37. Error Codes
+
+统一：
+
+```text
+AI_PROVIDER_NOT_CONFIGURED
+
+AI_PROVIDER_DISABLED
+
+AI_AUTH_FAILED
+
+AI_RATE_LIMITED
+
+AI_TIMEOUT
+
+AI_INVALID_RESPONSE
+
+AI_CONTEXT_TOO_LARGE
+
+AI_PROVIDER_ERROR
+```
+
+前端再翻译。
+
+---
+
+# 38. AI Logging
+
+建议：
+
+```text
+ai_requests
+```
+
+但不要保存所有 Prompt 全文。
+
+字段：
+
+```text
+id
+provider_id
+feature
+model
+status
+input_tokens
+output_tokens
+latency_ms
+error_code
+user_id
+created_at
+```
+
+Prompt：
+
+默认：
+
+```text
+不持久化全文
+```
+
+避免文章草稿泄漏。
+
+---
+
+# 39. Rate Limit
+
+后台 AI 功能也要限流。
+
+例如：
+
+```text
+每用户
+每分钟
+```
+
+防止：
+
+```text
+Button 连点
+```
+
+烧 API Credits。
+
+---
+
+# 40. P15 不做
+
+```text
+AI 写文章
+AI 翻译
+AI SEO
+AI Alt
+AI 评论
+```
+
+这些全部属于：
+
+```text
+P16
+```
+
+---
+
+# P16 AI Features
+
+# 41. P16 设计原则
+
+AI：
+
+```text
+辅助编辑
+```
+
+不是博客核心依赖。
+
+如果 AI Provider 全部关闭：
+
+```text
+Posts
+Pages
+Media
+Comments
+```
+
+仍然必须正常使用。
+
+---
+
+# 42. 第一版最值得做的 AI 功能
+
+建议只做：
+
+```text
+Post AI
+
+Media AI
+```
+
+---
+
+# 43. Post AI
+
+编辑器加入：
+
+```text
+AI
+├── 优化标题
+├── 生成摘要
+├── 生成 SEO Title
+├── 生成 Meta Description
+├── 生成 Slug
+├── 总结文章
+├── 改写选中文本
+├── 扩写
+├── 精简
+└── 调整语气
+```
+
+---
+
+# 44. AI 交互原则
+
+AI 不直接保存文章。
+
+流程：
+
+```text
+Editor Content
+↓
+AI
+↓
+Preview Result
+↓
+User Accept
+↓
+Apply
+```
+
+禁止：
+
+```text
+AI
+↓
+自动覆盖正文
+```
+
+---
+
+# 45. Selected Text AI
+
+Tiptap 选中：
+
+```text
+一段文字
+```
+
+浮动菜单：
+
+```text
+AI
+├── Improve
+├── Shorten
+├── Expand
+├── Formal
+├── Rewrite
+└── Fix Grammar
+```
+
+AI 返回：
+
+```text
+Original
+
+AI Version
+
+[Replace]
+[Insert Below]
+[Cancel]
+```
+
+---
+
+# 46. SEO AI
+
+例如：
+
+```text
+Generate SEO
+```
+
+输入：
+
+```text
+Title
+Excerpt
+Content Summary
+Locale
+```
+
+输出 JSON：
+
+```json
+{
+  "seoTitle": "...",
+  "seoDescription": "...",
+  "keywords": []
+}
+```
+
+Validate 后：
+
+```text
+Preview
+↓
+Apply
+```
+
+---
+
+# 47. AI Slug
+
+AI Slug 必须：
+
+```text
+建议
+```
+
+不是直接存储。
+
+生成后仍执行：
+
+```text
+slug validator
+unique check
+```
+
+---
+
+# 48. Media AI
+
+媒体详情加入：
+
+```text
+Generate Alt Text
+```
+
+AI 获取：
+
+```text
+Image
+Locale
+Optional Context
+```
+
+返回：
+
+```text
+Alt Text
+```
+
+用户确认后保存：
+
+```text
+media_translations.alt_text
+```
+
+---
+
+# 49. Caption AI
+
+可选：
+
+```text
+Generate Caption
+```
+
+同样写到：
+
+```text
+media_translations.caption
+```
+
+---
+
+# 50. AI 分类建议
+
+文章：
+
+```text
+Suggest Categories
+Suggest Tags
+```
+
+输入：
+
+```text
+Title
+Excerpt
+Content
+```
+
+AI 只能从现有：
+
+```text
+Category IDs
+Tags
+```
+
+中推荐。
+
+不要让 AI 悄悄创建：
+
+```text
+100 个新 Tag
+```
+
+---
+
+# 51. Translation AI
+
+因为 P20 会开启多语言，所以可以预留：
+
+```text
+Translate to...
+```
+
+但建议真正启用放到：
+
+```text
+P20
+```
+
+因为 Translation 涉及：
+
+```text
+Locale
+slug
+SEO
+hreflang
+translation completeness
+```
+
+---
+
+# 52. AI Feature Service
+
+不要 Post Module 直接：
+
+```text
+aiProvider.generate()
+```
+
+建立：
+
+```text
+AIFeatureService
+```
+
+例如：
+
+```text
+generatePostExcerpt()
+generatePostSEO()
+rewriteText()
+generateMediaAlt()
+suggestTaxonomy()
+```
+
+里面调用：
+
+```text
+AIService
+```
+
+---
+
+# 53. Prompt Templates
+
+不要把 Prompt 散在组件。
+
+目录：
+
+```text
+server/services/ai/prompts/
+├── post-title.ts
+├── post-excerpt.ts
+├── post-seo.ts
+├── rewrite.ts
+├── media-alt.ts
+└── taxonomy.ts
+```
+
+---
+
+# 54. Prompt Version
+
+每个 Prompt：
+
+```text
+key
+version
+```
+
+例如：
+
+```text
+post.seo
+v1
+```
+
+方便以后修改后排查结果。
+
+---
+
+# 55. AI Output Validation
+
+AI 返回 JSON 时必须：
+
+```text
+Zod / schema validation
+```
+
+例如：
+
+```ts
+const SeoResultSchema = z.object({
+  seoTitle: z.string().max(70),
+  seoDescription: z.string().max(170)
+})
+```
+
+AI 输出不能直接信任。
+
+---
+
+# 56. AI Streaming
+
+Rewrite / Long Text：
+
+建议：
+
+```text
+stream
+```
+
+Nuxt Nitro：
+
+可以用：
+
+```text
+streaming response
+```
+
+前端实时显示。
+
+但如果目前实现复杂：
+
+第一版普通请求也可以。
+
+---
+
+# 57. AI Feature 权限
+
+当前只有 Admin：
+
+```text
+requireAdmin()
+```
+
+未来多作者：
+
+可以：
+
+```text
+ai.use
+```
+
+但现在不要过度 RBAC。
+
+---
+
+# 58. AI 成本控制
+
+后台显示：
+
+```text
+本次：
+Input 2,103 tokens
+Output 367 tokens
+```
+
+可选。
+
+至少后台 AI Request Log 应能统计：
+
+```text
+Requests
+Tokens
+Errors
+```
+
+---
+
+# P19 System Hardening
+
+# 59. 当前不要重复做已经完成的安全功能
+
+已有：
+
+```text
+Security Headers
+Upload MIME Allowlist
+Magic Number
+Secure Cookie
+CSV Injection
+```
+
+不要重写。
+
+P19 剩余重点：
+
+```text
+CSP
+Audit Log
+Final Security Review
+Rate Limiting
+Sensitive Action Logging
+Error/Log Hygiene
+```
+
+---
+
+# 60. CSP
+
+你缺的是：
+
+> script 级 CSP。
+
+建议正式建立：
+
+```text
+SecurityCSPService
+```
+
+而不是在：
+
+```text
+nuxt.config.ts
+```
+
+写一个巨大字符串。
+
+---
+
+# 61. CSP Registry
+
+模块可以声明需求：
+
+```ts
+interface CSPContribution {
+  scriptSrc?: string[]
+  connectSrc?: string[]
+  imgSrc?: string[]
+  frameSrc?: string[]
+  styleSrc?: string[]
+  fontSrc?: string[]
+}
+```
+
+例如：
+
+Advertising AdSense：
+
+```text
+script-src
+connect-src
+frame-src
+img-src
+```
+
+AI Admin：
+
+一般：
+
+```text
+不需要浏览器直连 AI Provider
+```
+
+因为走 Server。
+
+---
+
+# 62. CSP 默认规则
+
+推荐从严格模式开始：
+
+```text
+default-src 'self'
+object-src 'none'
+base-uri 'self'
+frame-ancestors 'self'
+```
+
+Script：
+
+尽量：
+
+```text
+script-src 'self'
+```
+
+第三方再通过 Registry 放行。
+
+---
+
+# 63. 不建议全局
+
+```text
+'unsafe-inline'
+'unsafe-eval'
+```
+
+除非框架/第三方确实要求。
+
+如果必须 inline：
+
+优先：
+
+```text
+nonce
+```
+
+---
+
+# 64. CSP Nonce
+
+SSR Request：
+
+```text
+Generate Nonce
+↓
+attach event.context
+↓
+Nuxt render
+↓
+script nonce
+↓
+CSP Header
+```
+
+具体是否需要根据 Nuxt 当前脚本注入方式确定。
+
+---
+
+# 65. Audit Log
+
+必须持久化。
+
+表：
+
+```text
+audit_logs
+```
+
+字段：
+
+```text
+id
+
+actor_user_id nullable
+
+action
+
+entity_type
+entity_id
+
+ip_hash nullable
+
+user_agent
+
+request_id
+
+metadata_json
+
+created_at
+```
+
+---
+
+# 66. Audit Action
+
+使用稳定 Machine Key：
+
+```text
+auth.login
+auth.logout
+
+post.create
+post.update
+post.publish
+post.delete
+
+media.upload
+media.delete
+
+settings.update
+
+backup.create
+backup.restore
+
+ai.provider.create
+ai.provider.update
+ai.provider.delete
+
+membership.grant
+
+advertising.update
+```
+
+不要存：
+
+```text
+用户修改了文章
+```
+
+作为 action。
+
+---
+
+# 67. Audit Metadata
+
+例如：
+
+```json
+{
+  "changedFields": [
+    "status",
+    "published_at"
+  ]
+}
+```
+
+不要默认保存：
+
+```text
+完整文章正文
+API Key
+Password
+Payment Secret
+```
+
+---
+
+# 68. request_id
+
+每个请求：
+
+```text
+request_id
+```
+
+贯穿：
+
+```text
+HTTP Log
+Error Log
+Audit Log
+```
+
+发生问题时可以关联。
+
+---
+
+# 69. Audit 后台
+
+```text
+系统
+└── Audit Logs
+```
+
+筛选：
+
+```text
+User
+Action
+Entity
+Date
+IP
+```
+
+Detail：
+
+```text
+Actor
+Action
+Entity
+Time
+User Agent
+Request ID
+Metadata
+```
+
+---
+
+# 70. Audit Log 不允许普通删除
+
+管理员最好：
+
+```text
+read-only
+```
+
+清理通过：
+
+```text
+Retention Policy
+```
+
+例如：
+
+```text
+180 days
+365 days
+```
+
+---
+
+# 71. Rate Limit
+
+至少覆盖：
+
+```text
+Login
+Register
+Password Reset
+Comment Submit
+Search
+AI Generate
+Ad Click
+Backup Restore
+```
+
+但阈值不同。
+
+---
+
+# 72. Sensitive Actions 二次确认
+
+例如：
+
+```text
+Restore Backup
+Delete User
+Permanent Delete Media
+Change Default Locale
+Delete Locale
+Delete Membership Plan
+```
+
+要求：
+
+```text
+confirm
+```
+
+部分：
+
+```text
+输入资源名 / RESTORE
+```
+
+---
+
+# 73. Log Hygiene
+
+生产日志禁止：
+
+```text
+API Keys
+Session Token
+Cookies
+Passwords
+Authorization Header
+Payment Secret
+AI Prompt Full Content
+```
+
+建立统一：
+
+```text
+redact
+```
+
+---
+
+# 74. Error Responses
+
+生产：
+
+```json
+{
+  "error": {
+    "code": "POST_NOT_FOUND",
+    "requestId": "..."
+  }
+}
+```
+
+不返回：
+
+```text
+stack
+SQL
+filesystem path
+environment variables
+```
+
+---
+
+# 75. Upload Hardening 最终复核
+
+你已经有：
+
+```text
+extension
+MIME
+magic number
+```
+
+P19 再确认：
+
+```text
+SVG sanitize
+image decode validation
+max dimensions
+max file size
+filename normalization
+path traversal
+EXIF privacy
+```
+
+---
+
+# 76. Dependency Security
+
+P19：
+
+```text
+pnpm / bun audit
+```
+
+或者当前包管理器对应扫描。
+
+还要：
+
+```text
+lockfile committed
+```
+
+不要生产动态更新依赖。
+
+---
+
+# 77. Final Hardening Checklist
+
+```text
+Auth
+CSRF
+CSP
+XSS
+SQL injection
+Open redirect
+Upload
+Cookie
+Session
+Rate limit
+Secrets
+Logs
+Backup
+AI secrets
+Webhook
+Media
+Comments
+Admin
+```
+
+全部过一次。
+
+---
+
+# P20 Multi-language Activation
+
+# 78. P20 目标
+
+P20 不再改 Schema。
+
+因为：
+
+```text
+Entity + Translation
+Locale Registry
+resolveLocale
+locale cache key
+```
+
+已经存在。
+
+P20 的任务是：
+
+> 激活真正的公开多语言体验。
+
+---
+
+# 79. URL 策略
+
+建议继续你之前冻结的：
+
+默认 Locale：
+
+```text
+zh-CN
+```
+
+不带 Prefix：
+
+```text
+/posts/foo
+/category/ai
+/pages/about
+```
+
+非默认：
+
+```text
+/en/posts/foo
+/en/category/ai
+/en/pages/about
+```
+
+如果：
+
+```text
+ja-JP.url_prefix = ja
+```
+
+则：
+
+```text
+/ja/posts/foo
+```
+
+---
+
+# 80. locales.url_prefix
+
+例如：
+
+```text
+zh-CN
+url_prefix = NULL
+
+en-US
+url_prefix = en
+
+ja-JP
+url_prefix = ja
+```
+
+必须：
+
+```text
+UNIQUE(url_prefix)
+```
+
+非默认启用 Public Locale：
+
+必须有 Prefix。
+
+---
+
+# 81. Route Resolution
+
+请求：
+
+```text
+/en/posts/nuxt
+```
+
+解析：
+
+```text
+prefix = en
+↓
+LocaleService
+↓
+en-US
+↓
+PostTranslation(locale = en-US, slug = nuxt)
+```
+
+默认：
+
+```text
+/posts/nuxt
+↓
+default locale
+↓
+zh-CN
+```
+
+---
+
+# 82. 不允许自动 fallback 内容
+
+英文 URL：
+
+```text
+/en/posts/foo
+```
+
+如果没有：
+
+```text
+en-US translation
+```
+
+应该：
+
+```text
+404
+```
+
+不能偷偷显示中文版。
+
+这是你之前已经确定的正确原则。
+
+---
+
+# 83. Locale Middleware
+
+Nuxt 应建立统一：
+
+```text
+resolveLocale(event)
+```
+
+处理：
+
+```text
+URL Prefix
+Default Locale
+Enabled
+Content Enabled
+```
+
+不要 Page 自己：
+
+```text
+route.params.locale
+```
+
+到处判断。
+
+---
+
+# 84. Public Context
+
+每个公开 Request：
+
+```text
+event.context.locale
+```
+
+应该已经解析完成。
+
+所有：
+
+```text
+PostService
+PageService
+CategoryService
+NavigationService
+SliderService
+AdvertisingService
+```
+
+读取：
+
+```text
+Resolved Locale
+```
+
+---
+
+# 85. Language Switcher
+
+Header：
+
+```text
+中文
+English
+日本語
+```
+
+但最重要的不是换语言名字。
+
+是：
+
+> 当前 Entity 是否存在目标 Locale Translation。
+
+---
+
+# 86. Article Language Switch
+
+Post #100：
+
+```text
+zh-CN
+/posts/nuxt
+
+en-US
+/en/posts/nuxt-guide
+```
+
+Switcher：
+
+```text
+中文
+English
+```
+
+点击 English：
+
+跳到：
+
+```text
+/en/posts/nuxt-guide
+```
+
+而不是：
+
+```text
+/en/
+```
+
+---
+
+# 87. 如果 Translation 不存在
+
+方案建议：
+
+```text
+隐藏该 Locale
+```
+
+或者：
+
+```text
+disabled
+```
+
+不要跳首页。
+
+我更建议：
+
+```text
+只显示实际存在的 translations
+```
+
+---
+
+# 88. Global Page Switch
+
+首页：
+
+可以显示全部：
+
+```text
+Enabled Public Locales
+```
+
+因为首页本身存在语言上下文。
+
+---
+
+# 89. 第二 UI Locale
+
+P20 正式增加：
+
+```text
+en-US
+```
+
+UI Messages：
+
+```text
+i18n/
+├── zh-CN/
+└── en-US/
+```
+
+需要覆盖：
+
+```text
+common
+navigation
+posts
+pages
+search
+comments
+auth
+membership
+errors
+```
+
+后台可以暂时仍只：
+
+```text
+zh-CN
+```
+
+也可以支持英文 Admin，但不是 P20 必须。
+
+---
+
+# 90. Content Locale 与 UI Locale
+
+仍然分离：
+
+```text
+UI Locale
+≠
+Content Locale
+```
+
+公开站通常：
+
+```text
+UI Locale = Route Locale
+```
+
+但后台：
+
+```text
+UI = zh-CN
+Content Editor = en-US
+```
+
+仍然合法。
+
+---
+
+# 91. hreflang
+
+Post #100：
+
+中文：
+
+```html
+<link
+  rel="alternate"
+  hreflang="zh-CN"
+  href="https://site.com/posts/foo"
+/>
+```
+
+英文：
+
+```html
+<link
+  rel="alternate"
+  hreflang="en-US"
+  href="https://site.com/en/posts/foo-en"
+/>
+```
+
+---
+
+# 92. x-default
+
+建议：
+
+```text
+default locale URL
+```
+
+输出：
+
+```html
+hreflang="x-default"
+```
+
+指向默认语言。
+
+---
+
+# 93. hreflang 只输出真实 Translation
+
+不能因为启用了：
+
+```text
+ja-JP
+```
+
+就给所有 Post 输出：
+
+```text
+ja hreflang
+```
+
+只有：
+
+```text
+post_translations
+```
+
+真的存在 ja-JP 才输出。
+
+---
+
+# 94. Canonical
+
+中文：
+
+```text
+canonical =
+/posts/foo
+```
+
+英文：
+
+```text
+canonical =
+/en/posts/foo-en
+```
+
+每个 Translation 有自己的 Canonical。
+
+---
+
+# 95. Sitemap
+
+不要只有：
+
+```text
+/sitemap.xml
+```
+
+所有语言混成难维护的一份。
+
+推荐：
+
+```text
+/sitemap.xml
+```
+
+作为 Sitemap Index。
+
+下面：
+
+```text
+/sitemap-zh-CN.xml
+/sitemap-en-US.xml
+/sitemap-ja-JP.xml
+```
+
+---
+
+# 96. Sitemap Index
+
+```xml
+<sitemapindex>
+  <sitemap>
+    <loc>.../sitemap-zh-CN.xml</loc>
+  </sitemap>
+
+  <sitemap>
+    <loc>.../sitemap-en-US.xml</loc>
+  </sitemap>
+</sitemapindex>
+```
+
+---
+
+# 97. Localized Sitemap 内容
+
+每份包含：
+
+```text
+Posts
+Pages
+Categories
+Tags
+```
+
+只输出：
+
+```text
+Published
+Indexable
+Current Locale Translation Exists
+```
+
+---
+
+# 98. Sitemap hreflang
+
+如果实现成本可控：
+
+每个 URL 中同时加入：
+
+```text
+xhtml:link rel=alternate
+```
+
+这是最完整方案。
+
+---
+
+# 99. RSS
+
+默认：
+
+```text
+/feed.xml
+```
+
+对应默认语言。
+
+其他：
+
+```text
+/en/feed.xml
+/ja/feed.xml
+```
+
+或者：
+
+```text
+/feed/en-US.xml
+```
+
+我更推荐和 URL Locale 规则一致：
+
+```text
+/en/feed.xml
+```
+
+---
+
+# 100. RSS 内容
+
+只输出：
+
+```text
+current locale posts
+published
+```
+
+不要：
+
+```text
+中文 RSS
+```
+
+包含英文文章。
+
+---
+
+# 101. Search
+
+Search：
+
+```text
+/search?q=nuxt
+```
+
+只搜索：
+
+```text
+zh-CN translations
+```
+
+英文：
+
+```text
+/en/search?q=nuxt
+```
+
+只搜索：
+
+```text
+en-US translations
+```
+
+---
+
+# 102. Category / Tag
+
+Category 本身也必须使用 Translation：
+
+```text
+/category/ai
+```
+
+中文：
+
+```text
+category_translation.locale = zh-CN
+```
+
+英文：
+
+```text
+/en/category/artificial-intelligence
+```
+
+来自：
+
+```text
+en-US CategoryTranslation
+```
+
+---
+
+# 103. Navigation
+
+Header：
+
+当前 Locale：
+
+```text
+NavigationItemTranslation
+```
+
+解析。
+
+如果目标 Page/Post 没有当前 Translation：
+
+推荐：
+
+```text
+hide
+```
+
+避免产生 404 导航。
+
+---
+
+# 104. Slider
+
+Slider 读取：
+
+```text
+current locale
+```
+
+对应：
+
+```text
+slider_item_translation
+```
+
+没有：
+
+```text
+不显示该 Slide
+```
+
+或者按照 Slider 的特定 fallback 规则。
+
+建议：
+
+```text
+不显示
+```
+
+---
+
+# 105. Advertising
+
+广告：
+
+```text
+locale_scope
++
+creative_translation
+```
+
+自然接入当前 Route Locale。
+
+---
+
+# 106. Locale Detection
+
+不要默认强制：
+
+```text
+Accept-Language
+→ Redirect
+```
+
+否则用户可能：
+
+```text
+搜索进入中文版
+```
+
+结果被重定向。
+
+建议：
+
+第一次访问首页：
+
+可以：
+
+```text
+suggest language
+```
+
+但不要自动强跳。
+
+---
+
+# 107. Locale Cookie
+
+可保存：
+
+```text
+preferred_locale
+```
+
+用于：
+
+```text
+UI language preference
+```
+
+但 URL 是 SEO 真相。
+
+即：
+
+```text
+URL Locale > Cookie
+```
+
+---
+
+# 108. Missing Translation 404
+
+404 可以提示：
+
+```text
+This article isn't available in English.
+```
+
+如果系统知道同 Entity 有其他语言：
+
+可以显示：
+
+```text
+Available in:
+中文
+```
+
+这是比单纯 404 更好的 UX。
+
+---
+
+# 109. Locale Cache
+
+你已经做好：
+
+```text
+cache key includes locale
+```
+
+P20 要全面审核：
+
+```text
+Posts
+Pages
+Navigation
+Slider
+Advertising
+Settings
+SEO
+RSS
+Sitemap
+Search
+```
+
+全部必须：
+
+```text
+locale-aware
+```
+
+---
+
+# 110. Cache Invalidation
+
+更新英文 Post：
+
+只需要失效：
+
+```text
+en-US post
+en-US archive
+en-US category
+en-US sitemap
+en-US RSS
+```
+
+不要无脑：
+
+```text
+purge all locales
+```
+
+---
+
+# 111. P20 SEO 测试
+
+必须测试：
+
+```text
+canonical
+
+hreflang
+
+x-default
+
+HTML lang
+
+og:locale
+
+sitemap
+
+RSS
+
+404 language handling
+```
+
+---
+
+# 112. HTML lang
+
+中文：
+
+```html
+<html lang="zh-CN">
+```
+
+英文：
+
+```html
+<html lang="en-US">
+```
+
+不能一直：
+
+```text
+zh-CN
+```
+
+---
+
+# 113. og:locale
+
+例如：
+
+中文：
+
+```text
+zh_CN
+```
+
+英文：
+
+```text
+en_US
+```
+
+注意：
+
+```text
+OpenGraph Locale Format
+```
+
+和：
+
+```text
+BCP 47
+```
+
+格式不完全相同。
+
+建议统一 Formatter。
+
+---
+
+# 114. Date / Number
+
+P20 激活后所有：
+
+```text
+Date
+Number
+Currency
+Relative Time
+```
+
+继续使用：
+
+```text
+Intl
+```
+
+而不是中文模板。
+
+例如：
+
+中文：
+
+```text
+2026年9月11日
+```
+
+英文：
+
+```text
+September 11, 2026
+```
+
+---
+
+# 115. P20 验收场景
+
+## Case 1
+
+```text
+/posts/test
+```
+
+返回：
+
+```text
+zh-CN
+```
+
+---
+
+## Case 2
+
+```text
+/en/posts/test-en
+```
+
+返回：
+
+```text
+en-US
+```
+
+---
+
+## Case 3
+
+英文 Translation 不存在：
+
+```text
+/en/posts/foo
+```
+
+：
+
+```text
+404
+```
+
+而不是中文 fallback。
+
+---
+
+## Case 4
+
+Language Switch：
+
+```text
+ZH Post
+↓
+English
+↓
+对应 EN Post
+```
+
+---
+
+## Case 5
+
+Sitemap：
+
+```text
+zh sitemap
+en sitemap
+```
+
+完全分离。
+
+---
+
+## Case 6
+
+RSS：
+
+```text
+/en/feed.xml
+```
+
+只包含英文文章。
+
+---
+
+## Case 7
+
+英文 Header：
+
+```text
+English Navigation
+```
+
+---
+
+## Case 8
+
+中文 Slider：
+
+```text
+Chinese Slide
+```
+
+英文：
+
+```text
+English Slide
+```
+
+---
+
+# 116. 最终开发顺序
+
+建议严格：
+
+```text
+P14.1 Backup Manifest
+P14.2 Backup Provider Registry
+P14.3 Entity Export
+P14.4 Media Export
+P14.5 Restore Engine
+P14.6 Restore Preview
+P14.7 Restore Drill
+
+↓
+
+P15.1 AI Provider Registry
+P15.2 Encrypted Credentials
+P15.3 Unified AI Client
+P15.4 Provider Testing
+P15.5 Request Logs
+
+↓
+
+P16.1 Post AI
+P16.2 Tiptap Rewrite
+P16.3 SEO AI
+P16.4 Media Alt AI
+P16.5 Taxonomy Suggestions
+
+↓
+
+P19.1 CSP
+P19.2 CSP Provider Contributions
+P19.3 Audit Log
+P19.4 Rate Limiting Review
+P19.5 Log Redaction
+P19.6 Final Security Review
+
+↓
+
+P20.1 Public Locale Routing
+P20.2 Language Switcher
+P20.3 Second UI Locale
+P20.4 SEO hreflang/canonical
+P20.5 Localized Sitemap
+P20.6 Localized RSS
+P20.7 Locale Search
+P20.8 Navigation / Slider / Ads Integration
+P20.9 Cache Review
+P20.10 E2E
+```
+
+---
+
+# 117. Phase 完成标准
+
+## P14 COMPLETE
+
+只有：
+
+```text
+Create Backup
+↓
+Restore to Fresh DB
+↓
+Site runs correctly
+```
+
+才能完成。
+
+CSV Export 不算 Backup 完成。
+
+---
+
+## P15 COMPLETE
+
+必须：
+
+```text
+至少两个不同 AI Provider
+```
+
+通过同一：
+
+```text
+AIService
+```
+
+成功调用。
+
+业务模块不知道 Provider SDK 差异。
+
+---
+
+## P16 COMPLETE
+
+必须：
+
+```text
+关闭 AI
+```
+
+后博客仍然：
+
+```text
+100% 正常工作
+```
+
+AI 所有结果必须：
+
+```text
+Preview
+↓
+User Accept
+```
+
+---
+
+## P19 COMPLETE
+
+必须：
+
+```text
+CSP active
+Audit persistent
+Secrets redacted
+Sensitive endpoints rate-limited
+Security regression PASS
+```
+
+---
+
+## P20 COMPLETE
+
+必须：
+
+```text
+默认 Locale 无前缀
+
+第二 Locale URL Prefix 正常
+
+Language Switcher 使用 Entity Translation
+
+hreflang 正确
+
+Canonical 正确
+
+Sitemap Locale-aware
+
+RSS Locale-aware
+
+Navigation Locale-aware
+
+Search Locale-aware
+
+Cache Locale-aware
+
+缺 Translation 返回正确行为
+```
+
+---
+
+# 118. 最终系统关系
+
+```text
+                    Nuxt Blog
+                        │
+        ┌───────────────┼────────────────┐
+        ▼               ▼                ▼
+     Backup            AI              Locale
+        │               │                │
+        ▼               ▼                ▼
+ Module Registry   AI Provider      Translation
+        │               │                │
+        ▼               ▼                ▼
+     Restore        AI Features      Public Routes
+        │                                │
+        └──────────────┐                 │
+                       ▼                 ▼
+                    Hardening ←──── SEO / Cache
+```
+
+这些 Phase 完成以后，你的 Nuxt 博客基本就从“功能完整”进入了真正意义上的 **可迁移、可恢复、可扩展 AI、可公开多语言、可长期维护** 的 v1.0 系统状态。
+
+我这里尤其建议你把 **P14 的验收标准改严**：不是“能生成 ZIP 就算完成”，而是必须拿一个全新的 MySQL 数据库实际恢复一遍并启动 Nuxt 验证。P20 也不要再改 Entity/Translation 表结构，只做“激活层”，否则前面已经完成的多语言基础架构就白做了。

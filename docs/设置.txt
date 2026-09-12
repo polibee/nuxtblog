@@ -1,0 +1,2697 @@
+
+下面这版可以直接作为你当前 Nuxt 博客/CMS 的 **Settings 模块正式设计稿**。
+
+# Nuxt CMS Settings 模块优化设计
+
+## 1. 设计目标
+
+Settings 不应该是：
+
+```text
+key
+value
+JSON
+```
+
+这种开发者配置页。
+
+后台用户看到的应该是：
+
+```text
+站点标题
+站点描述
+网站 Logo
+默认语言
+评论开关
+SEO 设置
+AI 模型
+邮件配置
+存储配置
+```
+
+底层仍然可以：
+
+```text
+settings
+├── key
+├── value
+├── type
+└── group
+```
+
+但 UI 层必须是：
+
+> Schema-driven Form
+
+即：
+
+```text
+Settings Schema
+      ↓
+Field Renderer
+      ↓
+Modern Admin Form
+      ↓
+Settings Service
+      ↓
+KV / JSON Storage
+```
+
+---
+
+# 2. 核心原则
+
+冻结以下原则：
+
+```text
+1. 普通管理员绝不编辑 Key
+2. 普通管理员绝不编辑 Raw JSON
+3. Settings UI 由 Schema 自动生成
+4. 模块自己注册自己的 Settings
+5. Settings Core 不知道具体业务模块
+6. 支持动态启用/隐藏模块
+7. Secrets 单独处理
+8. Environment > Database > Default 的来源必须可见
+9. 保存必须有 Dirty State
+10. 不做“所有设置一个超长页面”
+```
+
+---
+
+# 3. Settings 信息架构
+
+最终建议：
+
+```text
+Settings
+
+GENERAL
+├── General
+├── Appearance
+└── Content
+
+PUBLISHING
+├── Media
+├── Comments
+├── SEO
+├── Search
+└── RSS
+
+COMMERCE
+├── Store
+├── Membership
+└── Payments
+
+GROWTH
+├── Advertising
+├── Friend Links
+└── Analytics
+
+AI
+└── AI
+
+LOCALIZATION
+└── Languages
+
+SYSTEM
+├── Email
+├── Storage
+├── Security
+├── Backup
+└── Advanced
+```
+
+---
+
+# 4. Profile 不放 Settings
+
+你刚刚设计的：
+
+```text
+/profile
+```
+
+不要放：
+
+```text
+Settings → Profile
+```
+
+因为 Profile 是内容实体。
+
+应该：
+
+```text
+Content
+└── Profile
+```
+
+或者：
+
+```text
+Profile
+├── Overview
+├── Sections
+├── Social Channels
+├── Experience
+├── Projects
+├── Skills
+├── Education
+├── Certifications
+├── Current Focus
+└── SEO
+```
+
+Settings 只处理：
+
+```text
+系统行为
+站点行为
+模块默认值
+基础设施
+```
+
+而不是具体内容。
+
+同理：
+
+```text
+Slider
+Advertising Campaign
+Products
+AI Reports
+Friend Links
+```
+
+都不是 Settings Record。
+
+---
+
+# 5. 页面整体布局
+
+桌面端：
+
+```text
+┌──────────────────────────────────────────────────────┐
+│ Settings                               Search...     │
+├──────────────┬───────────────────────────────────────┤
+│              │                                       │
+│ General      │ General                               │
+│ Appearance   │                                       │
+│ Content      │ Site title                            │
+│              │ [ My Blog                       ]     │
+│ Media        │                                       │
+│ Comments     │ Site description                      │
+│ SEO          │ [ ...                           ]     │
+│ Search       │                                       │
+│ RSS          │ Site icon                             │
+│              │ [ Select Media ]                     │
+│ Store        │                                       │
+│ Membership   │                                       │
+│ ...          │                                       │
+│              │                                       │
+└──────────────┴───────────────────────────────────────┘
+```
+
+建议：
+
+```text
+Settings container:
+max-width 1280px
+
+Left navigation:
+240–260px
+
+Content:
+max-width 880–960px
+```
+
+---
+
+# 6. Settings Header
+
+顶部：
+
+```text
+Settings
+
+Manage site configuration and system preferences.
+
+[ Search settings... ]
+```
+
+不要额外塞：
+
+```text
+Save
+Reset
+Export
+Import
+```
+
+一排按钮。
+
+保存按钮应该进入：
+
+> Dirty Save Bar
+
+---
+
+# 7. Dirty Save Bar
+
+只有修改设置以后出现：
+
+```text
+┌──────────────────────────────────────────────────┐
+│ Unsaved changes                  Discard   Save │
+└──────────────────────────────────────────────────┘
+```
+
+建议 sticky：
+
+```text
+bottom: 16px
+```
+
+或者顶部 sticky。
+
+必须支持：
+
+```text
+Dirty detection
+Unsaved route guard
+Discard changes
+Save changes
+```
+
+用户离开页面时：
+
+```text
+You have unsaved changes.
+```
+
+---
+
+# 8. 不要每个字段自动保存
+
+尤其：
+
+```text
+SMTP
+Storage
+AI API Key
+Security
+Payment
+```
+
+如果输入一个字符就保存，很危险。
+
+推荐：
+
+```text
+Form state
+↓
+Dirty
+↓
+Save
+↓
+Validate
+↓
+Batch Update
+```
+
+---
+
+# 9. 左侧 Navigation
+
+Navigation 不应该写死。
+
+由：
+
+```text
+Settings Registry
+```
+
+生成。
+
+例如：
+
+```ts
+settingsRegistry.register({
+  id: "comments",
+  group: "publishing",
+  label: "Comments",
+  icon: MessageSquare,
+  order: 20
+})
+```
+
+如果 Comments 模块未启用：
+
+```text
+Comments
+```
+
+自动消失。
+
+---
+
+# 10. 动态模块注册
+
+例如：
+
+```text
+Comments Module
+      ↓
+registerSettings()
+```
+
+注册：
+
+```text
+comments.enabled
+comments.moderation
+comments.guest
+comments.max_length
+```
+
+Store：
+
+```text
+store.currency
+store.order_prefix
+store.inventory
+```
+
+Advertising：
+
+```text
+ads.enabled
+ads.provider
+```
+
+Settings Core 不应该：
+
+```text
+import CommentsSettings
+import StoreSettings
+import AdvertisingSettings
+```
+
+全部硬编码。
+
+---
+
+# 11. Settings Schema
+
+核心结构建议：
+
+```ts
+interface SettingDefinition {
+  key: string
+
+  group: string
+  section?: string
+
+  label: string
+  description?: string
+
+  type: SettingFieldType
+
+  defaultValue?: unknown
+
+  required?: boolean
+
+  validation?: unknown
+
+  options?: SettingOption[]
+
+  visibleWhen?: SettingCondition
+
+  disabledWhen?: SettingCondition
+
+  sensitive?: boolean
+
+  restartRequired?: boolean
+
+  source?: "database" | "environment" | "default"
+}
+```
+
+---
+
+# 12. Field Types
+
+建议 Core 一次性支持：
+
+```text
+text
+textarea
+number
+switch
+select
+multi-select
+radio
+checkbox-group
+slider
+
+url
+email
+
+media
+page-select
+user-select
+
+secret
+
+color
+
+date
+time
+datetime
+duration
+
+repeatable
+
+code
+```
+
+但是：
+
+```text
+code
+```
+
+只给 Advanced / Developer 使用。
+
+普通设置绝不展示。
+
+---
+
+# 13. Field Renderer
+
+统一：
+
+```text
+SettingsField.vue
+```
+
+内部：
+
+```text
+text          → Input
+textarea      → Textarea
+switch        → Switch
+select        → Select
+radio         → RadioGroup
+media         → MediaPicker
+secret        → SecretInput
+color         → ColorPicker
+repeatable    → RepeatableField
+```
+
+不要每个设置页面重复写：
+
+```vue
+<FormField>
+<Input />
+</FormField>
+```
+
+---
+
+# 14. 推荐组件结构
+
+```text
+components/admin/settings/
+├── SettingsLayout.vue
+├── SettingsSidebar.vue
+├── SettingsHeader.vue
+├── SettingsSearch.vue
+├── SettingsSection.vue
+├── SettingsGroup.vue
+├── SettingsField.vue
+├── SettingsFieldDescription.vue
+├── SettingsSourceBadge.vue
+├── SettingsSaveBar.vue
+├── SettingsResetDialog.vue
+└── fields/
+    ├── TextField.vue
+    ├── NumberField.vue
+    ├── SwitchField.vue
+    ├── SelectField.vue
+    ├── MediaField.vue
+    ├── SecretField.vue
+    ├── RepeatableField.vue
+    └── ...
+```
+
+UI 全部继续：
+
+```text
+shadcn-vue
+```
+
+不改原始设计 token / 配色。
+
+---
+
+# 15. Settings Search
+
+这个功能非常值得做。
+
+顶部搜索：
+
+```text
+Search settings...
+```
+
+输入：
+
+```text
+comment
+```
+
+返回：
+
+```text
+Comments
+  Enable comments
+
+Comments
+  Guest comments
+
+Comments
+  Moderation
+```
+
+点击：
+
+```text
+Settings → Comments
+```
+
+自动：
+
+```text
+scrollIntoView()
+```
+
+并短暂 highlight。
+
+---
+
+# 16. Search 索引字段
+
+搜索：
+
+```text
+label
+description
+keywords
+group
+section
+```
+
+例如：
+
+```ts
+{
+  key: "comments.guest_enabled",
+  label: "Allow guest comments",
+  keywords: [
+    "anonymous",
+    "visitor",
+    "guest"
+  ]
+}
+```
+
+---
+
+# 17. General
+
+建议：
+
+```text
+General
+
+Site Identity
+├── Site Title
+├── Site Subtitle
+├── Site Description
+├── Site URL
+├── Site Icon
+└── Logo
+
+Administration
+├── Admin Email
+└── Timezone
+
+Homepage
+├── Homepage Type
+└── Posts Per Page
+```
+
+但不要把 Profile 信息放进去。
+
+---
+
+# 18. Appearance
+
+只管理真正的全局外观：
+
+```text
+Appearance
+
+Theme
+├── Default Theme
+│   ├── System
+│   ├── Light
+│   └── Dark
+│
+├── Allow User Theme Switch
+└── Default Color Mode
+
+Layout
+├── Content Width
+└── Sidebar Enabled
+
+Branding
+├── Logo
+├── Dark Logo
+└── Favicon
+```
+
+不要开放：
+
+```text
+font-size
+border-radius
+shadow-strength
+card-padding
+```
+
+这种设计系统内部参数。
+
+因为你已经确定：
+
+> 保持 shadcn-vue 原始设计。
+
+---
+
+# 19. Content
+
+这里管理默认发布行为。
+
+```text
+Content
+
+Posts
+├── Default Post Status
+├── Default Editor
+├── Show Reading Time
+├── Show Views
+├── Show Updated Date
+└── Excerpt Length
+
+URLs
+├── Post Permalink Pattern
+└── Trailing Slash
+
+Related Content
+├── Enable Related Posts
+└── Related Posts Count
+```
+
+不要在这里编辑：
+
+```text
+文章
+分类
+标签
+```
+
+---
+
+# 20. Media
+
+```text
+Media
+
+Uploads
+├── Max Upload Size
+├── Allowed Image Formats
+└── Preserve Original
+
+Image Processing
+├── Generate Variants
+├── Strip EXIF
+├── Default Quality
+└── Preferred Format
+
+Defaults
+├── Default Alt Behavior
+└── Lazy Loading
+
+Storage
+└── Storage Provider
+```
+
+具体：
+
+```text
+thumbnail
+medium
+large
+post_featured
+slider_desktop
+slider_mobile
+og_image
+avatar
+product_card
+```
+
+属于系统 preset。
+
+普通管理员不用修改每个 pixel。
+
+---
+
+# 21. Comments
+
+```text
+Comments
+
+General
+├── Enable Comments
+├── Guest Comments
+├── Require Email
+└── Max Length
+
+Moderation
+├── Require Approval
+├── Auto Approve Trusted Users
+├── Spam Protection
+└── Link Limit
+
+Display
+├── Default Sort
+├── Root Threads Per Load
+├── Replies Initial Count
+└── Allow Likes
+
+Editor
+├── Bold
+├── Italic
+├── Code
+├── Quote
+├── Links
+└── Emoji
+```
+
+这里存：
+
+```text
+功能开关
+默认行为
+```
+
+不是评论内容。
+
+---
+
+# 22. SEO
+
+```text
+SEO
+
+Site Defaults
+├── Default SEO Title Pattern
+├── Default Meta Description
+├── Default OG Image
+
+Indexing
+├── Index Posts
+├── Index Pages
+├── Index Categories
+├── Index Tags
+└── Noindex Search
+
+Structured Data
+├── Organization / Person Type
+├── Site Name
+└── Social Profiles
+
+Sitemap
+├── Enable Sitemap
+└── Include Images
+
+Robots
+└── Robots Configuration
+```
+
+Profile 页自己的 SEO：
+
+```text
+Profile → SEO
+```
+
+不要放这里。
+
+SEO Settings 只是全局默认值。
+
+---
+
+# 23. Search
+
+```text
+Search
+
+General
+├── Enable Search
+├── Results Per Page
+
+Content Types
+├── Posts
+├── Pages
+├── Products
+
+Matching
+├── Title Weight
+├── Content Weight
+└── Tag Weight
+```
+
+第一版：
+
+```text
+SQL Full Text
+```
+
+够用。
+
+以后接：
+
+```text
+Meilisearch
+Typesense
+```
+
+再扩 Provider。
+
+---
+
+# 24. RSS
+
+```text
+RSS
+
+Enable RSS
+Feed Title
+Feed Description
+Items Per Feed
+Include Full Content
+Include Featured Image
+```
+
+---
+
+# 25. Store
+
+只放 Store 默认行为。
+
+```text
+Store
+
+General
+├── Enable Store
+├── Default Currency
+├── Currency Position
+└── Products Per Page
+
+Inventory
+├── Track Inventory
+└── Low Stock Threshold
+
+Display
+├── Show Sales Count
+├── Show Ratings
+└── Show Member Price
+
+Checkout
+└── Require Login
+```
+
+产品、价格、库存不属于 Settings。
+
+---
+
+# 26. Membership
+
+```text
+Membership
+
+General
+├── Enable Membership
+├── Allow Registration
+└── Default Role
+
+Benefits
+├── Global Ad-Free
+└── Member Pricing
+
+Access
+├── Paywalled Content
+└── Preview Length
+```
+
+你的逻辑继续：
+
+> 用户只要拥有任意有效会员，即可全站免广告。
+
+这个规则应该是 Membership Service 的业务规则，不是广告模块自行判断。
+
+---
+
+# 27. Payments
+
+这里不要配置订单。
+
+只配置：
+
+```text
+Payments
+
+General
+├── Enable Payments
+├── Default Gateway
+└── Currency
+
+Gateway
+├── Enabled Providers
+└── Test / Live Mode
+```
+
+每个 Gateway 自己注册 Settings。
+
+例如：
+
+```text
+CoinPayments
+Stripe
+Crypto
+```
+
+Secrets 使用 SecretField。
+
+---
+
+# 28. Advertising
+
+Settings 这里只控制全局行为：
+
+```text
+Advertising
+
+General
+├── Enable Advertising
+├── Default Provider
+└── Load Provider Script
+
+Display Rules
+├── Hide Ads For Members
+├── Hide Ads In Admin
+├── Hide Ads In Account
+└── Hide Ads In Checkout
+```
+
+不要在 Settings 管理：
+
+```text
+Campaign
+Placement
+Creative
+Slot
+Schedule
+```
+
+这些应该进入：
+
+```text
+Advertising
+├── Slots
+├── Campaigns
+└── Placements
+```
+
+---
+
+# 29. Friend Links
+
+Settings：
+
+```text
+Friend Links
+
+Enable Friend Links
+Allow Submissions
+Require Approval
+Enable Backlink Check
+Check Frequency
+```
+
+真正链接：
+
+```text
+Friend Links
+```
+
+业务管理页。
+
+---
+
+# 30. Analytics
+
+```text
+Analytics
+
+General
+├── Enable Analytics
+
+Providers
+├── Google Analytics
+├── Plausible
+├── Umami
+└── Custom
+
+Privacy
+├── Respect DNT
+└── Cookie Requirement
+```
+
+Provider 配置按启用状态动态出现。
+
+---
+
+# 31. AI Settings
+
+这一部分需要按你刚刚的新 AI 架构更新。
+
+不要让用户到每个功能里选模型。
+
+统一：
+
+```text
+AI
+
+General
+├── Enable AI Features
+
+Models
+├── Writing Model
+├── Analysis Model
+├── Vision Model
+└── Translation Model
+
+Features
+├── Editor AI
+├── Page AI
+├── AI Assistant
+├── Site Analysis
+└── Translation
+
+Data Access
+├── Published Posts
+├── Pages
+├── Profile
+├── Taxonomy
+├── Products
+├── Approved Comments
+├── Drafts
+└── Analytics
+
+Analysis
+└── Default Depth
+    ├── Quick
+    ├── Balanced
+    └── Deep
+```
+
+---
+
+# 32. AI Provider 不完全塞 Settings
+
+Providers 建议进入：
+
+```text
+AI
+├── Assistant
+├── Reports
+├── Suggestions
+├── Providers
+└── Usage
+```
+
+Provider 页面管理：
+
+```text
+OpenAI
+Anthropic
+Gemini
+OpenRouter
+OpenAI-compatible
+```
+
+包括：
+
+```text
+API Key
+Base URL
+Models
+Capabilities
+Enabled
+```
+
+Settings → AI 只选择：
+
+```text
+Writing Model
+Analysis Model
+Vision Model
+Translation Model
+```
+
+不要暴露：
+
+```text
+openai:gpt-x-y-z
+```
+
+一堆原始模型字符串。
+
+---
+
+# 33. AI Advanced
+
+Advanced 才允许：
+
+```text
+Temperature
+Max Output Tokens
+Timeout
+Retry Count
+```
+
+默认折叠。
+
+普通管理员不需要理解这些。
+
+---
+
+# 34. Languages
+
+你的内容多语言设计继续使用：
+
+```text
+Languages
+
+Default Language
+Available Languages
+URL Prefix
+Fallback Policy
+```
+
+语言列表本身建议是一个可管理实体：
+
+```text
+Languages
+```
+
+Settings 里主要控制：
+
+```text
+Default Locale
+Routing Behavior
+```
+
+不能设计成：
+
+```text
+zh_title
+en_title
+ja_title
+```
+
+这种固定字段。
+
+---
+
+# 35. Email
+
+```text
+Email
+
+Provider
+├── SMTP
+├── Resend
+├── Custom
+
+Sender
+├── From Name
+├── From Email
+└── Reply-To
+
+SMTP
+├── Host
+├── Port
+├── Encryption
+├── Username
+└── Password
+
+Testing
+└── Send Test Email
+```
+
+`Send Test Email` 是 Action，不是 Setting。
+
+---
+
+# 36. Storage
+
+```text
+Storage
+
+Default Storage
+├── Local
+├── S3
+├── R2
+├── OSS
+└── COS
+
+Uploads
+├── Public URL
+├── Base Directory
+└── Max Upload Size
+```
+
+不同 Adapter 动态注册自己的字段。
+
+---
+
+# 37. Security
+
+建议：
+
+```text
+Security
+
+Authentication
+├── Session Lifetime
+├── Login Rate Limit
+└── Remember Me
+
+Content Security
+├── CSP
+├── Allowed Embed Domains
+└── SVG Upload
+
+Admin
+├── Admin Path
+└── Require Re-auth For Sensitive Actions
+```
+
+安全相关字段不要给过多“自由配置”。
+
+能安全默认就安全默认。
+
+---
+
+# 38. Backup
+
+```text
+Backup
+
+General
+├── Enable Scheduled Backup
+├── Retention
+└── Include Media
+
+Destination
+└── Storage Target
+```
+
+但：
+
+```text
+Create Backup
+Restore Backup
+Download Backup
+```
+
+属于：
+
+```text
+Tools → Backup
+```
+
+不是 Settings。
+
+---
+
+# 39. Advanced
+
+这是唯一允许接近底层的地方。
+
+建议：
+
+```text
+Advanced
+
+Cache
+├── Cache Enabled
+├── Cache TTL
+
+Developer
+├── Debug Mode
+├── API Logging
+└── Raw Settings
+
+Maintenance
+└── Maintenance Mode
+```
+
+---
+
+# 40. Raw Settings
+
+必须强限制。
+
+路径：
+
+```text
+Settings
+→ Advanced
+→ Developer
+→ Raw Settings
+```
+
+默认：
+
+```text
+READ ONLY
+```
+
+页面顶部：
+
+```text
+Raw Settings
+
+Directly editing raw configuration can break the site.
+Use the normal Settings UI whenever possible.
+
+[ Enable Editing ]
+```
+
+点击后：
+
+```text
+AlertDialog
+```
+
+再次确认。
+
+---
+
+# 41. Raw Editor 不是普通 JSON 文本框
+
+最好：
+
+```text
+Key
+Resolved Value
+Source
+Type
+Module
+```
+
+例如：
+
+```text
+comments.enabled     true       Database
+site.timezone        Asia/Tokyo Environment
+media.quality        82         Default
+```
+
+点击某条后才可查看原始值。
+
+---
+
+# 42. Settings 来源
+
+非常重要。
+
+一个设置可能来自：
+
+```text
+Environment
+Database
+Default
+```
+
+优先级：
+
+```text
+Environment
+↓
+Database
+↓
+Schema Default
+```
+
+如果环境变量锁定：
+
+```text
+SMTP Host
+
+smtp.example.com
+
+Environment
+This setting is managed by an environment variable.
+```
+
+Field disabled。
+
+不要让用户以为保存以后会生效。
+
+---
+
+# 43. Source Badge
+
+推荐：
+
+```text
+Environment
+Database
+Default
+```
+
+小 Badge。
+
+默认：
+
+```text
+Default
+```
+
+通常不需要一直显示。
+
+只有：
+
+```text
+Environment override
+```
+
+时明显提示。
+
+---
+
+# 44. Secrets
+
+Secret Field：
+
+```text
+API Key
+••••••••••••••••
+
+Stored securely
+
+[ Replace ]
+```
+
+绝不能 API 返回真实 secret。
+
+API 只返回：
+
+```text
+configured: true
+last4: "1234"
+```
+
+如果点击 Replace：
+
+```text
+New API Key
+[                      ]
+```
+
+---
+
+# 45. Secret Storage
+
+数据库：
+
+```text
+encrypted_value
+```
+
+不要：
+
+```text
+plaintext
+```
+
+日志：
+
+```text
+never log secret value
+```
+
+Audit：
+
+```text
+Updated OpenAI API Key
+```
+
+而不是：
+
+```text
+Updated from sk-xxx to sk-xxx
+```
+
+---
+
+# 46. Settings API
+
+建议不要一个字段一个 Endpoint。
+
+读取：
+
+```text
+GET /api/admin/settings
+```
+
+或者：
+
+```text
+GET /api/admin/settings/:group
+```
+
+更新：
+
+```text
+PATCH /api/admin/settings/:group
+```
+
+Batch：
+
+```json
+{
+  "settings": {
+    "site.title": "...",
+    "site.description": "...",
+    "site.timezone": "..."
+  }
+}
+```
+
+---
+
+# 47. 不推荐
+
+```text
+PATCH /api/settings/site-title
+PATCH /api/settings/site-description
+PATCH /api/settings/timezone
+```
+
+这样未来会产生几百个 API。
+
+---
+
+# 48. Validation
+
+必须：
+
+```text
+Client Validation
++
+Server Validation
+```
+
+Server 根据 Registry Schema 再校验一次。
+
+不能信任前端。
+
+---
+
+# 49. Setting Service
+
+推荐：
+
+```text
+SettingsController
+        ↓
+SettingsService
+        ↓
+SettingsRegistry
+        ↓
+SettingsRepository
+        ↓
+Database
+```
+
+读取时：
+
+```text
+SettingsService.resolve(key)
+```
+
+内部：
+
+```text
+Environment
+      ↓
+Database
+      ↓
+Default
+```
+
+---
+
+# 50. Runtime 使用方式
+
+业务模块不要：
+
+```ts
+db.settings.find(...)
+```
+
+到处查询。
+
+应该：
+
+```ts
+settings.get("comments.enabled")
+```
+
+或者：
+
+```ts
+settings.getBoolean("comments.enabled")
+```
+
+---
+
+# 51. Settings Cache
+
+Settings 是非常适合缓存的数据。
+
+推荐：
+
+```text
+Application Memory
+```
+
+第一版就够。
+
+以后多实例：
+
+```text
+Redis
+```
+
+保存以后：
+
+```text
+invalidate affected keys
+```
+
+不要每次页面请求：
+
+```text
+SELECT settings...
+```
+
+几十次。
+
+---
+
+# 52. Namespace
+
+Key 必须规范：
+
+```text
+site.title
+site.description
+
+appearance.theme
+
+content.reading_time
+
+media.max_upload_size
+
+comments.enabled
+
+seo.default_title
+
+store.currency
+
+membership.enabled
+
+ads.enabled
+
+ai.enabled
+
+localization.default_locale
+
+email.provider
+
+storage.provider
+
+security.session_lifetime
+```
+
+不要：
+
+```text
+siteTitle
+ENABLE_COMMENT
+setting_001
+```
+
+---
+
+# 53. 模块卸载
+
+如果模块关闭：
+
+例如：
+
+```text
+Store disabled
+```
+
+Settings navigation：
+
+```text
+Store
+Membership
+Payments
+```
+
+可以自动隐藏。
+
+但数据库值：
+
+```text
+保留
+```
+
+重新启用模块后恢复。
+
+不要因为 disable module 就删除 setting。
+
+---
+
+# 54. Module Settings Contract
+
+建议每个模块：
+
+```ts
+interface SettingsContributor {
+  namespace: string
+
+  registerSettings(
+    registry: SettingsRegistry
+  ): void
+}
+```
+
+例如：
+
+```text
+CommentsModule
+AdvertisingModule
+StoreModule
+AIModule
+```
+
+启动：
+
+```text
+Module Registry
+↓
+Settings Contributor
+↓
+Settings Registry
+```
+
+---
+
+# 55. Conditional Fields
+
+例如：
+
+```text
+Enable Comments [ON]
+
+Guest Comments [ON]
+Require Guest Email [ON]
+```
+
+如果：
+
+```text
+Guest Comments OFF
+```
+
+则：
+
+```text
+Require Guest Email
+```
+
+自动隐藏。
+
+Schema：
+
+```text
+visibleWhen:
+comments.guest_enabled == true
+```
+
+---
+
+# 56. Provider Conditional
+
+例如：
+
+```text
+Email Provider
+[ SMTP ]
+```
+
+才显示：
+
+```text
+SMTP Host
+SMTP Port
+SMTP Username
+SMTP Password
+```
+
+切换：
+
+```text
+Resend
+```
+
+显示：
+
+```text
+Resend API Key
+```
+
+---
+
+# 57. Setting Description
+
+每个复杂字段必须：
+
+```text
+Label
+
+Description
+```
+
+例如：
+
+```text
+Hide ads for members
+
+Members with any active membership will not see advertising
+across the public site.
+```
+
+不要靠：
+
+```text
+Tooltip
+```
+
+解释所有东西。
+
+Tooltip 只用于辅助说明。
+
+---
+
+# 58. Dangerous Setting
+
+危险设置：
+
+```text
+Disable Registration
+Maintenance Mode
+Raw Settings
+Storage Provider Change
+```
+
+使用：
+
+```text
+Warning
+AlertDialog
+```
+
+但不要把所有设置都弄成警告。
+
+---
+
+# 59. Reset
+
+支持：
+
+```text
+Reset to Default
+```
+
+最好按：
+
+```text
+Field
+Section
+```
+
+不要默认提供：
+
+```text
+Reset All Settings
+```
+
+这种高风险按钮。
+
+如果以后做，放 Advanced。
+
+---
+
+# 60. Audit Log
+
+重要设置修改必须进入：
+
+```text
+Audit Log
+```
+
+记录：
+
+```text
+user
+setting key
+old value
+new value
+timestamp
+```
+
+Secrets：
+
+```text
+old: configured
+new: replaced
+```
+
+---
+
+# 61. 权限
+
+不要只有：
+
+```text
+settings.manage
+```
+
+建议至少：
+
+```text
+settings.read
+settings.update
+settings.system
+settings.secrets
+settings.advanced
+```
+
+例如编辑作者：
+
+```text
+不应该获得 SMTP/API Key 权限
+```
+
+---
+
+# 62. Mobile
+
+移动后台：
+
+左侧 Settings Nav 变成：
+
+```text
+[ General ▼ ]
+```
+
+或者 Drawer。
+
+不要把 250px Sidebar 硬塞进去。
+
+Save Bar：
+
+```text
+bottom sticky
+```
+
+---
+
+# 63. URL
+
+推荐每个 Settings Page 都有 URL：
+
+```text
+/admin/settings/general
+/admin/settings/appearance
+/admin/settings/content
+/admin/settings/media
+/admin/settings/comments
+/admin/settings/seo
+/admin/settings/search
+/admin/settings/rss
+
+/admin/settings/store
+/admin/settings/membership
+/admin/settings/payments
+
+/admin/settings/advertising
+/admin/settings/friend-links
+/admin/settings/analytics
+
+/admin/settings/ai
+
+/admin/settings/languages
+
+/admin/settings/email
+/admin/settings/storage
+/admin/settings/security
+/admin/settings/backup
+/admin/settings/advanced
+```
+
+不要：
+
+```text
+/admin/settings?tab=seo
+```
+
+独立 URL 更方便：
+
+```text
+刷新
+深链
+权限
+搜索跳转
+```
+
+---
+
+# 64. 设置页面不要 Tab 套 Tab
+
+避免：
+
+```text
+Settings
+ └ Tabs
+    └ SEO
+       └ Tabs
+          └ General
+```
+
+会很乱。
+
+推荐：
+
+```text
+Page
+↓
+Section
+↓
+Field
+```
+
+例如：
+
+```text
+SEO
+
+Site Defaults
+...
+
+Indexing
+...
+
+Structured Data
+...
+```
+
+---
+
+# 65. Settings 页面视觉
+
+保持非常克制。
+
+每个 Section：
+
+```text
+General
+
+Configure basic site information.
+
+Site title
+[                         ]
+
+Site description
+[                         ]
+```
+
+Section 之间：
+
+```text
+Separator
+```
+
+不要：
+
+```text
+每个 Section 一个巨大 Card
+```
+
+否则又会变 Dashboard。
+
+---
+
+# 66. 什么东西才使用 Card
+
+适合 Card：
+
+```text
+Provider
+Storage Adapter
+AI Provider
+Payment Gateway
+```
+
+例如：
+
+```text
+OpenAI
+Configured
+Enabled
+```
+
+但普通 Fields 不要套 Card。
+
+---
+
+# 67. Settings Schema 与数据库分离
+
+这里非常重要：
+
+```text
+Schema
+```
+
+定义：
+
+```text
+有什么设置
+是什么类型
+默认值
+怎么验证
+怎么展示
+```
+
+数据库：
+
+```text
+只存覆盖值
+```
+
+例如：
+
+Schema：
+
+```text
+comments.enabled default true
+```
+
+如果数据库没有记录：
+
+```text
+true
+```
+
+来自 default。
+
+用户改成 false：
+
+数据库：
+
+```text
+comments.enabled = false
+```
+
+点击 Reset：
+
+删除 DB override。
+
+重新：
+
+```text
+true
+```
+
+---
+
+# 68. 这样做的好处
+
+升级版本新增：
+
+```text
+comments.likes_enabled
+```
+
+只需要注册 Schema。
+
+不需要：
+
+```text
+INSERT INTO settings...
+```
+
+程序第一次运行即可获得 default。
+
+---
+
+# 69. Settings Registry
+
+建议内部：
+
+```text
+SettingsRegistry
+├── groups
+├── pages
+├── sections
+└── fields
+```
+
+它最终生成：
+
+```text
+Admin UI
+Validation
+Defaults
+Search Index
+API Metadata
+```
+
+这一个 Registry 可以成为整个 Settings 的核心。
+
+---
+
+# 70. API 返回 Metadata
+
+例如：
+
+```text
+GET /api/admin/settings/comments
+```
+
+可以返回：
+
+```text
+values
++
+schema metadata
+```
+
+前端完全动态渲染。
+
+但这里我建议采取：
+
+> 半动态模式。
+
+即：
+
+```text
+Schema 自动生成字段
++
+复杂页面允许自定义组件
+```
+
+---
+
+# 71. 为什么不要 100% 动态
+
+因为类似：
+
+```text
+AI Providers
+Storage Provider
+Payment Gateway
+```
+
+需要复杂交互。
+
+所以：
+
+```text
+80% Schema-driven
+
+20% Custom Settings Component
+```
+
+是最合理的。
+
+---
+
+# 72. 自定义 Renderer
+
+Schema 可以：
+
+```text
+renderer: "ai-model-selector"
+```
+
+或者：
+
+```text
+renderer: "storage-provider"
+```
+
+普通字段依然走：
+
+```text
+SettingsField
+```
+
+---
+
+# 73. 开发阶段
+
+建议重新冻结 Settings 开发阶段：
+
+## S1 — Settings Foundation
+
+实现：
+
+```text
+Settings Registry
+Settings Schema
+Settings Service
+Settings Repository
+Source Resolution
+Validation
+Cache
+```
+
+---
+
+# 74. S2 — Settings UI Foundation
+
+实现：
+
+```text
+Settings Layout
+Sidebar Navigation
+Header
+Search
+Field Renderer
+Sections
+Dirty State
+Save Bar
+Unsaved Guard
+```
+
+---
+
+# 75. S3 — Core Settings
+
+实现：
+
+```text
+General
+Appearance
+Content
+Media
+Comments
+SEO
+Search
+RSS
+```
+
+---
+
+# 76. S4 — Business Settings
+
+实现：
+
+```text
+Store
+Membership
+Payments
+Advertising
+Friend Links
+Analytics
+```
+
+模块不存在时隐藏。
+
+---
+
+# 77. S5 — AI / Localization
+
+实现：
+
+```text
+AI
+Languages
+```
+
+AI 使用最新架构：
+
+```text
+Writing Model
+Analysis Model
+Vision Model
+Translation Model
+
+Editor AI
+Page AI
+AI Assistant
+Site Analysis
+```
+
+---
+
+# 78. S6 — System
+
+实现：
+
+```text
+Email
+Storage
+Security
+Backup
+```
+
+---
+
+# 79. S7 — Advanced
+
+最后才实现：
+
+```text
+Raw Settings
+Developer Options
+Source Inspector
+Reset
+Advanced Cache
+```
+
+不要第一阶段就做 Raw Editor。
+
+---
+
+# 80. 验收标准
+
+Settings 模块最终必须满足：
+
+```text
+✓ 普通管理员完全不需要知道 setting key
+
+✓ 普通管理员完全不需要编辑 JSON
+
+✓ 新模块可以注册 Settings
+
+✓ 模块禁用后 Settings 自动隐藏
+
+✓ 新增 setting 不需要数据库 seed
+
+✓ 支持 Default / Database / Environment
+
+✓ Environment Override 明确显示
+
+✓ Secret 不返回明文
+
+✓ Secret 修改进入 Audit
+
+✓ Settings 支持搜索
+
+✓ 搜索可以定位字段
+
+✓ 有 Dirty State
+
+✓ 有 Unsaved Route Guard
+
+✓ Batch Save
+
+✓ Server 重新 Validation
+
+✓ Settings 有 Cache
+
+✓ 保存自动 invalidate
+
+✓ 每个 Settings Page 有独立 URL
+
+✓ Mobile 可用
+
+✓ Dark Mode 正常
+
+✓ 保持原始 shadcn-vue Design Tokens
+
+✓ 普通页面没有 Raw JSON
+
+✓ Advanced Raw Editor 默认只读
+```
+
+---
+
+# 81. 最终架构
+
+最终关系：
+
+```text
+                   Settings Registry
+                          │
+             ┌────────────┼────────────┐
+             │            │            │
+           Schema      Navigation    Search
+             │
+      Settings Renderer
+             │
+        Admin Forms
+             │
+       Settings API
+             │
+      Settings Service
+             │
+   ┌─────────┼─────────┐
+   │         │         │
+ENV        Database   Default
+   │
+Resolved Settings
+   │
+Business Modules
+```
+
+模块：
+
+```text
+Comments
+Store
+Advertising
+AI
+Email
+Storage
+...
+```
+
+都只依赖：
+
+```text
+SettingsService
+```
+
+而不是自己实现一套设置系统。
+
+---
+
+# 82. 最终建议
+
+你当前 Settings 最值得做的不是继续“增加设置项”，而是先把 **Settings Foundation** 做正确。
+
+冻结成：
+
+```text
+Schema Registry
++
+Visual Settings UI
++
+Module Registration
++
+Source Resolution
++
+Secure Secrets
++
+Search
++
+Dirty Save
+```
+
+然后业务模块只需要：
+
+```text
+register settings
+```
+
+就自动获得：
+
+```text
+UI
+Validation
+Default
+Search
+API
+Permissions
+Cache
+```
+
+这会让你以后继续开发 Blog、Store、Advertising、AI、Comments、Payments 时轻松很多。
+
+特别是最新加入的：
+
+```text
+Page AI
+AI Assistant
+Profile
+```
+
+应该遵循同一个边界：
+
+```text
+Settings
+→ 管“系统怎么运行”
+
+Business Module
+→ 管“具体内容是什么”
+```
+
+这样 Settings 不会最终变成一个什么东西都往里塞的超级页面。
+
+我建议当前实际开发顺序直接按 **S1 → S2 → S3 → S5(AI)**，因为你现在正在继续做 Page AI / AI Assistant；商城、支付、系统级 Provider 可以等核心设置框架稳定以后再逐步注册进去。

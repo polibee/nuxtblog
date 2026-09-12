@@ -1,61 +1,75 @@
 /* resolve the event type from h3 helpers themselves - immune to
    duplicate h3 copies across @nuxt/nitro-server and standalone h3 */
 import type { AuthUser } from '#shared/types/api'
-import { findRoleByKey } from './db'
-import { getKV } from './kv'
+import { isDomainDbReady } from '../repositories/domain-status'
+import {
+  createSession as persistSession,
+  deleteExpiredSessions,
+  deleteSession,
+  findActiveSession
+} from '../repositories/session.runtime.repository'
+import { findUserRowByEmail } from '../repositories/user.runtime.repository'
+import { generateToken, hashToken, verifyPassword } from './password'
+import { permissionsForRole } from './permissions'
 
 type H3Evt = Parameters<typeof getCookie>[0]
 
 /* =============================================================
- * Demo auth: accounts reference seeded roles; permissions are
- * resolved from the roles collection (editable in the RBAC UI).
- * Replace with real identity provider / JWT in production.
+ * Real authentication (P01): accounts live in the MySQL users
+ * table, passwords are scrypt-hashed, sessions persist as
+ * SHA-256 token hashes with an expiry. Replaces the demo
+ * in-memory accounts; the exported contract is unchanged.
  * ============================================================= */
 
-interface Account {
-  id: number
-  name: string
-  email: string
-  password: string
+const SESSION_COOKIE = 'admin_session'
+
+function sessionTtlMs(): number {
+  const hours = Number(process.env.SESSION_TTL_HOURS) || 8
+  return hours * 3_600_000
 }
 
-const ACCOUNTS: Account[] = [
-  { id: 1, name: 'Ada Admin', email: 'admin@demo.dev', password: 'password' },
-  { id: 2, name: 'Eli Editor', email: 'editor@demo.dev', password: 'password' },
-  { id: 3, name: 'Vera Viewer', email: 'viewer@demo.dev', password: 'password' }
-]
-
-const SESSION_COOKIE = 'admin_session'
-const SESSION_TTL = 60 * 60 * 8
-
 export async function createSession(email: string, password: string): Promise<{ token: string, user: AuthUser } | undefined> {
-  const account = ACCOUNTS.find(a => a.email === email && a.password === password)
-  if (!account) return undefined
+  if (!isDomainDbReady()) return undefined
 
-  // map account index to the seeded role with the same key
-  const roleKey = account.email.startsWith('admin') ? 'admin' : account.email.startsWith('editor') ? 'editor' : 'viewer'
-  const role = findRoleByKey(roleKey)
+  const row = await findUserRowByEmail(email.trim())
+  if (!row || row.status !== 'active') return undefined
+  if (!(await verifyPassword(password, row.passwordHash))) return undefined
+
+  const token = generateToken()
+  await persistSession({
+    tokenHash: hashToken(token),
+    userId: row.id,
+    expiresAt: new Date(Date.now() + sessionTtlMs())
+  })
 
   const user: AuthUser = {
-    id: account.id,
-    name: account.name,
-    email: account.email,
-    role: role?.key === 'admin' ? 'admin' : role?.key === 'editor' ? 'editor' : 'viewer',
-    permissions: role?.permissions ?? []
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    role: row.role as AuthUser['role'],
+    permissions: permissionsForRole(row.role as AuthUser['role'])
   }
-  const token = crypto.randomUUID()
-  await getKV().set('sess:' + token, user, SESSION_TTL)
   return { token, user }
 }
 
 export async function destroySession(token: string): Promise<void> {
-  await getKV().del('sess:' + token)
+  await deleteSession(hashToken(token))
 }
 
 export async function getSessionUser(event: H3Evt): Promise<AuthUser | undefined> {
   const token = getCookie(event, SESSION_COOKIE)
-  if (!token) return undefined
-  return (await getKV().get('sess:' + token)) as AuthUser | undefined
+  if (!token || !isDomainDbReady()) return undefined
+
+  const found = await findActiveSession(hashToken(token))
+  if (!found || found.user.status !== 'active') return undefined
+
+  return {
+    id: found.user.id,
+    name: found.user.name,
+    email: found.user.email,
+    role: found.user.role as AuthUser['role'],
+    permissions: permissionsForRole(found.user.role as AuthUser['role'])
+  }
 }
 
 export async function requireUser(event: H3Evt): Promise<AuthUser> {
@@ -79,11 +93,21 @@ export function setSessionCookie(event: H3Evt, token: string): void {
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
+    secure: process.env.COOKIE_SECURE === 'true',
     path: '/',
-    maxAge: 60 * 60 * 8
+    maxAge: Math.floor(sessionTtlMs() / 1000)
   })
 }
 
 export function clearSessionCookie(event: H3Evt): void {
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
+}
+
+/** boot hygiene: purge expired sessions; never blocks startup */
+export async function pruneSessions(): Promise<void> {
+  try {
+    await deleteExpiredSessions()
+  } catch (e: unknown) {
+    console.error('[auth] session prune failed:', (e as Error).message)
+  }
 }

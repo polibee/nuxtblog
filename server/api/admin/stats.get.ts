@@ -1,57 +1,38 @@
-import type { OrderRow } from '../../utils/db'
-import { getCollection } from '../../utils/db'
 import { requireUser } from '../../utils/auth'
+import { countUsers, countUsersByStatus } from '../../repositories/user.runtime.repository'
+import {
+  countPostsByStatus,
+  listRecentPosts,
+  type RecentPost
+} from '../../repositories/post.runtime.repository'
+import { countApprovedComments, countPendingComments } from '../../repositories/comment.repository'
+import { countPagesByStatus } from '../../repositories/page.runtime.repository'
+import { isBlogDbReady } from '../../repositories/db.server'
 
-/** Aggregated data for dashboard widgets. */
+/** Aggregated data for dashboard widgets — all counts from real MySQL tables. */
 export default defineEventHandler(async (event) => {
   await requireUser(event)
 
-  const users = getCollection('users')
-  const posts = getCollection('posts')
-  const orders = getCollection('orders') as unknown as OrderRow[]
+  const usersTotal = await countUsers().catch(() => 0)
+  const usersActive = await countUsersByStatus('active').catch(() => 0)
 
-  const totalRevenue = orders
-    .filter(o => o.status !== 'refunded')
-    .reduce((sum, o) => sum + o.amount, 0)
+  const postsPublished = await countPostsByStatus('published').catch(() => 0)
+  const postsDraft = await countPostsByStatus('draft').catch(() => 0)
+  const recentPosts: RecentPost[] = await listRecentPosts(5).catch(() => [])
 
-  // revenue by week for the last 10 weeks
-  const weeks: Array<{ label: string, revenue: number }> = []
-  const now = Date.now()
-  for (let w = 9; w >= 0; w--) {
-    const start = now - (w + 1) * 7 * 86_400_000
-    const end = now - w * 7 * 86_400_000
-    const revenue = orders
-      .filter((o) => {
-        if (o.status === 'refunded') return false
-        const t = new Date(o.createdAt).getTime()
-        return t >= start && t < end
-      })
-      .reduce((sum, o) => sum + o.amount, 0)
-    weeks.push({
-      label: `W-${w}`,
-      revenue: Math.round(revenue * 100) / 100
-    })
-  }
-
-  const recentOrders = [...orders]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
-
-  const orderStatuses = ['pending', 'paid', 'shipped', 'completed', 'refunded'] as const
-  const ordersByStatus = Object.fromEntries(
-    orderStatuses.map(s => [s, orders.filter(o => o.status === s).length])
-  )
+  const pendingComments = await countPendingComments().catch(() => 0)
+  const approvedComments = await countApprovedComments().catch(() => 0)
+  const pagesPublished = await countPagesByStatus('published').catch(() => 0)
 
   return {
-    usersTotal: users.length,
-    usersActive: users.filter(u => u.status === 'active').length,
-    postsTotal: posts.length,
-    postsPublished: posts.filter(p => p.status === 'published').length,
-    ordersTotal: orders.length,
-    totalRevenue: Math.round(totalRevenue * 100) / 100,
-    pendingOrders: ordersByStatus.pending,
-    revenueSeries: weeks,
-    recentOrders,
-    ordersByStatus
+    usersTotal,
+    usersActive,
+    postsPublished,
+    postsDraft,
+    recentPosts,
+    pendingComments,
+    approvedComments,
+    pagesPublished,
+    dbReady: isBlogDbReady()
   }
 })

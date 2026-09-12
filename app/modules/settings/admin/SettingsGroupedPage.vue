@@ -208,7 +208,7 @@ function openAdd(group: string): void {
             <!-- name -> auto key -->
             <div class="space-y-1.5">
               <UiLabel for="new-label">
-                Name
+                {{ t('settings.name') }}
               </UiLabel>
               <UiInput
                 id="new-label"
@@ -230,7 +230,7 @@ function openAdd(group: string): void {
             <!-- smart value -->
             <div class="space-y-1.5">
               <UiLabel for="new-value">
-                Value
+                {{ t('settings.value') }}
               </UiLabel>
               <UiInput
                 id="new-value"
@@ -259,7 +259,7 @@ function openAdd(group: string): void {
                   @click="newPublic = true"
                 >
                   <p class="text-sm font-medium">
-                    Public
+                    {{ t('settings.public') }}
                   </p>
                   <p class="mt-0.5 text-xs text-muted-foreground">
                     {{ t('settings.publicHint') }}
@@ -272,7 +272,7 @@ function openAdd(group: string): void {
                   @click="newPublic = false"
                 >
                   <p class="text-sm font-medium">
-                    Private
+                    {{ t('settings.private') }}
                   </p>
                   <p class="mt-0.5 text-xs text-muted-foreground">
                     {{ t('settings.privateHint') }}

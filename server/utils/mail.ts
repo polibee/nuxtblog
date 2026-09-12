@@ -1,5 +1,5 @@
 import { createTransport } from 'nodemailer'
-import { getCollection } from './db'
+import { getSettingValue } from '../modules/settings/settings.runtime.service'
 
 /* =============================================================
  * Mail service: three drivers behind one sendMail() contract.
@@ -34,40 +34,38 @@ export interface MailConfig {
   resend: { hasKey: boolean }
 }
 
-function setting(key: string, env: string | undefined, fallback = ''): string {
+async function setting(key: string, env: string | undefined, fallback = ''): Promise<string> {
   if (env) return env
-  const row = getCollection('settings').find(s => s.key === key)
-  if (row && row.type !== 'secret') return String(row.value ?? fallback)
-  return fallback
+  const value = await getSettingValue(key, fallback)
+  return String(value ?? fallback)
 }
 
 /** secret values are never echoed back; env wins over the stored value */
-function secret(key: string, env: string | undefined): string {
+async function secret(key: string, env: string | undefined): Promise<string> {
   if (env) return env
-  const row = getCollection('settings').find(s => s.key === key)
-  return row ? String(row.value ?? '') : ''
+  return String(await getSettingValue(key, ''))
 }
 
-export function getMailConfig(): MailConfig {
-  const provider = (setting('EMAIL_PROVIDER', process.env.MAIL_PROVIDER, 'smtp')) as MailProvider
+export async function getMailConfig(): Promise<MailConfig> {
+  const provider = (await setting('EMAIL_PROVIDER', process.env.MAIL_PROVIDER, 'smtp')) as MailProvider
   return {
     provider: ['smtp', 'aliyun', 'resend'].includes(provider) ? provider : 'smtp',
-    fromName: setting('EMAIL_FROM_NAME', process.env.MAIL_FROM_NAME),
-    fromAddress: setting('EMAIL_FROM_ADDRESS', process.env.MAIL_FROM_ADDRESS),
+    fromName: await setting('EMAIL_FROM_NAME', process.env.MAIL_FROM_NAME),
+    fromAddress: await setting('EMAIL_FROM_ADDRESS', process.env.MAIL_FROM_ADDRESS),
     smtp: {
-      host: setting('EMAIL_SMTP_HOST', process.env.MAIL_SMTP_HOST),
-      port: Number(setting('EMAIL_SMTP_PORT', process.env.MAIL_SMTP_PORT, '465')) || 465,
-      secure: setting('EMAIL_SMTP_SECURE', process.env.MAIL_SMTP_SECURE, 'true') !== 'false',
-      user: setting('EMAIL_SMTP_USER', process.env.MAIL_SMTP_USER),
-      hasPass: secret('EMAIL_SMTP_PASS', process.env.MAIL_SMTP_PASS).length > 0
+      host: await setting('EMAIL_SMTP_HOST', process.env.MAIL_SMTP_HOST),
+      port: Number(await setting('EMAIL_SMTP_PORT', process.env.MAIL_SMTP_PORT, '465')) || 465,
+      secure: (await setting('EMAIL_SMTP_SECURE', process.env.MAIL_SMTP_SECURE, 'true')) !== 'false',
+      user: await setting('EMAIL_SMTP_USER', process.env.MAIL_SMTP_USER),
+      hasPass: (await secret('EMAIL_SMTP_PASS', process.env.MAIL_SMTP_PASS)).length > 0
     },
     aliyun: {
-      region: setting('EMAIL_ALIYUN_REGION', process.env.MAIL_ALIYUN_REGION, 'cn-hangzhou'),
-      user: setting('EMAIL_ALIYUN_SMTP_USER', process.env.MAIL_ALIYUN_SMTP_USER),
-      hasPass: secret('EMAIL_ALIYUN_SMTP_PASS', process.env.MAIL_ALIYUN_SMTP_PASS).length > 0
+      region: await setting('EMAIL_ALIYUN_REGION', process.env.MAIL_ALIYUN_REGION, 'cn-hangzhou'),
+      user: await setting('EMAIL_ALIYUN_SMTP_USER', process.env.MAIL_ALIYUN_SMTP_USER),
+      hasPass: (await secret('EMAIL_ALIYUN_SMTP_PASS', process.env.MAIL_ALIYUN_SMTP_PASS)).length > 0
     },
     resend: {
-      hasKey: secret('EMAIL_RESEND_API_KEY', process.env.MAIL_RESEND_API_KEY).length > 0
+      hasKey: (await secret('EMAIL_RESEND_API_KEY', process.env.MAIL_RESEND_API_KEY)).length > 0
     }
   }
 }
@@ -141,17 +139,17 @@ async function sendViaResend(config: MailConfig, apiKey: string, to: string, sub
 
 export async function sendMail(to: string, subject: string, html: string): Promise<MailResult> {
   if (!EMAIL_RE.test(to)) {
-    return { ok: false, provider: getMailConfig().provider, error: `"${to}" is not a valid recipient address` }
+    return { ok: false, provider: (await getMailConfig()).provider, error: `"${to}" is not a valid recipient address` }
   }
 
-  const config = getMailConfig()
+  const config = await getMailConfig()
   const configError = validateFrom(config)
   if (configError) {
     return { ok: false, provider: config.provider, error: configError }
   }
 
   if (config.provider === 'resend') {
-    const key = secret('EMAIL_RESEND_API_KEY', process.env.MAIL_RESEND_API_KEY)
+    const key = await secret('EMAIL_RESEND_API_KEY', process.env.MAIL_RESEND_API_KEY)
     return sendViaResend(config, key, to, subject, html)
   }
 
@@ -160,7 +158,7 @@ export async function sendMail(to: string, subject: string, html: string): Promi
     return sendViaNodemailer(
       config, region.host, 465, true,
       config.aliyun.user,
-      secret('EMAIL_ALIYUN_SMTP_PASS', process.env.MAIL_ALIYUN_SMTP_PASS),
+      await secret('EMAIL_ALIYUN_SMTP_PASS', process.env.MAIL_ALIYUN_SMTP_PASS),
       to, subject, html
     )
   }
@@ -168,7 +166,7 @@ export async function sendMail(to: string, subject: string, html: string): Promi
   return sendViaNodemailer(
     config, config.smtp.host, config.smtp.port, config.smtp.secure,
     config.smtp.user,
-    secret('EMAIL_SMTP_PASS', process.env.MAIL_SMTP_PASS),
+    await secret('EMAIL_SMTP_PASS', process.env.MAIL_SMTP_PASS),
     to, subject, html
   )
 }
