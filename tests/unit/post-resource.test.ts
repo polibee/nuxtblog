@@ -39,7 +39,7 @@ describe('post resource', () => {
 
     expect(featuredMedia).toMatchObject({
       name: 'featuredMediaId',
-      helpText: '1600×1000 · 16:10'
+      helpText: 'res.posts.help.featuredImage'
     })
   })
 })

@@ -85,7 +85,7 @@ export default (t: Translator) => {
           ]),
           grid(2, [
             mediaPicker('featuredMediaId', t('res.posts.field.featuredImage'), {
-              helpText: '1600×1000 · 16:10'
+              helpText: t('res.posts.help.featuredImage')
             }),
             multiRelationInput('categoryIds', t('res.posts.field.categories'), {
               resource: 'categories',

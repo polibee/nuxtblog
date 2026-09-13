@@ -328,6 +328,7 @@ async function reload(): Promise<void> {
 async function loadMore(): Promise<void> {
   page.value += 1
   await fetchPage()
+  await rehydrateSelectedMedia()
 }
 
 async function openPicker(): Promise<void> {
