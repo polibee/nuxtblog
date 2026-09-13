@@ -18,12 +18,30 @@ type Locale = 'zh-CN' | 'en'
 
 type Dict = Record<string, string>
 
-function mergeLocaleBundles(...bundles: Dict[]): Dict {
-  const merged: Dict = {}
-  for (const bundle of bundles) {
-    Object.assign(merged, bundle)
+export interface LocaleBundle {
+  [key: string]: string | LocaleBundle
+}
+
+function isLocaleBundle(value: string | LocaleBundle | undefined): value is LocaleBundle {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function mergeLocaleBundleInto(target: LocaleBundle, source: LocaleBundle): LocaleBundle {
+  for (const [key, value] of Object.entries(source)) {
+    const existing = target[key]
+    if (isLocaleBundle(value)) {
+      target[key] = mergeLocaleBundleInto(isLocaleBundle(existing) ? { ...existing } : {}, value)
+    } else {
+      target[key] = value
+    }
   }
-  return merged
+  return target
+}
+
+export function mergeLocaleBundles(...bundles: Dict[]): Dict
+export function mergeLocaleBundles(...bundles: LocaleBundle[]): LocaleBundle
+export function mergeLocaleBundles(...bundles: LocaleBundle[]): LocaleBundle {
+  return bundles.reduce((merged, bundle) => mergeLocaleBundleInto(merged, bundle), {})
 }
 
 const messages: Record<Locale, Dict> = {
