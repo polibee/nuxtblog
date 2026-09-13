@@ -224,10 +224,15 @@ const uploading = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let selectedMediaRequest: AbortController | null = null
 let pageRequest: AbortController | null = null
+let folderRequest: AbortController | null = null
 let disposed = false
 
 function isPositiveMediaId(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
+function isAbortError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
 }
 
 async function rehydrateSelectedMedia(): Promise<void> {
@@ -241,8 +246,9 @@ async function rehydrateSelectedMedia(): Promise<void> {
     const media = await $fetch<MediaItem>(`/api/admin/media/${mediaId}`, { signal: controller.signal })
     if (disposed || controller.signal.aborted || props.modelValue !== mediaId || items.value.some(item => item.id === mediaId)) return
     items.value = [media, ...items.value]
-  } catch {
-    // A missing or no-longer-authorized selected media item remains unselected.
+  } catch (error: unknown) {
+    if (isAbortError(error)) return
+    throw error
   } finally {
     if (selectedMediaRequest === controller) selectedMediaRequest = null
   }
@@ -287,22 +293,33 @@ async function createFolder(): Promise<void> {
     await fetchFolders()
     folderFilter.value = created.id
     await reload()
-  } catch {
-    /* creation failures surface through the silent catch for v1 */
+  } catch (error: unknown) {
+    if (isAbortError(error)) return
+    throw error
   }
 }
 
 async function fetchFolders(): Promise<void> {
+  if (disposed) return
+  folderRequest?.abort()
+  const controller = new AbortController()
+  folderRequest = controller
   try {
-    const res = await $fetch<{ items: MediaFolder[] }>('/api/admin/media/folders', { query: { perPage: 100 } })
-    if (!disposed) folders.value = res.items
-  } catch {
-    if (!disposed) folders.value = []
+    const res = await $fetch<{ items: MediaFolder[] }>('/api/admin/media/folders', {
+      signal: controller.signal,
+      query: { perPage: 100 }
+    })
+    if (!disposed && !controller.signal.aborted && folderRequest === controller) folders.value = res.items
+  } catch (error: unknown) {
+    if (isAbortError(error)) return
+    throw error
+  } finally {
+    if (folderRequest === controller) folderRequest = null
   }
 }
 
-async function fetchPage(): Promise<void> {
-  if (disposed) return
+async function fetchPage(): Promise<boolean> {
+  if (disposed) return false
   pageRequest?.abort()
   const controller = new AbortController()
   pageRequest = controller
@@ -319,10 +336,14 @@ async function fetchPage(): Promise<void> {
         ...(props.usage ? { usageType: props.usage } : {})
       }
     })
-    if (disposed || controller.signal.aborted || pageRequest !== controller) return
+    if (disposed || controller.signal.aborted || pageRequest !== controller) return false
     if (requestedPage === 1) items.value = res.items
     else items.value = [...items.value, ...res.items]
     total.value = res.total
+    return true
+  } catch (error: unknown) {
+    if (isAbortError(error)) return false
+    throw error
   } finally {
     if (pageRequest === controller) {
       pageRequest = null
@@ -333,16 +354,14 @@ async function fetchPage(): Promise<void> {
 
 async function reload(): Promise<void> {
   page.value = 1
-  await fetchPage()
-  if (disposed) return
+  if (!await fetchPage() || disposed) return
   await rehydrateSelectedMedia()
 }
 
 async function loadMore(): Promise<void> {
   if (disposed) return
   page.value += 1
-  await fetchPage()
-  if (disposed) return
+  if (!await fetchPage() || disposed) return
   await rehydrateSelectedMedia()
 }
 
@@ -371,6 +390,8 @@ onBeforeUnmount(() => {
   disposed = true
   pageRequest?.abort()
   pageRequest = null
+  folderRequest?.abort()
+  folderRequest = null
   selectedMediaRequest?.abort()
   selectedMediaRequest = null
   if (searchTimer) clearTimeout(searchTimer)

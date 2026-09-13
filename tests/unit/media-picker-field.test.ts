@@ -15,6 +15,7 @@ interface MediaItem {
 interface Deferred<T> {
   promise: Promise<T>
   resolve: (value: T) => void
+  reject: (reason?: unknown) => void
 }
 
 interface FetchOptions {
@@ -184,10 +185,31 @@ const activeUnmounts = new Set<() => void>()
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((res) => {
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
     resolve = res
+    reject = rej
   })
-  return { promise, resolve }
+  return { promise, resolve, reject }
+}
+
+function abortError(): Error {
+  const error = new Error('The operation was aborted')
+  error.name = 'AbortError'
+  return error
+}
+
+async function expectNoUnhandledRejection(action: () => Promise<void>): Promise<void> {
+  const unhandled: unknown[] = []
+  const handler = (reason: unknown) => unhandled.push(reason)
+  process.on('unhandledRejection', handler)
+  try {
+    await action()
+    await flushPromises()
+    expect(unhandled).toEqual([])
+  } finally {
+    process.off('unhandledRejection', handler)
+  }
 }
 
 async function flushPromises(): Promise<void> {
@@ -394,7 +416,7 @@ describe('MediaPickerField', () => {
     mounted.unmount()
   })
 
-  it('invalidates a late page response after unmount', async () => {
+  it('ignores page AbortError after unmount without an unhandled rejection', async () => {
     const page = deferred<{ items: MediaItem[], total: number }>()
     let pageSignal: AbortSignal | undefined
     const fetcher = vi.fn((url: string, options?: FetchOptions) => {
@@ -406,14 +428,16 @@ describe('MediaPickerField', () => {
     })
     const mounted = await mountMediaPicker(12, fetcher)
 
-    mounted.unmount()
-    page.resolve(pageResponse())
-    await flushPromises()
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      page.reject(abortError())
+      await flushPromises()
+    })
 
     expect(pageSignal?.aborted).toBe(true)
   })
 
-  it('cancels detail loading when the ID is cleared and when unmounted', async () => {
+  it('ignores detail AbortError when the ID is cleared and when unmounted', async () => {
     const page = deferred<{ items: MediaItem[], total: number }>()
     const detail = deferred<MediaItem>()
     let signal: AbortSignal | undefined
@@ -429,11 +453,14 @@ describe('MediaPickerField', () => {
 
     page.resolve(pageResponse())
     await flushPromises()
-    mounted.props.modelValue = null
-    await flushPromises()
+    await expectNoUnhandledRejection(async () => {
+      mounted.props.modelValue = null
+      await flushPromises()
+      detail.reject(abortError())
+      await flushPromises()
+    })
     expect(signal?.aborted).toBe(true)
     mounted.unmount()
-    detail.resolve(mediaResponse(12))
   })
 
   it('emits null from clear and a number from selecting a media button', async () => {
