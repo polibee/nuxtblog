@@ -10,9 +10,17 @@
  */
 
 import enAdmin from '../../i18n/locales/en/admin'
+import enComments from '../../i18n/locales/en/comments'
 import enCommon from '../../i18n/locales/en/common'
+import enMedia from '../../i18n/locales/en/media'
+import enPosts from '../../i18n/locales/en/posts'
+import enSettings from '../../i18n/locales/en/settings'
 import zhAdmin from '../../i18n/locales/zh-CN/admin'
+import zhComments from '../../i18n/locales/zh-CN/comments'
 import zhCommon from '../../i18n/locales/zh-CN/common'
+import zhMedia from '../../i18n/locales/zh-CN/media'
+import zhPosts from '../../i18n/locales/zh-CN/posts'
+import zhSettings from '../../i18n/locales/zh-CN/settings'
 
 type Locale = 'zh-CN' | 'en'
 
@@ -45,8 +53,8 @@ export function mergeLocaleBundles(...bundles: LocaleBundle[]): LocaleBundle {
 }
 
 const messages: Record<Locale, Dict> = {
-  'zh-CN': mergeLocaleBundles(zhCommon, zhAdmin),
-  'en': mergeLocaleBundles(enCommon, enAdmin)
+  'zh-CN': mergeLocaleBundles(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia),
+  'en': mergeLocaleBundles(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)
 }
 
 export const LOCALES: Array<{ value: Locale, label: string }> = [

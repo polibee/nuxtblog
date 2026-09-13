@@ -86,7 +86,7 @@
     <div class="space-y-4">
       <div class="flex flex-wrap items-center gap-2">
         <label class="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-          {{ uploading ? t('common.saving') : t('res.media.library.upload') }}
+          {{ uploading ? t('common.saving') : t('media.library.upload') }}
           <input
             type="file"
             accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
@@ -158,7 +158,7 @@
         v-if="loading"
         class="py-10 text-center text-sm text-muted-foreground"
       >
-        {{ t('common.loading') }}
+        {{ t('common.status.loading') }}
       </div>
       <div
         v-else-if="items.length === 0"

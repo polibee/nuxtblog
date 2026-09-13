@@ -1,9 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import enAdmin from '../../app/i18n/locales/en/admin'
+import enComments from '../../app/i18n/locales/en/comments'
 import enCommon from '../../app/i18n/locales/en/common'
+import enMedia from '../../app/i18n/locales/en/media'
+import enPosts from '../../app/i18n/locales/en/posts'
+import enSettings from '../../app/i18n/locales/en/settings'
 import zhAdmin from '../../app/i18n/locales/zh-CN/admin'
+import zhComments from '../../app/i18n/locales/zh-CN/comments'
 import zhCommon from '../../app/i18n/locales/zh-CN/common'
+import zhMedia from '../../app/i18n/locales/zh-CN/media'
+import zhPosts from '../../app/i18n/locales/zh-CN/posts'
+import zhSettings from '../../app/i18n/locales/zh-CN/settings'
 import { mergeLocaleBundles, useI18n } from '../../app/admin/i18n'
 
 type LocaleObject = Record<string, unknown>
@@ -2745,7 +2753,31 @@ const baselineEn = {
   'res.paygw.saveFailed': 'Operation failed, please retry.'
 } satisfies Record<string, string>
 
-const baselineKeys = Object.keys(baselineZh).sort()
+const task5CommonZh = {
+  'common.actions.openLink': '打开链接',
+  'common.actions.close': '关闭',
+  'common.status.loading': '加载中…',
+  'common.errors.loadFailed': '加载失败',
+  'common.navigation.footer': '页脚导航',
+  'common.language.label': '语言',
+  'common.language.zhName': '简体中文',
+  'common.language.enName': 'English',
+  'common.language.zhShort': '中'
+}
+const task5CommonEn = {
+  'common.actions.openLink': 'Open link',
+  'common.actions.close': 'Close',
+  'common.status.loading': 'Loading…',
+  'common.errors.loadFailed': 'Failed to load',
+  'common.navigation.footer': 'Footer navigation',
+  'common.language.label': 'Language',
+  'common.language.zhName': 'Simplified Chinese',
+  'common.language.enName': 'English',
+  'common.language.zhShort': '中'
+}
+const expectedZh = mergeLocaleBundles(baselineZh, task5CommonZh, zhPosts, zhComments, zhSettings, zhMedia)
+const expectedEn = mergeLocaleBundles(baselineEn, task5CommonEn, enPosts, enComments, enSettings, enMedia)
+const baselineKeys = Object.keys(expectedZh).sort()
 
 function aggregateKeys(...bundles: LocaleObject[]): string[] {
   return bundles.flatMap(bundle => flattenKeys(bundle)).sort()
@@ -2760,23 +2792,23 @@ describe('modular locale bundles', () => {
   it('keeps zh-CN and en key sets aligned and matches the parent key set', () => {
     expect(comparableKeys(zhCommon)).toEqual(comparableKeys(enCommon))
     expect(comparableKeys(zhAdmin)).toEqual(comparableKeys(enAdmin))
-    expect(aggregateKeys(zhCommon, zhAdmin)).toEqual([...baselineKeys])
-    expect(aggregateKeys(enCommon, enAdmin)).toEqual([...baselineKeys])
+    expect(aggregateKeys(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)).toEqual([...baselineKeys])
+    expect(aggregateKeys(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)).toEqual([...baselineKeys])
   })
 
   it('uses the aggregate entry and t() to preserve every baseline value', () => {
-    const zhAggregate = mergeLocaleBundles(zhCommon, zhAdmin)
-    const enAggregate = mergeLocaleBundles(enCommon, enAdmin)
+    const zhAggregate = mergeLocaleBundles(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)
+    const enAggregate = mergeLocaleBundles(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)
 
-    expect(zhAggregate).toEqual(baselineZh)
-    expect(enAggregate).toEqual(baselineEn)
+    expect(zhAggregate).toEqual(expectedZh)
+    expect(enAggregate).toEqual(expectedEn)
 
     vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
     const { locale, t } = useI18n()
     locale.value = 'zh-CN'
-    for (const key of baselineKeys) expect(t(key)).toBe(baselineZh[key])
+    for (const key of baselineKeys) expect(t(key)).toBe(expectedZh[key])
     locale.value = 'en'
-    for (const key of baselineKeys) expect(t(key)).toBe(baselineEn[key])
+    for (const key of baselineKeys) expect(t(key)).toBe(expectedEn[key])
     expect(t('common.createLabel', { label: 'article' })).toBe('Create article')
     locale.value = 'zh-CN'
     expect(t('common.createLabel', { label: '文章' })).toBe('创建文章')

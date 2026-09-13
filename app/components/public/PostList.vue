@@ -18,7 +18,7 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
   <div class="space-y-4">
     <UiEmpty v-if="posts.length === 0">
       <template #title>
-        {{ t('public.posts.empty') }}
+        {{ t('posts.empty') }}
       </template>
     </UiEmpty>
 
@@ -28,7 +28,8 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
       class="group rounded-xl border transition-colors hover:bg-accent/30"
     >
       <NuxtLink
-        :to="`/posts/${post.alias}`"
+        :to="publicPath(`/posts/${post.alias}`)"
+        :aria-label="t('posts.actions.open', { title: post.title })"
         class="flex gap-4 p-4 sm:p-5"
       >
         <img
@@ -77,10 +78,10 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
             >{{ post.authorName }}</span>
             <span
               v-if="post.readingMinutes"
-            >· ⏱ {{ t('public.posts.readingTime', { n: post.readingMinutes }) }}</span>
+            >· ⏱ {{ t('posts.meta.readingTime', { n: post.readingMinutes }) }}</span>
             <span
               v-if="post.views"
-            >· 👁 {{ formatViews(post.views) }}</span>
+            >· 👁 {{ t('posts.meta.views', { n: formatViews(post.views) }) }}</span>
           </p>
         </div>
       </NuxtLink>

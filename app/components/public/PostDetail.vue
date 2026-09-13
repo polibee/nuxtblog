@@ -19,10 +19,10 @@
         <time>{{ formatDate(post.publishedAt) }}</time>
         <span
           v-if="readingMinutes"
-        >· {{ t('public.posts.readingTime', { n: readingMinutes }) }}</span>
+        >· {{ t('posts.meta.readingTime', { n: readingMinutes }) }}</span>
         <span
           v-if="post.views"
-        >· {{ t('public.post.viewsCount', { n: post.views }) }}</span>
+        >· {{ t('posts.meta.views', { n: post.views }) }}</span>
       </div>
     </header>
 
@@ -49,8 +49,8 @@
     >
       <p class="text-sm font-medium">
         {{ post.accessType === 'members'
-          ? t('public.post.membersOnly')
-          : t('public.post.paidLocked') }}
+          ? t('posts.access.membersOnly')
+          : t('posts.access.paidLocked') }}
       </p>
       <button
         v-if="post.accessType === 'paid' && post.price"
@@ -58,7 +58,7 @@
         class="mt-4 inline-flex h-10 items-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90"
         @click="buy"
       >
-        {{ t('public.post.buyFor', { price: formatMoney(post.price.priceMinor, post.price.currency) }) }}
+        {{ t('posts.actions.buyFor', { price: formatMoney(post.price.priceMinor, post.price.currency) }) }}
       </button>
       <p
         v-if="error"
@@ -78,11 +78,11 @@
       v-if="post.tags.length"
       class="flex flex-wrap items-center gap-2 border-t pt-4"
     >
-      <span class="text-xs text-muted-foreground">{{ t('public.post.tags') }}</span>
+      <span class="text-xs text-muted-foreground">{{ t('posts.labels.tags') }}</span>
       <NuxtLink
         v-for="tag in post.tags"
         :key="tag.alias"
-        :to="`/tag/${tag.alias}`"
+        :to="publicPath(`/tag/${tag.alias}`)"
         class="rounded-full bg-secondary px-2.5 py-1 text-xs text-secondary-foreground transition-colors hover:bg-accent"
       >
         {{ tag.name }}
@@ -120,7 +120,7 @@ async function buy(): Promise<void> {
   } catch (e) {
     error.value = (e as Error & { data?: { message?: string } }).data?.message
       || (e as Error).message
-      || t('public.store.orderFailed')
+      || t('posts.errors.orderFailed')
   }
   finally {
     buying.value = false

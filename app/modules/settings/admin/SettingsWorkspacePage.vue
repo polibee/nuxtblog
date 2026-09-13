@@ -127,8 +127,8 @@ async function loadPage(id: string): Promise<void> {
       await navigateTo(`/admin/settings/${nav.value[0].id}`, { replace: true })
       return
     }
-    notifyError(t('res.settingsui.loadFailed'), (e as Error).message)
-    loadError.value = (e as Error).message || t('res.settingsui.loadFailed')
+    notifyError(t('settings.ui.loadFailed'), (e as Error).message)
+    loadError.value = (e as Error).message || t('settings.ui.loadFailed')
   } finally {
     loading.value = false
   }
@@ -148,7 +148,7 @@ onMounted(async () => {
       await loadPage(target)
     }
   } catch (e: unknown) {
-    loadError.value = (e as Error).message || t('res.settingsui.loadFailed')
+    loadError.value = (e as Error).message || t('settings.ui.loadFailed')
   } finally {
     loading.value = false
   }
@@ -161,7 +161,7 @@ async function retryLoad(): Promise<void> {
     await loadNav()
     if (pageId.value) await loadPage(pageId.value)
   } catch (e: unknown) {
-    loadError.value = (e as Error).message || t('res.settingsui.loadFailed')
+    loadError.value = (e as Error).message || t('settings.ui.loadFailed')
   } finally {
     loading.value = false
   }
@@ -259,7 +259,7 @@ async function jumpTo(item: SearchItem): Promise<void> {
           {{ t('res.settings.label') }}
         </h1>
         <p class="mt-0.5 text-sm text-muted-foreground">
-          {{ t('res.settingsui.subtitle') }}
+          {{ t('settings.ui.subtitle') }}
         </p>
       </div>
       <div class="relative w-full max-w-xs">
@@ -267,7 +267,7 @@ async function jumpTo(item: SearchItem): Promise<void> {
         <input
           v-model="search"
           type="search"
-          :placeholder="t('res.settingsui.search')"
+          :placeholder="t('settings.ui.search')"
           class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm outline-none focus:ring-1 focus:ring-primary"
         >
         <div
@@ -317,7 +317,7 @@ async function jumpTo(item: SearchItem): Promise<void> {
           v-if="loading && !page"
           class="text-sm text-muted-foreground"
         >
-          {{ t('common.loading') }}
+          {{ t('common.status.loading') }}
         </div>
 
         <div
@@ -325,7 +325,7 @@ async function jumpTo(item: SearchItem): Promise<void> {
           class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm"
         >
           <p class="font-medium text-destructive">
-            {{ t('res.settingsui.loadFailed') }}
+            {{ t('settings.ui.loadFailed') }}
           </p>
           <p class="mt-1 text-muted-foreground">
             {{ loadError }}
