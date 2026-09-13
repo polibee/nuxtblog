@@ -38,9 +38,8 @@ export const postTranslationFieldsSchema = z.object({
   seoTitle: z.string().max(255).optional(),
   seoDescription: z.string().max(500).optional(),
   canonicalUrl: z.string().trim().url().max(500).nullish(),
-  noindex: z.boolean().optional(),
-  featuredImageId: z.number().int().positive().nullish()
-})
+  noindex: z.boolean().optional()
+}).strict()
 
 export type PostTranslationFields = z.infer<typeof postTranslationFieldsSchema>
 

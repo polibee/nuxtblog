@@ -113,8 +113,7 @@ async function buildTranslationRows(
       seoTitle: fields.seoTitle ?? '',
       seoDescription: fields.seoDescription ?? '',
       canonicalUrl: fields.canonicalUrl ?? null,
-      noindex: fields.noindex ?? false,
-      featuredImageId: fields.featuredImageId ?? null
+      noindex: fields.noindex ?? false
     }
   })
 }

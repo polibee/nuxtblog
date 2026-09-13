@@ -34,7 +34,6 @@ export interface PostTranslationRow {
   seoDescription: string
   canonicalUrl: string | null
   noindex: boolean
-  featuredImageId: number | null
 }
 
 function translationValue(row: typeof postTranslations.$inferSelect): Record<string, unknown> {
@@ -46,6 +45,7 @@ function translationValue(row: typeof postTranslations.$inferSelect): Record<str
     seoDescription: row.seoDescription,
     canonicalUrl: row.canonicalUrl,
     noindex: row.noindex,
+    // Legacy read-only compatibility; post inputs must use featuredMediaId.
     featuredImageId: row.featuredImageId
   }
 }
@@ -225,9 +225,19 @@ export async function updatePostRow(
       await tx.update(posts).set(entityPatch).where(eq(posts.id, id))
     }
     if (translations) {
+      // Retain legacy translation values while replacing writable translation fields.
+      const legacyFeaturedImageIds = new Map((await tx
+        .select({ localeId: postTranslations.localeId, featuredImageId: postTranslations.featuredImageId })
+        .from(postTranslations)
+        .where(eq(postTranslations.postId, id)))
+        .map(row => [row.localeId, row.featuredImageId]))
       await tx.delete(postTranslations).where(eq(postTranslations.postId, id))
       if (translations.length > 0) {
-        await tx.insert(postTranslations).values(translations.map(t => ({ ...t, postId: id })))
+        await tx.insert(postTranslations).values(translations.map(t => ({
+          ...t,
+          postId: id,
+          featuredImageId: legacyFeaturedImageIds.get(t.localeId) ?? null
+        })))
       }
     }
   })
@@ -325,6 +335,7 @@ export async function listPublished(localeId: number, options: {
         seoDescription: row.seoDescription,
         noindex: row.noindex,
         publishedAt: row.publishedAt as Date,
+        // translationFeaturedId is a legacy-read-only compatibility fallback.
         coverMediaId: (row.translationFeaturedId ?? row.featuredMediaId) as number | null,
         accessType: row.accessType as PostAccessType,
         authorName: row.authorName as string | null,
@@ -419,6 +430,7 @@ export async function findPublishedByAlias(localeId: number, alias: string): Pro
     seoDescription: row.seoDescription,
     noindex: row.noindex,
     publishedAt: row.publishedAt as Date,
+    // translationFeaturedId is a legacy-read-only compatibility fallback.
     coverMediaId: (row.translationFeaturedId ?? row.featuredMediaId) as number | null,
     accessType: row.accessType as PostAccessType,
     paidPriceMinor: row.paidPriceMinor as number | null,
