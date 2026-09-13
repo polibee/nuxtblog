@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { listPublished, updatePostRow } from '../../server/repositories/post.repository'
+import { findPublishedByAlias, listPublished, updatePostRow } from '../../server/repositories/post.repository'
+import { findPublishedByAlias as findPublishedByAliasPostgres } from '../../server/repositories/post.postgres.repository'
 
-const publishedRows = [{
+const publishedRows: Array<Record<string, unknown>> = [{
   postId: 7,
   title: 'Legacy cover',
   alias: 'legacy-cover',
@@ -23,6 +24,9 @@ const publishedRows = [{
 let legacyRows: Array<{ localeId: number, featuredImageId: number | null }> = []
 let insertedTranslations: Array<Record<string, unknown>> = []
 let queryRows: unknown[] = publishedRows
+
+const postgresRows = [{ ...publishedRows[0], translationFeaturedId: null }]
+let postgresQueryRows: unknown[] = postgresRows
 
 const dbStub = {
   select: vi.fn(() => {
@@ -47,8 +51,24 @@ const dbStub = {
   transaction: vi.fn(async (callback: (tx: typeof dbStub) => Promise<unknown>) => callback(dbStub))
 }
 
+const postgresDbStub = {
+  select: vi.fn(() => {
+    const chain = {
+      from: vi.fn(() => chain),
+      innerJoin: vi.fn(() => chain),
+      where: vi.fn(() => chain),
+      limit: vi.fn(async () => postgresQueryRows)
+    }
+    return chain
+  })
+}
+
 vi.mock('../../server/repositories/db.server', () => ({
   getDb: vi.fn(() => dbStub)
+}))
+
+vi.mock('../../server/repositories/db-postgres.server', () => ({
+  getPostgresDb: vi.fn(() => postgresDbStub)
 }))
 
 describe('MySQL post featured image compatibility', () => {
@@ -56,6 +76,7 @@ describe('MySQL post featured image compatibility', () => {
     legacyRows = [{ localeId: 1, featuredImageId: 11 }]
     insertedTranslations = []
     queryRows = publishedRows
+    postgresQueryRows = postgresRows
     vi.clearAllMocks()
   })
 
@@ -82,5 +103,27 @@ describe('MySQL post featured image compatibility', () => {
     const result = await listPublished(1)
 
     expect(result.items[0]?.coverMediaId).toBe(11)
+  })
+
+  it('falls back to the post cover when the legacy translation cover is null', async () => {
+    publishedRows[0]!.translationFeaturedId = null
+
+    const result = await listPublished(1)
+
+    expect(result.items[0]?.coverMediaId).toBe(22)
+  })
+
+  it('uses the same fallback for the MySQL alias lookup', async () => {
+    publishedRows[0]!.translationFeaturedId = null
+
+    const result = await findPublishedByAlias(1, 'legacy-cover')
+
+    expect(result?.coverMediaId).toBe(22)
+  })
+
+  it('uses the same fallback for the PostgreSQL alias lookup', async () => {
+    const result = await findPublishedByAliasPostgres(1, 'legacy-cover')
+
+    expect(result?.coverMediaId).toBe(22)
   })
 })
