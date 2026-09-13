@@ -2777,6 +2777,11 @@ describe('modular locale bundles', () => {
     for (const key of baselineKeys) expect(t(key)).toBe(baselineZh[key])
     locale.value = 'en'
     for (const key of baselineKeys) expect(t(key)).toBe(baselineEn[key])
+    expect(t('common.createLabel', { label: 'article' })).toBe('Create article')
+    locale.value = 'zh-CN'
+    expect(t('common.createLabel', { label: '文章' })).toBe('创建文章')
+    locale.value = 'fr' as typeof locale.value
+    expect(t('common.cancel')).toBe(baselineEn['common.cancel'])
     expect(t('i18n.missing.key')).toBe('i18n.missing.key')
     vi.unstubAllGlobals()
   })
