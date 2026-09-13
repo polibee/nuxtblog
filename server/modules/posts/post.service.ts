@@ -22,7 +22,6 @@ import {
   insertPost,
   listPosts,
   listPublished,
-  listPublishedArchive,
   updatePostRow,
   type PostRecord,
   type PostTranslationRow
@@ -392,11 +391,35 @@ export async function getPublicPosts(localeCode: string, options: {
   return { items, total: result.total }
 }
 
-export async function getPublicArchive(localeCode: string): Promise<{ items: PublicArchiveItem[] }> {
+type PublicArchiveItemWithCover = PublicArchiveItem & { coverUrl: string | null }
+
+export async function getPublicArchive(localeCode: string): Promise<{ items: PublicArchiveItemWithCover[] }> {
   const maps = await localeMaps()
   const localeId = maps.codeToId.get(localeCode)
   if (!localeId) return { items: [] }
-  return { items: await listPublishedArchive(localeId) }
+
+  // Reuse the entity-level cover mapping used by summaries and details. The
+  // repository caps each page at 50 rows, so walk all pages for the archive.
+  const rows: Awaited<ReturnType<typeof listPublished>>['items'] = []
+  for (let page = 1; ; page++) {
+    const result = await listPublished(localeId, { page, perPage: 50 })
+    rows.push(...result.items)
+    if (result.items.length === 0 || rows.length >= result.total || result.items.length < 50) break
+  }
+
+  return {
+    items: await Promise.all(rows.map(async (row) => {
+      const date = row.publishedAt
+      return {
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+        title: row.title,
+        alias: row.alias,
+        coverUrl: await coverUrlFor(row.coverMediaId)
+      }
+    }))
+  }
 }
 
 export async function getPublicPostByAlias(
