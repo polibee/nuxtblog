@@ -31,8 +31,15 @@
           <li
             v-for="item in month.items"
             :key="item.alias"
-            class="flex items-baseline gap-3 text-sm"
+            class="flex items-center gap-3 text-sm"
           >
+            <img
+              v-if="item.coverUrl"
+              :src="item.coverUrl"
+              :alt="item.title"
+              class="h-10 w-16 shrink-0 rounded object-cover"
+              loading="lazy"
+            >
             <time class="shrink-0 font-mono text-xs text-muted-foreground">{{ month.month }}-{{ String(item.day).padStart(2, '0') }}</time>
             <NuxtLink
               :to="`/posts/${item.alias}`"

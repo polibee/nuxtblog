@@ -353,6 +353,7 @@ export interface PublishedArchiveItem {
   day: number
   title: string
   alias: string
+  coverMediaId: number | null
 }
 
 /** archive page source: all published posts in a locale, newest first (light columns only) */
@@ -362,7 +363,9 @@ export async function listPublishedArchive(localeId: number): Promise<PublishedA
       alias: posts.alias,
       title: postTranslations.title,
       noindex: postTranslations.noindex,
-      publishedAt: posts.publishedAt
+      publishedAt: posts.publishedAt,
+      featuredMediaId: posts.featuredMediaId,
+      translationFeaturedId: postTranslations.featuredImageId
     })
     .from(posts)
     .innerJoin(postTranslations, eq(postTranslations.postId, posts.id))
@@ -383,7 +386,9 @@ export async function listPublishedArchive(localeId: number): Promise<PublishedA
         month: date.getMonth() + 1,
         day: date.getDate(),
         title: row.title,
-        alias: row.alias
+        alias: row.alias,
+        // Legacy translation covers remain read-only fallback data.
+        coverMediaId: row.translationFeaturedId ?? row.featuredMediaId
       }
     })
 }

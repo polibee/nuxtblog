@@ -396,7 +396,17 @@ export async function getPublicArchive(localeCode: string): Promise<{ items: Pub
   const maps = await localeMaps()
   const localeId = maps.codeToId.get(localeCode)
   if (!localeId) return { items: [] }
-  return { items: await listPublishedArchive(localeId) }
+  const rows = await listPublishedArchive(localeId)
+  return {
+    items: await Promise.all(rows.map(async row => ({
+      year: row.year,
+      month: row.month,
+      day: row.day,
+      title: row.title,
+      alias: row.alias,
+      coverUrl: await coverUrlFor(row.coverMediaId)
+    })))
+  }
 }
 
 export async function getPublicPostByAlias(

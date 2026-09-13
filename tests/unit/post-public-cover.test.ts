@@ -115,7 +115,7 @@ describe('featured image public API regression', () => {
     findPublishedByAlias.mockImplementation(async () => publicRow())
     listPublished.mockResolvedValue({ items: [publishedRow], total: 1 })
     listPublishedArchive.mockResolvedValue([])
-    coverUrlFor.mockImplementation(async (mediaId: number | null) => mediaId ? `/media/${mediaId}` : null)
+    coverUrlFor.mockImplementation(async (mediaId: number | null) => mediaId === 12 ? '/media/cover-12.webp' : null)
     relationsForPost.mockResolvedValue({ categoryIds: [], tagIds: [] })
     termsForLocale.mockResolvedValue(new Map())
     postsInTaxonomy.mockResolvedValue([])
@@ -133,7 +133,7 @@ describe('featured image public API regression', () => {
     }, 1)
 
     expect(created.featuredMediaId).toBe(12)
-    await expect(getPublicPostByAlias('zh-CN', created.alias)).resolves.toMatchObject({ coverUrl: '/media/12' })
+    await expect(getPublicPostByAlias('zh-CN', created.alias)).resolves.toMatchObject({ coverUrl: '/media/cover-12.webp' })
 
     const cleared = await updatePost(created.id, { featuredMediaId: null })
     expect(cleared.featuredMediaId).toBeNull()
@@ -143,24 +143,29 @@ describe('featured image public API regression', () => {
   it('maps the same cover URL once for each public summary item', async () => {
     const result = await getPublicPosts('zh-CN', { perPage: 12 })
 
-    expect(result.items[0]?.coverUrl).toBe('/media/12')
+    expect(result.items[0]?.coverUrl).toBe('/media/cover-12.webp')
     expect(coverUrlFor).toHaveBeenCalledOnce()
     expect(coverUrlFor).toHaveBeenCalledWith(12)
   })
 
-  it('keeps the existing archive contract and performs one archive query for multiple rows', async () => {
+  it('maps archive covers once per row while preserving the archive contract', async () => {
     const archiveRows = [
-      { year: 2026, month: 9, day: 13, title: 'First', alias: 'first' },
-      { year: 2026, month: 9, day: 12, title: 'Second', alias: 'second' }
+      { year: 2026, month: 9, day: 13, title: 'First', alias: 'first', coverMediaId: 12 },
+      { year: 2026, month: 9, day: 12, title: 'Second', alias: 'second', coverMediaId: null }
     ]
     listPublishedArchive.mockResolvedValue(archiveRows)
 
     const result = await getPublicArchive('zh-CN')
 
-    expect(result).toEqual({ items: archiveRows })
+    expect(result).toEqual({ items: [
+      { year: 2026, month: 9, day: 13, title: 'First', alias: 'first', coverUrl: '/media/cover-12.webp' },
+      { year: 2026, month: 9, day: 12, title: 'Second', alias: 'second', coverUrl: null }
+    ] })
     expect(listPublishedArchive).toHaveBeenCalledOnce()
     expect(listPublishedArchive).toHaveBeenCalledWith(1)
-    expect(coverUrlFor).not.toHaveBeenCalled()
+    expect(coverUrlFor).toHaveBeenCalledTimes(2)
+    expect(coverUrlFor).toHaveBeenNthCalledWith(1, 12)
+    expect(coverUrlFor).toHaveBeenNthCalledWith(2, null)
   })
 
   it('passes the requested locale to the public summary query', async () => {
@@ -172,6 +177,25 @@ describe('featured image public API regression', () => {
     await getPublicPosts('en', { perPage: 12 })
 
     expect(listPublished).toHaveBeenCalledWith(2, { page: undefined, perPage: 12, postIds: undefined, q: undefined })
+  })
+
+  it('passes the requested locale to the public detail query', async () => {
+    listLocales.mockResolvedValue([
+      { id: 1, code: 'zh-CN', isDefault: true },
+      { id: 2, code: 'en', isDefault: false }
+    ])
+
+    await getPublicPostByAlias('en', 'cover-regression')
+
+    expect(findPublishedByAlias).toHaveBeenCalledWith(2, 'cover-regression')
+  })
+
+  it('renders archive cover URLs from the shared public archive contract', () => {
+    const archivePage = readFileSync('app/pages/archive.vue', 'utf8')
+    const publicTypes = readFileSync('shared/types/post.ts', 'utf8')
+
+    expect(publicTypes).toContain('coverUrl: string | null')
+    expect(archivePage).toContain('item.coverUrl')
   })
 
   it('keeps admin post handlers on the raw service contract', () => {

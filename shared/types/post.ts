@@ -55,6 +55,7 @@ export interface PublicArchiveItem {
   day: number
   title: string
   alias: string
+  coverUrl: string | null
 }
 
 export interface PublicPageSummary {

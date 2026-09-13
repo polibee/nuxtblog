@@ -14,6 +14,19 @@
 - `npm test -- --run tests/unit/post-public-cover.test.ts`：通过，1 个测试文件、4 个测试。
 - `npm run lint -- --quiet`：通过。
 - `npm run typecheck`：通过。
+
+## 修复轮次 2
+
+- 统一 unit/API mock 与生产媒体 URL 契约：媒体 ID 先解析到 `storageKey`，公开 URL 使用 `/media/{storageKey}`，不再使用 `/media/{id}`。
+- 按 Task 3 简报明确的 archive cover 要求，补齐归档仓储的实体/旧翻译封面回退、服务层逐条 `coverUrlFor()` 映射、`PublicArchiveItem.coverUrl` 类型及归档页面消费。
+- 保留现有一次性归档查询，不引入逐页重型查询；增加多条归档逐项映射和调用次数回归。
+- 增加公开列表与详情的 `en` locale 查询契约测试，并保留创建、清空和详情封面回归。
+
+本轮验证：
+
+- `npm test -- --run tests/unit/post-public-cover.test.ts`：7/7 通过。
+- `npm run lint -- --quiet`：通过。
+- `npm run typecheck`：通过。
 - Playwright：未执行。仓库当前未安装 `@playwright/test`，也没有 Playwright 配置或 `playwright`/`playwright-cli` 可执行文件；没有改动依赖或锁文件。
 
 ## Concerns
