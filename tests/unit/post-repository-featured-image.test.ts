@@ -2,31 +2,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { findPublishedByAlias, listPublished, updatePostRow } from '../../server/repositories/post.repository'
 import { findPublishedByAlias as findPublishedByAliasPostgres } from '../../server/repositories/post.postgres.repository'
 
-const publishedRows: Array<Record<string, unknown>> = [{
-  postId: 7,
-  title: 'Legacy cover',
-  alias: 'legacy-cover',
-  excerpt: '',
-  content: '<p>Content</p>',
-  seoTitle: '',
-  seoDescription: '',
-  noindex: false,
-  publishedAt: new Date('2026-09-13T00:00:00.000Z'),
-  featuredMediaId: 22,
-  translationFeaturedId: 11,
-  accessType: 'public',
-  postsPaidPriceMinor: null,
-  postsPaidCurrency: null,
-  authorName: 'Author',
-  commentStatus: 'closed'
-}]
+function makePublishedRows(translationFeaturedId: number | null = 11): Array<Record<string, unknown>> {
+  return [{
+    postId: 7,
+    title: 'Legacy cover',
+    alias: 'legacy-cover',
+    excerpt: '',
+    content: '<p>Content</p>',
+    seoTitle: '',
+    seoDescription: '',
+    noindex: false,
+    publishedAt: new Date('2026-09-13T00:00:00.000Z'),
+    featuredMediaId: 22,
+    translationFeaturedId,
+    accessType: 'public',
+    postsPaidPriceMinor: null,
+    postsPaidCurrency: null,
+    authorName: 'Author',
+    commentStatus: 'closed'
+  }]
+}
 
 let legacyRows: Array<{ localeId: number, featuredImageId: number | null }> = []
 let insertedTranslations: Array<Record<string, unknown>> = []
+let publishedRows = makePublishedRows()
 let queryRows: unknown[] = publishedRows
-
-const postgresRows = [{ ...publishedRows[0], translationFeaturedId: null }]
-let postgresQueryRows: unknown[] = postgresRows
+let postgresQueryRows: unknown[] = makePublishedRows()
 
 const dbStub = {
   select: vi.fn(() => {
@@ -75,8 +76,9 @@ describe('MySQL post featured image compatibility', () => {
   beforeEach(() => {
     legacyRows = [{ localeId: 1, featuredImageId: 11 }]
     insertedTranslations = []
+    publishedRows = makePublishedRows()
     queryRows = publishedRows
-    postgresQueryRows = postgresRows
+    postgresQueryRows = makePublishedRows()
     vi.clearAllMocks()
   })
 
@@ -114,6 +116,12 @@ describe('MySQL post featured image compatibility', () => {
   })
 
   it('uses the same fallback for the MySQL alias lookup', async () => {
+    const result = await findPublishedByAlias(1, 'legacy-cover')
+
+    expect(result?.coverMediaId).toBe(11)
+  })
+
+  it('falls back to the post cover for the MySQL alias lookup when legacy cover is null', async () => {
     publishedRows[0]!.translationFeaturedId = null
 
     const result = await findPublishedByAlias(1, 'legacy-cover')
@@ -121,7 +129,15 @@ describe('MySQL post featured image compatibility', () => {
     expect(result?.coverMediaId).toBe(22)
   })
 
-  it('uses the same fallback for the PostgreSQL alias lookup', async () => {
+  it('prefers the legacy translation cover for the PostgreSQL alias lookup', async () => {
+    const result = await findPublishedByAliasPostgres(1, 'legacy-cover')
+
+    expect(result?.coverMediaId).toBe(11)
+  })
+
+  it('falls back to the post cover for the PostgreSQL alias lookup when legacy cover is null', async () => {
+    postgresQueryRows[0]!.translationFeaturedId = null
+
     const result = await findPublishedByAliasPostgres(1, 'legacy-cover')
 
     expect(result?.coverMediaId).toBe(22)
