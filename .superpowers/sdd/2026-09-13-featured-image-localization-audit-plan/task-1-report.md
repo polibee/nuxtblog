@@ -115,3 +115,40 @@ Fix-round concerns:
 
 - Repository tests use the existing unit-test Vitest mocking style with a deterministic MySQL repository double; they do not require a live database.
 - Existing unrelated working-tree changes remain untouched and uncommitted.
+
+## Fix round 2
+
+Review finding addressed:
+
+- Expanded repository-level coverage for `translationFeaturedId: null` falling back to `featuredMediaId` (`22`) in the MySQL list path and MySQL alias lookup (`findPublishedByAlias`).
+- Added equivalent PostgreSQL alias-path coverage using the independent PostgreSQL repository implementation.
+- No production contract or mapping behavior was changed.
+
+Fix commit:
+
+- `fb85d95 test(posts): cover featured image fallback paths`
+
+Covering test and lint commands:
+
+```text
+npm test -- --run tests/unit/post-featured-image.test.ts tests/unit/post-repository-featured-image.test.ts tests/unit/post-excerpt.test.ts
+npm run lint -- --quiet
+```
+
+Output:
+
+```text
+Test Files  3 passed (3)
+Tests  11 passed (11)
+Duration  763ms
+
+> lint
+> eslint . --quiet
+```
+
+Both commands exited with code `0`.
+
+Fix-round-2 concerns:
+
+- Repository coverage uses deterministic MySQL and PostgreSQL database mocks; no live database was required.
+- Existing unrelated working-tree changes remain untouched and uncommitted.
