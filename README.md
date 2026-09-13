@@ -73,6 +73,7 @@ npm run dev        # http://localhost:3000
 | [开发指南](docs/开发指南.md) / [Dev Guide (EN)](docs/development-guide.en.md) | 开发者 | 核心概念、自动导入清单、组件清单、模块实战、API 参考 |
 | [工程审计报告](docs/工程审计报告.md) | 维护者 | 审计发现、验证矩阵、生产就绪正式结论 |
 | [开发文档](docs/开发文档.md) | 设计溯源 | 原始设计蓝本 |
+| [通用架构设计与开发约束](docs/architecture/通用架构设计与开发约束.md) | 维护者/开发者 | 模块边界、Repository context、Alias、i18n、安全、异步和质量闸门 |
 
 ## License
 

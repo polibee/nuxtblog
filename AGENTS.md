@@ -134,3 +134,7 @@ npm run build
 - 服务端通用 CRUD：`server/utils/crud.ts`
 - 资源服务端配置：`server/utils/resourceConfigs.ts`
 - 共享校验：`shared/schemas/**`
+
+## 通用架构标准
+
+详细规则统一维护在 [docs/architecture/通用架构设计与开发约束.md](docs/architecture/通用架构设计与开发约束.md)。新增模块、公共接口、持久化格式和跨模块改动必须遵守该文档并补充 ADR；若规则冲突，以更具体且更新的项目规则为准。
