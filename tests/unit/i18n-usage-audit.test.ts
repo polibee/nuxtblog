@@ -115,4 +115,11 @@ const unsafe = t('user.' + userInput)`,
 
     expect(report.hardcodedCopyRisks.map(risk => risk.text)).toEqual(['Save'])
   })
+
+  it('has no missing locale entries for the repository static calls', async () => {
+    const report = await auditI18nUsage()
+
+    expect(report.missingKeys).toEqual([])
+    expect(report.localeDiffs).toEqual([])
+  })
 })

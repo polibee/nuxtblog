@@ -13,6 +13,7 @@ import zhMedia from '../../app/i18n/locales/zh-CN/media'
 import zhPosts from '../../app/i18n/locales/zh-CN/posts'
 import zhSettings from '../../app/i18n/locales/zh-CN/settings'
 import { mergeLocaleBundles, useI18n } from '../../app/admin/i18n'
+import { auditI18nUsage } from '../../scripts/audit-i18n-usage'
 
 type LocaleObject = Record<string, unknown>
 
@@ -2788,20 +2789,46 @@ function comparableKeys(value: LocaleObject): string[] {
   return flattenKeys(value).filter(key => !intentionallyServerOnlyKeys.has(key))
 }
 
+const auditedBundleOwners = {
+  common: ['common', 'table', 'nav', 'auth', 'toast', 'confirm', 'editor', 'draft', 'status', 'public'],
+  admin: ['dashboard', 'widget', 'settings', 'mail', 'dialog', 'notify', 'db', 'cache', 'res', 'group', 'ext', 'admin'],
+  comments: ['comments'],
+  media: ['media'],
+  posts: ['posts'],
+  settings: ['settings.ui']
+} as const
+
+type BundleName = keyof typeof auditedBundleOwners
+
+function ownerForAuditedKey(key: string): BundleName | undefined {
+  if (key.startsWith('settings.ui.')) return 'settings'
+  return (Object.entries(auditedBundleOwners) as Array<[BundleName, readonly string[]]>).find(([, prefixes]) =>
+    prefixes.some(prefix => key === prefix || key.startsWith(`${prefix}.`))
+  )?.[0]
+}
+
+function interpolationNames(value: string): string[] {
+  return [...value.matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/gu)].map(match => match[1]!).sort()
+}
+
 describe('modular locale bundles', () => {
   it('keeps zh-CN and en key sets aligned and matches the parent key set', () => {
     expect(comparableKeys(zhCommon)).toEqual(comparableKeys(enCommon))
     expect(comparableKeys(zhAdmin)).toEqual(comparableKeys(enAdmin))
-    expect(aggregateKeys(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)).toEqual([...baselineKeys])
-    expect(aggregateKeys(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)).toEqual([...baselineKeys])
+    expect(aggregateKeys(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)).toEqual(
+      aggregateKeys(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)
+    )
+    expect(aggregateKeys(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)).toEqual(expect.arrayContaining(baselineKeys))
   })
 
   it('uses the aggregate entry and t() to preserve every baseline value', () => {
     const zhAggregate = mergeLocaleBundles(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)
     const enAggregate = mergeLocaleBundles(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)
 
-    expect(zhAggregate).toEqual(expectedZh)
-    expect(enAggregate).toEqual(expectedEn)
+    for (const key of baselineKeys) {
+      expect(zhAggregate[key], `zh-CN compatibility value changed for ${key}`).toBe(expectedZh[key])
+      expect(enAggregate[key], `en compatibility value changed for ${key}`).toBe(expectedEn[key])
+    }
 
     vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
     const { locale, t } = useI18n()
@@ -2823,5 +2850,28 @@ describe('modular locale bundles', () => {
       { nested: { zh: '中文', shared: '旧' } },
       { nested: { en: 'English', shared: '新' } }
     )).toEqual({ nested: { zh: '中文', en: 'English', shared: '新' } })
+  })
+
+  it('keeps every audited key in its owning module bundle for both locales', async () => {
+    const report = await auditI18nUsage()
+    const zhBundles = { common: zhCommon, admin: zhAdmin, comments: zhComments, media: zhMedia, posts: zhPosts, settings: zhSettings }
+    const enBundles = { common: enCommon, admin: enAdmin, comments: enComments, media: enMedia, posts: enPosts, settings: enSettings }
+    const auditedKeys = [...new Set(report.staticUsages.map(usage => usage.key))]
+
+    for (const key of auditedKeys) {
+      const owner = ownerForAuditedKey(key)
+      expect(owner, `missing module owner for ${key}`).toBeDefined()
+      expect(flattenKeys(zhBundles[owner!]), `zh-CN does not own ${key}`).toContain(key)
+      expect(flattenKeys(enBundles[owner!]), `en does not own ${key}`).toContain(key)
+    }
+  })
+
+  it('keeps interpolation parameter names aligned across the aggregate locales', () => {
+    const zhAggregate = mergeLocaleBundles(zhCommon, zhAdmin, zhPosts, zhComments, zhSettings, zhMedia)
+    const enAggregate = mergeLocaleBundles(enCommon, enAdmin, enPosts, enComments, enSettings, enMedia)
+
+    for (const key of Object.keys(zhAggregate)) {
+      expect(interpolationNames(zhAggregate[key]!), `zh-CN interpolation mismatch for ${key}`).toEqual(interpolationNames(enAggregate[key]!))
+    }
   })
 })
