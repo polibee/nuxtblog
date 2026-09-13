@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { MapPinIcon, ArrowUpRightIcon, CircleCheckIcon } from 'lucide-vue-next'
 
-/* P29 /profile: modular professional profile page (docs/ai优化.txt §1-2).
-   Hero + enabled sections rendered in admin-defined sort order. */
+/* P29 /profile: personal profile sections rendered in admin-defined sort order. */
 
-definePageMeta({ layout: 'public-full' })
+definePageMeta({ layout: 'public-full', alias: ['/en/profile'] })
 
 const { t } = useI18n()
 const { localeCode } = useLocale()
@@ -16,7 +15,6 @@ interface ProfileData {
   avatar: { url: string, alt: string } | null
   location: string
   socials: Array<{ platform: string, url: string, handle: string, description: string }>
-  heroSocials: Array<{ platform: string, url: string, handle: string, description: string }>
   sections: Array<{ type: string }>
   experiences: Array<{ role: string, organization: string, period: string, current: boolean, location: string, description: string | null, url: string | null }>
   projects: Array<{ name: string, description: string, image: string | null, url: string, githubUrl: string, tags: string[], featured: boolean }>
@@ -26,27 +24,44 @@ interface ProfileData {
   focusItems: string[]
 }
 
-const { data } = await useFetch<ProfileData | null>(
+const { data, status, error, refresh } = await useFetch<ProfileData | null>(
   '/api/public/profile',
-  { key: `profile-${localeCode.value}`, lazy: true }
+  { key: `profile-${localeCode.value}`, query: { locale: localeCode.value }, lazy: true }
 )
 
 const profile = computed(() => data.value)
 
-const SECTION_LABELS: Record<string, string> = {
-  about: 'public.profile.sectionAbout',
-  experience: 'public.profile.sectionExperience',
-  projects: 'public.profile.sectionProjects',
-  skills: 'public.profile.sectionSkills',
-  social: 'public.profile.sectionSocial',
-  focus: 'public.profile.sectionFocus',
-  education: 'public.profile.sectionEducation',
-  certifications: 'public.profile.sectionCertifications',
-  contact: 'public.profile.sectionContact'
-}
+const visibleSections = computed(() => {
+  const current = profile.value
+  if (!current) return []
+  const content: Record<string, unknown> = {
+    about: current.bio,
+    experience: current.experiences,
+    projects: current.projects,
+    skills: current.skills,
+    social: current.socials,
+    contact: current.socials,
+    focus: current.focusItems,
+    education: current.education,
+    certifications: current.certifications
+  }
+  const hasContent = (value: unknown) => Array.isArray(value) ? value.length > 0 : Boolean(typeof value === 'string' ? value.trim() : value)
+  return current.sections.filter(section => hasContent(content[section.type]))
+})
 
 function sectionTitle(type: string): string {
-  return t(SECTION_LABELS[type] ?? 'public.profile.sectionAbout')
+  switch (type) {
+    case 'experience': return t('public.profile.sectionExperience')
+    case 'projects': return t('public.profile.sectionProjects')
+    case 'skills': return t('public.profile.sectionSkills')
+    case 'social': return t('public.profile.sectionSocial')
+    case 'focus': return t('public.profile.sectionFocus')
+    case 'education': return t('public.profile.sectionEducation')
+    case 'certifications': return t('public.profile.sectionCertifications')
+    case 'contact': return t('public.profile.sectionContact')
+    case 'about':
+    default: return t('public.profile.sectionAbout')
+  }
 }
 
 const skillGroups = computed(() => {
@@ -69,17 +84,42 @@ useSeoMeta({
 
 <template>
   <div>
-    <UiEmpty v-if="!profile">
+    <div
+      v-if="status === 'pending'"
+      class="space-y-6"
+      aria-live="polite"
+    >
+      <UiSkeleton class="h-64 w-full rounded-[2rem]" />
+      <UiSkeleton class="h-96 w-full rounded-2xl" />
+    </div>
+
+    <div
+      v-else-if="error"
+      class="flex flex-col items-center gap-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"
+      role="alert"
+    >
+      <p class="text-sm text-destructive">
+        {{ t('public.profile.loadFailed') }}
+      </p>
+      <button
+        type="button"
+        class="inline-flex h-9 items-center rounded-md border px-4 text-sm font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+        @click="refresh()"
+      >
+        {{ t('public.profile.retry') }}
+      </button>
+    </div>
+
+    <UiEmpty v-else-if="!profile">
       <template #title>
         {{ t('public.profile.empty') }}
       </template>
     </UiEmpty>
 
     <div
-      v-else
+      v-else-if="profile"
       class="space-y-12"
     >
-      <!-- hero -->
       <section class="flex flex-col items-center gap-3 border-b pb-10 text-center">
         <img
           v-if="profile.avatar"
@@ -109,31 +149,11 @@ useSeoMeta({
           <MapPinIcon class="h-4 w-4" />
           {{ profile.location }}
         </p>
-        <div
-          v-if="profile.heroSocials.length"
-          class="mt-1 flex flex-wrap items-center justify-center gap-1"
-        >
-          <a
-            v-for="social in profile.heroSocials"
-            :key="social.platform + social.url"
-            :href="social.url"
-            :target="isExternal(social.url) ? '_blank' : undefined"
-            :rel="isExternal(social.url) ? 'noopener noreferrer' : undefined"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            :aria-label="social.handle || social.platform"
-            :title="social.handle || social.platform"
-          >
-            <component
-              :is="socialIcon(social.platform)"
-              class="h-4 w-4"
-            />
-          </a>
-        </div>
       </section>
 
-      <!-- enabled sections in admin-defined order -->
+      <!-- enabled personal profile sections in admin-defined order -->
       <section
-        v-for="section in profile.sections"
+        v-for="section in visibleSections"
         :key="section.type"
         class="space-y-4"
       >
@@ -198,72 +218,15 @@ useSeoMeta({
           v-else-if="section.type === 'projects'"
           class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
         >
-          <article
+          <div
             v-for="(project, i) in profile.projects"
             :key="i"
-            class="group flex flex-col overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-md"
           >
-            <img
-              v-if="project.image"
-              :src="project.image"
-              :alt="project.name"
-              loading="lazy"
-              class="aspect-[16/9] w-full object-cover"
-            >
-            <div
-              v-else
-              class="flex aspect-[16/9] w-full items-center justify-center bg-muted text-lg font-semibold text-muted-foreground"
-            >
-              {{ (project.name || 'P').slice(0, 1).toUpperCase() }}
-            </div>
-            <div class="flex flex-1 flex-col gap-2 p-4">
-              <div class="flex items-center justify-between gap-2">
-                <h3 class="font-medium leading-tight">
-                  {{ project.name }}
-                </h3>
-                <span
-                  v-if="project.featured"
-                  class="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
-                >★</span>
-              </div>
-              <p
-                v-if="project.description"
-                class="line-clamp-3 text-sm leading-relaxed text-muted-foreground"
-              >
-                {{ project.description }}
-              </p>
-              <div
-                v-if="project.tags.length"
-                class="flex flex-wrap gap-1"
-              >
-                <span
-                  v-for="tag in project.tags"
-                  :key="tag"
-                  class="rounded-md bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
-                >{{ tag }}</span>
-              </div>
-              <div class="mt-auto flex gap-3 pt-1 text-sm">
-                <a
-                  v-if="project.url"
-                  :href="project.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-0.5 text-primary hover:underline"
-                >{{ t('public.profile.visit') }}<ArrowUpRightIcon class="h-3.5 w-3.5" /></a>
-                <a
-                  v-if="project.githubUrl"
-                  :href="project.githubUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
-                >
-                  <component
-                    :is="socialIcon('github')"
-                    class="h-3.5 w-3.5"
-                  />GitHub</a>
-              </div>
-            </div>
-          </article>
+            <ProfileProjectCard
+              :project="project"
+              :index="i"
+            />
+          </div>
         </div>
 
         <!-- skills: grouped badges -->

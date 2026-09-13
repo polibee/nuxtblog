@@ -8,6 +8,7 @@ defineProps<{
 }>()
 
 const { t } = useI18n()
+const { publicPath } = useLocale()
 
 const q = ref('')
 
@@ -22,13 +23,13 @@ function go(): void {
   <header class="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
     <div class="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4">
       <NuxtLink
-        to="/"
+        :to="publicPath('/')"
         class="shrink-0 text-lg font-semibold tracking-tight"
       >
         {{ siteName }}
       </NuxtLink>
       <nav
-        aria-label="Main navigation"
+        :aria-label="t('common.navigation.main')"
         class="flex items-center"
       >
         <NavigationMenu

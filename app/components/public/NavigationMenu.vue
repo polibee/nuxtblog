@@ -9,6 +9,12 @@ defineProps<{
   orientation?: 'horizontal' | 'vertical'
   depth?: number
 }>()
+
+const { publicPath } = useLocale()
+
+function linkPath(url: string): string {
+  return url.startsWith('/') && !url.startsWith('//') ? publicPath(url) : url
+}
 </script>
 
 <template>
@@ -25,8 +31,15 @@ defineProps<{
       :key="`${item.url}-${item.label}`"
       class="group relative"
     >
+      <span
+        v-if="item.url === '#'"
+        class="text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {{ item.label }}
+      </span>
       <NuxtLink
-        :to="item.url"
+        v-else
+        :to="linkPath(item.url)"
         :title="item.titleAttribute ?? undefined"
         :rel="item.rel ?? undefined"
         :target="item.url.startsWith('http') ? '_blank' : undefined"

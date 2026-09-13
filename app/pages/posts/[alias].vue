@@ -4,10 +4,10 @@
 
     <nav
       class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
-      aria-label="Breadcrumb"
+      :aria-label="t('common.navigation.breadcrumb')"
     >
       <NuxtLink
-        to="/"
+        :to="publicPath('/')"
         class="hover:text-foreground"
       >
         {{ t('public.nav.home') }}
@@ -18,7 +18,7 @@
       >
         <span>/</span>
         <NuxtLink
-          :to="`/category/${category.alias}`"
+          :to="publicPath(`/category/${category.alias}`)"
           class="hover:text-foreground"
         >
           {{ category.name }}
@@ -41,19 +41,14 @@
 
     <section
       v-if="detail.authorName"
-      class="flex items-center gap-4 rounded-xl border p-5"
+      :aria-label="t('public.post.author')"
     >
-      <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-lg font-semibold text-primary">
-        {{ detail.authorName.slice(0, 1).toUpperCase() }}
-      </div>
-      <div>
-        <p class="text-xs uppercase tracking-wide text-muted-foreground">
-          {{ t('public.post.author') }}
-        </p>
-        <p class="font-semibold">
-          {{ detail.authorName }}
-        </p>
-      </div>
+      <ArticleAuthorCard
+        :name="articleAuthorName"
+        :avatar="articleAuthorAvatar"
+        :socials="authorSocials"
+        :profile-url="publicPath('/profile')"
+      />
     </section>
 
     <nav
@@ -62,7 +57,7 @@
     >
       <NuxtLink
         v-if="detail.neighbors?.prev"
-        :to="`/posts/${detail.neighbors.prev.alias}`"
+        :to="publicPath(`/posts/${detail.neighbors.prev.alias}`)"
         class="rounded-xl border p-4 transition-colors hover:bg-accent/30"
       >
         <span class="text-xs text-muted-foreground">← {{ t('public.post.prevPost') }}</span>
@@ -73,7 +68,7 @@
       <span v-else />
       <NuxtLink
         v-if="detail.neighbors?.next"
-        :to="`/posts/${detail.neighbors.next.alias}`"
+        :to="publicPath(`/posts/${detail.neighbors.next.alias}`)"
         class="rounded-xl border p-4 text-right transition-colors hover:bg-accent/30"
       >
         <span class="text-xs text-muted-foreground">{{ t('public.post.nextPost') }} →</span>
@@ -95,7 +90,7 @@
         <NuxtLink
           v-for="item in related"
           :key="item.alias"
-          :to="`/posts/${item.alias}`"
+          :to="publicPath(`/posts/${item.alias}`)"
           class="group rounded-xl border p-4 transition-colors hover:bg-accent/30"
         >
           <p class="line-clamp-2 font-medium leading-snug group-hover:text-primary">
@@ -122,13 +117,16 @@ import PublicArticleToc from '~/components/public/ArticleToc.vue'
 import PublicReadingProgress from '~/components/public/ReadingProgress.vue'
 import PublicBackToTop from '~/components/public/BackToTop.vue'
 import PostComments from '~/components/public/PostComments.vue'
+import ArticleAuthorCard from '~/components/public/ArticleAuthorCard.vue'
 import { extractToc, readingMinutes, formatDate } from '~/utils/blog'
+import type { AuthorSocial } from '#shared/schemas/author-card'
+import type { PublicSidebarCard } from '#shared/schemas/sidebar-card'
 import type { PublicPostDetail as PostDetail, PublicPostSummary } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/posts/:alias'] })
 
 const route = useRoute()
-const { localeCode } = useLocale()
+const { localeCode, publicPath } = useLocale()
 const { t } = useI18n()
 
 const { data: post, error } = await useFetch<PostDetail>(
@@ -141,6 +139,44 @@ if (error.value || !post.value) {
 }
 
 const detail = computed(() => post.value!)
+
+interface PublicAuthorProfile {
+  displayName: string
+  headline: string
+  bio: string
+  avatar: { url: string, alt: string } | null
+  socials: Array<{ platform: string, url: string, handle: string, description: string }>
+}
+
+const { data: authorProfile } = await useFetch<PublicAuthorProfile | null>(
+  '/api/public/profile',
+  {
+    key: `article-author-profile-${localeCode.value}`,
+    query: { locale: localeCode.value }
+  }
+)
+
+const { data: sidebarData } = await useFetch<{ cards: PublicSidebarCard[] }>(
+  '/api/public/sidebar',
+  {
+    key: `article-sidebar-author-${localeCode.value}`,
+    query: { locale: localeCode.value }
+  }
+)
+
+const sidebarAuthor = computed(() => sidebarData.value?.cards.find(card => card.type === 'author' && card.author)?.author ?? null)
+const articleAuthorName = computed(() => sidebarAuthor.value?.name || authorProfile.value?.displayName || detail.value.authorName || '')
+const articleAuthorAvatar = computed(() => sidebarAuthor.value?.avatar ?? authorProfile.value?.avatar ?? null)
+
+const profileSocials = computed<AuthorSocial[]>(() => (authorProfile.value?.socials ?? []).map(social => ({
+  platform: social.platform,
+  url: social.url,
+  label: social.handle || social.description || social.platform
+})))
+
+const authorSocials = computed<AuthorSocial[]>(() => sidebarAuthor.value?.socials?.length
+  ? sidebarAuthor.value.socials
+  : profileSocials.value)
 
 /* toc ids + reading time; TOC also feeds the sticky aside via shared state */
 const extracted = computed(() => extractToc(detail.value.content))
