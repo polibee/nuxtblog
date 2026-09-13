@@ -1,8 +1,8 @@
 import * as mysql from './page.repository'
 import * as postgres from './page.postgres.repository'
+import { createDomainRepositoryContext } from './domain-context'
 
-const usePostgres = process.env.DB_DRIVER === 'postgres' || process.env.DB_DRIVER === 'supabase'
-const implementation = (usePostgres ? postgres : mysql) as typeof mysql
+const implementation = (createDomainRepositoryContext({ driver: process.env.DB_DRIVER }).isPostgres ? postgres : mysql) as typeof mysql
 
 export type { PageRecord, PageTranslationRow, PageListQuery, PublishedPage } from './page.repository'
 export const listPages = implementation.listPages

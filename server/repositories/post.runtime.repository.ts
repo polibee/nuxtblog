@@ -1,10 +1,10 @@
 import * as mysql from './post.repository'
 import * as postgres from './post.postgres.repository'
+import { createDomainRepositoryContext } from './domain-context'
 
-const usePostgres = process.env.DB_DRIVER === 'postgres' || process.env.DB_DRIVER === 'supabase'
+const implementation = (createDomainRepositoryContext({ driver: process.env.DB_DRIVER }).isPostgres ? postgres : mysql) as typeof mysql
 // Both repository variants retain translationFeaturedId only as a read-only
 // legacy cover fallback; writes enter through PostRecord.featuredMediaId.
-const implementation = (usePostgres ? postgres : mysql) as typeof mysql
 
 export type { PostRecord, PostTranslationRow, PostListQuery, PublishedTranslation, PublishedArchiveItem, RecentPost } from './post.repository'
 export const listPosts = implementation.listPosts

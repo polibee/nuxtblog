@@ -1,8 +1,8 @@
 import * as mysql from './settings.service'
 import * as postgres from './settings.postgres.service'
+import { createDomainRepositoryContext } from '../../repositories/domain-context'
 
-const usePostgres = process.env.DB_DRIVER === 'postgres' || process.env.DB_DRIVER === 'supabase'
-const implementation = (usePostgres ? postgres : mysql) as typeof mysql
+const implementation = (createDomainRepositoryContext({ driver: process.env.DB_DRIVER }).isPostgres ? postgres : mysql) as typeof mysql
 
 export type { SettingType, SettingItem } from './settings.service'
 export const invalidateSettingsCache = implementation.invalidateSettingsCache
