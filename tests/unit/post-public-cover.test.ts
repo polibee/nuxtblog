@@ -148,17 +148,30 @@ describe('featured image public API regression', () => {
     expect(coverUrlFor).toHaveBeenCalledWith(12)
   })
 
-  it('maps archive cover URLs from the published entity rows', async () => {
-    listPublished.mockResolvedValue({ items: [publishedRow], total: 1 })
+  it('keeps the existing archive contract and performs one archive query for multiple rows', async () => {
+    const archiveRows = [
+      { year: 2026, month: 9, day: 13, title: 'First', alias: 'first' },
+      { year: 2026, month: 9, day: 12, title: 'Second', alias: 'second' }
+    ]
+    listPublishedArchive.mockResolvedValue(archiveRows)
 
     const result = await getPublicArchive('zh-CN')
 
-    expect(result.items[0]).toMatchObject({
-      alias: 'cover-regression',
-      coverUrl: '/media/12'
-    })
-    expect(coverUrlFor).toHaveBeenCalledOnce()
-    expect(coverUrlFor).toHaveBeenCalledWith(12)
+    expect(result).toEqual({ items: archiveRows })
+    expect(listPublishedArchive).toHaveBeenCalledOnce()
+    expect(listPublishedArchive).toHaveBeenCalledWith(1)
+    expect(coverUrlFor).not.toHaveBeenCalled()
+  })
+
+  it('passes the requested locale to the public summary query', async () => {
+    listLocales.mockResolvedValue([
+      { id: 1, code: 'zh-CN', isDefault: true },
+      { id: 2, code: 'en', isDefault: false }
+    ])
+
+    await getPublicPosts('en', { perPage: 12 })
+
+    expect(listPublished).toHaveBeenCalledWith(2, { page: undefined, perPage: 12, postIds: undefined, q: undefined })
   })
 
   it('keeps admin post handlers on the raw service contract', () => {

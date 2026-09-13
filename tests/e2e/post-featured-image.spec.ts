@@ -20,7 +20,7 @@ test('admin can publish, reload, and clear a post featured image', async ({ page
     })
     expect(mediaResponse.ok()).toBeTruthy()
     const mediaPayload = await mediaResponse.json() as {
-      items?: Array<{ id: number, filename: string }>
+      items?: Array<{ id: number, filename: string, storageKey: string }>
     }
     const media = mediaPayload.items?.[0]
     if (!media) throw new Error('Featured-image E2E prerequisite unavailable: no media record exists')
@@ -55,7 +55,7 @@ test('admin can publish, reload, and clear a post featured image', async ({ page
     await page.goto(`${baseUrl}/admin/posts/${postId}/edit`)
     await expect(page.locator('img[alt="' + media.filename + '"]')).toBeVisible()
     await page.goto(`${baseUrl}/posts/${alias}?locale=zh-CN`)
-    await expect(page.locator('img.article-cover')).toHaveAttribute('src', `/media/${media.id}`)
+    await expect(page.locator('img.article-cover')).toHaveAttribute('src', `/media/${media.storageKey}`)
 
     await page.goto(`${baseUrl}/admin/posts/${postId}/edit`)
     await page.locator('button').filter({ hasText: /取消|cancel/i }).first().click()
