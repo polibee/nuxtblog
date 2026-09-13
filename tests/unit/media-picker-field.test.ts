@@ -682,6 +682,202 @@ describe('MediaPickerField', () => {
     expect(createSignal?.aborted).toBe(true)
   })
 
+  it('does not let a stale upload error replace the current load error', async () => {
+    const firstUpload = deferred<{ id: number }>()
+    const secondUpload = deferred<{ id: number }>()
+    let uploadCalls = 0
+    const fetcher = vi.fn((url: string) => {
+      if (url === '/api/admin/media') return Promise.resolve(pageResponse())
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      if (url === '/api/admin/media/upload') {
+        uploadCalls += 1
+        return uploadCalls === 1 ? firstUpload.promise : secondUpload.promise
+      }
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    const fileInput = mounted.container.querySelectorAll('input').find(input => input.getAttribute('type') === 'file')!
+    fileInput.files = [new File(['first'], 'first.png', { type: 'image/png' })]
+    fileInput.dispatchEvent({ type: 'change', target: fileInput } as unknown as Event)
+    await flushPromises()
+    fileInput.files = [new File(['second'], 'second.png', { type: 'image/png' })]
+    fileInput.dispatchEvent({ type: 'change', target: fileInput } as unknown as Event)
+    await flushPromises()
+
+    secondUpload.reject(new Error('latest upload failed'))
+    await flushPromises()
+    expect(mounted.container.textContent).toContain('latest upload failed')
+    firstUpload.reject(new Error('stale upload failed'))
+    await flushPromises()
+
+    expect(mounted.container.textContent).toContain('latest upload failed')
+    expect(mounted.container.textContent).not.toContain('stale upload failed')
+    mounted.unmount()
+  })
+
+  it('does not let a stale folder creation error replace the current load error', async () => {
+    const firstCreate = deferred<{ id: number }>()
+    const secondCreate = deferred<{ id: number }>()
+    let createCalls = 0
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') return Promise.resolve(pageResponse())
+      if (url === '/api/admin/media/folders' && options?.method === 'POST') {
+        createCalls += 1
+        return createCalls === 1 ? firstCreate.promise : secondCreate.promise
+      }
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    const folderInput = mounted.container.querySelectorAll('input')[2]!
+    stateRef<string>(mounted.state, 'newFolderName').value = 'First'
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    stateRef<string>(mounted.state, 'newFolderName').value = 'Second'
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+
+    secondCreate.reject(new Error('latest folder failed'))
+    await flushPromises()
+    expect(mounted.container.textContent).toContain('latest folder failed')
+    firstCreate.reject(new Error('stale folder failed'))
+    await flushPromises()
+
+    expect(mounted.container.textContent).toContain('latest folder failed')
+    expect(mounted.container.textContent).not.toContain('stale folder failed')
+    expect(folderInput).toBeDefined()
+    mounted.unmount()
+  })
+
+  it('does not emit after unmount while upload reload is pending', async () => {
+    const upload = deferred<{ id: number }>()
+    const reloadPage = deferred<{ items: MediaItem[], total: number }>()
+    let pageCalls = 0
+    const fetcher = vi.fn((url: string) => {
+      if (url === '/api/admin/media') {
+        pageCalls += 1
+        return pageCalls <= 2 ? Promise.resolve(pageResponse()) : reloadPage.promise
+      }
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      if (url === '/api/admin/media/upload') return upload.promise
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    const fileInput = mounted.container.querySelectorAll('input').find(input => input.getAttribute('type') === 'file')!
+    fileInput.files = [new File(['image'], 'upload.png', { type: 'image/png' })]
+    fileInput.dispatchEvent({ type: 'change', target: fileInput } as unknown as Event)
+    await flushPromises()
+    upload.resolve({ id: 22 })
+    await flushPromises()
+    expect(pageCalls).toBe(3)
+
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      reloadPage.resolve(pageResponse())
+      await flushPromises()
+    })
+
+    expect(mounted.emitted).not.toHaveBeenCalled()
+    expect(stateRef<boolean>(mounted.state, 'uploading').value).toBe(true)
+    expect(stateRef<boolean>(mounted.state, 'open').value).toBe(true)
+  })
+
+  it('does not reload after unmount while folder creation is in its chained reload', async () => {
+    const create = deferred<{ id: number }>()
+    const reloadPage = deferred<{ items: MediaItem[], total: number }>()
+    let pageCalls = 0
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') {
+        pageCalls += 1
+        return pageCalls <= 2 ? Promise.resolve(pageResponse()) : reloadPage.promise
+      }
+      if (url === '/api/admin/media/folders' && options?.method === 'POST') return create.promise
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    stateRef<string>(mounted.state, 'newFolderName').value = 'Archive'
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    create.resolve({ id: 7 })
+    await flushPromises()
+    expect(pageCalls).toBe(3)
+    expect(stateRef<number | null>(mounted.state, 'folderFilter').value).toBe(7)
+
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      reloadPage.resolve({
+        items: [{ ...pageResponse().items[0], filename: 'late-folder-page.png' }],
+        total: 1
+      })
+      await flushPromises()
+    })
+
+    expect(pageCalls).toBe(3)
+    expect(mounted.container.textContent).not.toContain('late-folder-page.png')
+  })
+
+  it('ignores a folder reload response after a newer folder operation starts', async () => {
+    const firstCreate = deferred<{ id: number }>()
+    const secondCreate = deferred<{ id: number }>()
+    const firstReload = deferred<{ items: MediaItem[], total: number }>()
+    let pageCalls = 0
+    let createCalls = 0
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') {
+        pageCalls += 1
+        if (pageCalls === 3) return firstReload.promise
+        return Promise.resolve(pageResponse())
+      }
+      if (url === '/api/admin/media/folders' && options?.method === 'POST') {
+        createCalls += 1
+        return createCalls === 1 ? firstCreate.promise : secondCreate.promise
+      }
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    stateRef<string>(mounted.state, 'newFolderName').value = 'First'
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    firstCreate.resolve({ id: 7 })
+    await flushPromises()
+    expect(pageCalls).toBe(3)
+
+    stateRef<string>(mounted.state, 'newFolderName').value = 'Second'
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    firstReload.resolve({
+      items: [{ ...pageResponse().items[0], filename: 'stale-folder-page.png' }],
+      total: 1
+    })
+    await flushPromises()
+
+    expect(mounted.container.textContent).not.toContain('stale-folder-page.png')
+    mounted.unmount()
+    secondCreate.resolve({ id: 8 })
+  })
+
   it('renders a controlled error when the initial page request fails', async () => {
     const page = deferred<{ items: MediaItem[], total: number }>()
     const fetcher = vi.fn((url: string) => {

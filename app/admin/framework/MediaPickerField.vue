@@ -236,6 +236,7 @@ let folderRequest: AbortController | null = null
 let uploadRequest: AbortController | null = null
 let createFolderRequest: AbortController | null = null
 let disposed = false
+type OperationGuard = () => boolean
 
 function isPositiveMediaId(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
@@ -245,8 +246,8 @@ function isAbortError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
 }
 
-function handleAsyncError(error: unknown): void {
-  if (disposed || isAbortError(error)) return
+function handleAsyncError(error: unknown, isCurrent: OperationGuard = () => !disposed): void {
+  if (!isCurrent() || isAbortError(error)) return
   loadError.value = error instanceof Error && error.message
     ? error.message
     : t('toast.loadFailed', { label: t('admin.mediaPicker.title') })
@@ -256,20 +257,21 @@ function runAsync(task: () => Promise<unknown>): void {
   void task().catch(handleAsyncError)
 }
 
-async function rehydrateSelectedMedia(): Promise<void> {
+async function rehydrateSelectedMedia(isCurrent: OperationGuard = () => !disposed): Promise<void> {
   const mediaId = props.modelValue
-  if (disposed || !isPositiveMediaId(mediaId) || selectedMedia.value) return
+  if (!isCurrent() || !isPositiveMediaId(mediaId) || selectedMedia.value) return
 
   selectedMediaRequest?.abort()
   const controller = new AbortController()
   selectedMediaRequest = controller
+  const isCurrentRequest = () => isCurrent() && !controller.signal.aborted && selectedMediaRequest === controller
   try {
     const media = await $fetch<MediaItem>(`/api/admin/media/${mediaId}`, { signal: controller.signal })
-    if (disposed || controller.signal.aborted || props.modelValue !== mediaId || items.value.some(item => item.id === mediaId)) return
+    if (!isCurrentRequest() || props.modelValue !== mediaId || items.value.some(item => item.id === mediaId)) return
     items.value = [media, ...items.value]
   } catch (error: unknown) {
-    if (isAbortError(error)) return
-    throw error
+    if (isAbortError(error) || !isCurrentRequest()) return
+    handleAsyncError(error, isCurrentRequest)
   } finally {
     if (selectedMediaRequest === controller) selectedMediaRequest = null
   }
@@ -309,6 +311,7 @@ async function onUpload(event: Event): Promise<void> {
   uploadRequest?.abort()
   const controller = new AbortController()
   uploadRequest = controller
+  const isCurrent = () => !disposed && !controller.signal.aborted && uploadRequest === controller
   uploading.value = true
   try {
     const body = new FormData()
@@ -320,18 +323,18 @@ async function onUpload(event: Event): Promise<void> {
       body,
       signal: controller.signal
     })
-    if (disposed || controller.signal.aborted || uploadRequest !== controller) return
-    await reload()
-    if (disposed || controller.signal.aborted || uploadRequest !== controller) return
+    if (!isCurrent()) return
+    await reload(isCurrent)
+    if (!isCurrent()) return
     emit('update:modelValue', created.id)
     open.value = false
   } catch (error: unknown) {
-    if (isAbortError(error)) return
-    throw error
+    if (isAbortError(error) || !isCurrent()) return
+    handleAsyncError(error, isCurrent)
   } finally {
     if (uploadRequest === controller) {
       uploadRequest = null
-      if (!disposed) {
+      if (isCurrent()) {
         uploading.value = false
         input.value = ''
       }
@@ -346,50 +349,53 @@ async function createFolder(): Promise<void> {
   createFolderRequest?.abort()
   const controller = new AbortController()
   createFolderRequest = controller
+  const isCurrent = () => !disposed && !controller.signal.aborted && createFolderRequest === controller
   try {
     const created = await $fetch<{ id: number }>('/api/admin/media/folders', {
       method: 'POST',
       body: { name },
       signal: controller.signal
     })
-    if (disposed || controller.signal.aborted || createFolderRequest !== controller) return
+    if (!isCurrent()) return
     newFolderName.value = ''
-    await fetchFolders()
-    if (disposed || controller.signal.aborted || createFolderRequest !== controller) return
+    await fetchFolders(isCurrent)
+    if (!isCurrent()) return
     folderFilter.value = created.id
-    await reload()
+    await reload(isCurrent)
   } catch (error: unknown) {
-    if (isAbortError(error)) return
-    throw error
+    if (isAbortError(error) || !isCurrent()) return
+    handleAsyncError(error, isCurrent)
   } finally {
     if (createFolderRequest === controller) createFolderRequest = null
   }
 }
 
-async function fetchFolders(): Promise<void> {
-  if (disposed) return
+async function fetchFolders(isCurrent: OperationGuard = () => !disposed): Promise<void> {
+  if (!isCurrent()) return
   folderRequest?.abort()
   const controller = new AbortController()
   folderRequest = controller
+  const isCurrentRequest = () => isCurrent() && !controller.signal.aborted && folderRequest === controller
   try {
     const res = await $fetch<{ items: MediaFolder[] }>('/api/admin/media/folders', {
       signal: controller.signal,
       query: { perPage: 100 }
     })
-    if (!disposed && !controller.signal.aborted && folderRequest === controller) folders.value = res.items
+    if (isCurrentRequest()) folders.value = res.items
   } catch (error: unknown) {
-    if (isAbortError(error)) return
-    throw error
+    if (isAbortError(error) || !isCurrentRequest()) return
+    handleAsyncError(error, isCurrentRequest)
   } finally {
     if (folderRequest === controller) folderRequest = null
   }
 }
 
-async function fetchPage(): Promise<boolean> {
-  if (disposed) return false
+async function fetchPage(isCurrent: OperationGuard = () => !disposed): Promise<boolean> {
+  if (!isCurrent()) return false
   pageRequest?.abort()
   const controller = new AbortController()
   pageRequest = controller
+  const isCurrentRequest = () => isCurrent() && !controller.signal.aborted && pageRequest === controller
   const requestedPage = page.value
   loading.value = true
   try {
@@ -403,41 +409,43 @@ async function fetchPage(): Promise<boolean> {
         ...(props.usage ? { usageType: props.usage } : {})
       }
     })
-    if (disposed || controller.signal.aborted || pageRequest !== controller) return false
+    if (!isCurrentRequest()) return false
     if (requestedPage === 1) items.value = res.items
     else items.value = [...items.value, ...res.items]
     total.value = res.total
     return true
   } catch (error: unknown) {
-    if (isAbortError(error)) return false
-    throw error
+    if (isAbortError(error) || !isCurrentRequest()) return false
+    handleAsyncError(error, isCurrentRequest)
+    return false
   } finally {
     if (pageRequest === controller) {
       pageRequest = null
-      if (!disposed) loading.value = false
+      if (isCurrent()) loading.value = false
     }
   }
 }
 
-async function reload(): Promise<void> {
-  if (disposed) return
+async function reload(isCurrent: OperationGuard = () => !disposed): Promise<void> {
+  if (!isCurrent()) return
   loadError.value = null
   page.value = 1
-  if (!await fetchPage() || disposed) return
-  await rehydrateSelectedMedia()
+  if (!await fetchPage(isCurrent) || !isCurrent()) return
+  await rehydrateSelectedMedia(isCurrent)
 }
 
-async function loadMore(): Promise<void> {
-  if (disposed) return
+async function loadMore(isCurrent: OperationGuard = () => !disposed): Promise<void> {
+  if (!isCurrent()) return
   loadError.value = null
   page.value += 1
-  if (!await fetchPage() || disposed) return
-  await rehydrateSelectedMedia()
+  if (!await fetchPage(isCurrent) || !isCurrent()) return
+  await rehydrateSelectedMedia(isCurrent)
 }
 
-async function openPicker(): Promise<void> {
+async function openPicker(isCurrent: OperationGuard = () => !disposed): Promise<void> {
+  if (!isCurrent()) return
   open.value = true
-  await Promise.all([fetchFolders(), reload()])
+  await Promise.all([fetchFolders(isCurrent), reload(isCurrent)])
 }
 
 onMounted(() => {
