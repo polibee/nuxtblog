@@ -19,6 +19,8 @@ interface Deferred<T> {
 }
 
 interface FetchOptions {
+  method?: string
+  body?: unknown
   query?: { page?: number }
   signal?: AbortSignal
 }
@@ -27,6 +29,7 @@ interface MountedPicker {
   container: FakeElement
   props: { modelValue: number | null }
   emitted: ReturnType<typeof vi.fn>
+  state: Record<string, unknown>
   findButton: (text: string) => FakeElement
   unmount: () => void
 }
@@ -109,6 +112,7 @@ class FakeElement extends FakeNode {
   private readonly classes = new Set<string>()
   private _className = ''
   value = ''
+  files: File[] | null = null
   disabled = false
   type = ''
   src = ''
@@ -135,6 +139,7 @@ class FakeElement extends FakeNode {
 
   getAttribute(name: string): string | null { return this.attributes.get(name) ?? null }
   removeAttribute(name: string): void { this.attributes.delete(name) }
+  getRootNode(): FakeDocument { return this.ownerDocument }
   addEventListener(name: string, handler: (event: Event) => void): void {
     this.listeners.set(name, [...(this.listeners.get(name) ?? []), handler])
   }
@@ -240,6 +245,7 @@ async function mountMediaPicker(
   vi.stubGlobal('HTMLElement', FakeElement)
   vi.stubGlobal('SVGElement', FakeElement)
   vi.stubGlobal('Node', FakeNode)
+  vi.stubGlobal('Document', FakeDocument)
 
   const vue = await import('vue')
   const source = readFileSync(resolve(process.cwd(), 'app/admin/framework/MediaPickerField.vue'), 'utf8')
@@ -267,10 +273,14 @@ async function mountMediaPicker(
     vue.ref, vue.computed, vue.onMounted, vue.onBeforeUnmount, vue.watch, fetcher,
     () => ({ t: (key: string) => key }), vue.defineComponent
   ) as ComponentOptions
+  let componentState: Record<string, unknown> = {}
   const component = vue.defineComponent({
     props: componentOptions.props,
     emits: componentOptions.emits,
-    setup: (props, context) => Object.assign({}, componentOptions.setup(props, context)),
+    setup: (props, context) => {
+      componentState = componentOptions.setup(props, context)
+      return Object.assign({}, componentState)
+    },
     render
   })
 
@@ -302,9 +312,14 @@ async function mountMediaPicker(
     container,
     props,
     emitted,
+    state: componentState,
     findButton: text => container.querySelectorAll('button').find(button => button.textContent.includes(text))!,
     unmount
   }
+}
+
+function stateRef<T>(state: Record<string, unknown>, key: string): { value: T } {
+  return state[key] as { value: T }
 }
 
 afterEach(() => {
@@ -517,6 +532,154 @@ describe('MediaPickerField', () => {
     })
 
     expect(signal?.aborted).toBe(true)
+  })
+
+  it('does not emit or write upload state after the picker unmounts', async () => {
+    const upload = deferred<{ id: number }>()
+    let uploadSignal: AbortSignal | undefined
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') return Promise.resolve(pageResponse())
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      if (url === '/api/admin/media/upload') {
+        uploadSignal = options?.signal
+        return upload.promise
+      }
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    const inputs = mounted.container.querySelectorAll('input')
+    const fileInput = inputs.find(input => input.getAttribute('type') === 'file')!
+    fileInput.files = [new File(['image'], 'upload.png', { type: 'image/png' })]
+
+    fileInput.dispatchEvent({ type: 'change', target: fileInput } as unknown as Event)
+    await flushPromises()
+    expect(stateRef<boolean>(mounted.state, 'uploading').value).toBe(true)
+    expect(uploadSignal?.aborted).toBe(false)
+
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      upload.resolve({ id: 22 })
+      await flushPromises()
+    })
+
+    expect(uploadSignal?.aborted).toBe(true)
+    expect(mounted.emitted).not.toHaveBeenCalled()
+    expect(stateRef<boolean>(mounted.state, 'uploading').value).toBe(true)
+    expect(stateRef<boolean>(mounted.state, 'open').value).toBe(true)
+  })
+
+  it('does not write folder state or reload after folder creation outlives the picker', async () => {
+    const create = deferred<{ id: number }>()
+    let createSignal: AbortSignal | undefined
+    let folderListCalls = 0
+    let pageCalls = 0
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') {
+        pageCalls += 1
+        return Promise.resolve(pageResponse())
+      }
+      if (url === '/api/admin/media/folders' && options?.method === 'POST') {
+        createSignal = options.signal
+        return create.promise
+      }
+      if (url === '/api/admin/media/folders') {
+        folderListCalls += 1
+        return Promise.resolve({ items: [] })
+      }
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    const folderInput = mounted.container.querySelectorAll('input')[2]!
+    folderInput.value = 'Archive'
+    stateRef<string>(mounted.state, 'newFolderName').value = 'Archive'
+    expect(stateRef<string>(mounted.state, 'newFolderName').value).toBe('Archive')
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+    expect(createSignal?.aborted).toBe(false)
+    expect(stateRef<string>(mounted.state, 'newFolderName').value).toBe('Archive')
+    const pageCallsBeforeUnmount = pageCalls
+
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      create.resolve({ id: 7 })
+      await flushPromises()
+    })
+
+    expect(createSignal?.aborted).toBe(true)
+    expect(stateRef<string>(mounted.state, 'newFolderName').value).toBe('Archive')
+    expect(stateRef<number | null>(mounted.state, 'folderFilter').value).toBe(null)
+    expect(folderListCalls).toBe(1)
+    expect(pageCalls).toBe(pageCallsBeforeUnmount)
+  })
+
+  it('ignores an upload AbortError after the picker unmounts without an unhandled rejection', async () => {
+    const upload = deferred<{ id: number }>()
+    let uploadSignal: AbortSignal | undefined
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') return Promise.resolve(pageResponse())
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      if (url === '/api/admin/media/upload') {
+        uploadSignal = options?.signal
+        return upload.promise
+      }
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    const fileInput = mounted.container.querySelectorAll('input').find(input => input.getAttribute('type') === 'file')!
+    fileInput.files = [new File(['image'], 'upload.png', { type: 'image/png' })]
+    fileInput.dispatchEvent({ type: 'change', target: fileInput } as unknown as Event)
+    await flushPromises()
+
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      upload.reject(abortError())
+      await flushPromises()
+    })
+
+    expect(uploadSignal?.aborted).toBe(true)
+    expect(mounted.emitted).not.toHaveBeenCalled()
+  })
+
+  it('ignores a folder creation AbortError after the picker unmounts without an unhandled rejection', async () => {
+    const create = deferred<{ id: number }>()
+    let createSignal: AbortSignal | undefined
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') return Promise.resolve(pageResponse())
+      if (url === '/api/admin/media/folders' && options?.method === 'POST') {
+        createSignal = options.signal
+        return create.promise
+      }
+      if (url === '/api/admin/media/folders') return Promise.resolve({ items: [] })
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    stateRef<string>(mounted.state, 'newFolderName').value = 'Archive'
+    mounted.container.querySelector('form')!.dispatchEvent(new Event('submit'))
+    await flushPromises()
+
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      create.reject(abortError())
+      await flushPromises()
+    })
+
+    expect(createSignal?.aborted).toBe(true)
   })
 
   it('renders a controlled error when the initial page request fails', async () => {

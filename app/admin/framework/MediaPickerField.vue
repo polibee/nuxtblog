@@ -233,6 +233,8 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 let selectedMediaRequest: AbortController | null = null
 let pageRequest: AbortController | null = null
 let folderRequest: AbortController | null = null
+let uploadRequest: AbortController | null = null
+let createFolderRequest: AbortController | null = null
 let disposed = false
 
 function isPositiveMediaId(value: number | null | undefined): value is number {
@@ -244,7 +246,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function handleAsyncError(error: unknown): void {
-  if (isAbortError(error)) return
+  if (disposed || isAbortError(error)) return
   loadError.value = error instanceof Error && error.message
     ? error.message
     : t('toast.loadFailed', { label: t('admin.mediaPicker.title') })
@@ -303,38 +305,64 @@ function runOpenPicker(): void {
 async function onUpload(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
+  if (!file || disposed) return
+  uploadRequest?.abort()
+  const controller = new AbortController()
+  uploadRequest = controller
   uploading.value = true
   try {
     const body = new FormData()
     body.append('file', file)
     if (props.usage) body.append('usageType', props.usage)
     if (folderFilter.value) body.append('folderId', String(folderFilter.value))
-    const created = await $fetch<{ id: number }>('/api/admin/media/upload', { method: 'POST', body })
+    const created = await $fetch<{ id: number }>('/api/admin/media/upload', {
+      method: 'POST',
+      body,
+      signal: controller.signal
+    })
+    if (disposed || controller.signal.aborted || uploadRequest !== controller) return
     await reload()
+    if (disposed || controller.signal.aborted || uploadRequest !== controller) return
     emit('update:modelValue', created.id)
     open.value = false
+  } catch (error: unknown) {
+    if (isAbortError(error)) return
+    throw error
   } finally {
-    uploading.value = false
-    input.value = ''
+    if (uploadRequest === controller) {
+      uploadRequest = null
+      if (!disposed) {
+        uploading.value = false
+        input.value = ''
+      }
+    }
   }
 }
 
 async function createFolder(): Promise<void> {
+  if (disposed) return
   const name = newFolderName.value.trim()
   if (!name) return
+  createFolderRequest?.abort()
+  const controller = new AbortController()
+  createFolderRequest = controller
   try {
     const created = await $fetch<{ id: number }>('/api/admin/media/folders', {
       method: 'POST',
-      body: { name }
+      body: { name },
+      signal: controller.signal
     })
+    if (disposed || controller.signal.aborted || createFolderRequest !== controller) return
     newFolderName.value = ''
     await fetchFolders()
+    if (disposed || controller.signal.aborted || createFolderRequest !== controller) return
     folderFilter.value = created.id
     await reload()
   } catch (error: unknown) {
     if (isAbortError(error)) return
     throw error
+  } finally {
+    if (createFolderRequest === controller) createFolderRequest = null
   }
 }
 
@@ -392,6 +420,7 @@ async function fetchPage(): Promise<boolean> {
 }
 
 async function reload(): Promise<void> {
+  if (disposed) return
   loadError.value = null
   page.value = 1
   if (!await fetchPage() || disposed) return
@@ -433,6 +462,10 @@ onBeforeUnmount(() => {
   pageRequest = null
   folderRequest?.abort()
   folderRequest = null
+  uploadRequest?.abort()
+  uploadRequest = null
+  createFolderRequest?.abort()
+  createFolderRequest = null
   selectedMediaRequest?.abort()
   selectedMediaRequest = null
   if (searchTimer) clearTimeout(searchTimer)
