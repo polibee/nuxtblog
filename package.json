@@ -10,6 +10,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
+    "audit:i18n": "node --experimental-strip-types scripts/audit-i18n-usage.ts",
     "typecheck": "nuxt typecheck",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate"
