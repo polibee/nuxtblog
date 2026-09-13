@@ -97,3 +97,21 @@ Completed.
 ### Fix-round concerns
 
 - No new task-specific concerns. The shared worktree contains extensive unrelated user changes; they were preserved and excluded from the task commit.
+
+## Final Fix Round (2026-09-13)
+
+### Review findings addressed
+
+- Added one controlled async error boundary for lifecycle, watcher, search, picker, pagination, folder reload, upload, and folder-creation entry points. AbortError remains an expected cancellation and is ignored; every other error is retained in a visible `role="alert"` state with its original message or a translated fallback, so it is neither unhandled nor silently discarded.
+- Added independent real-mounted regression coverage for selected-media cancellation on ID switch and on unmount, plus folder-request AbortError during picker unmount. Existing page cancellation and loadMore race coverage remains intact.
+- Strengthened the post-resource test to verify the exact `res.posts.help.featuredImage` lookup and the resulting Chinese hint text, while preserving the top-level `featuredMediaId` assertion.
+
+### Final fix-round verification
+
+- `npm test -- --run tests/unit/media-picker-field.test.ts tests/unit/post-resource.test.ts` — 2 files / 11 tests passed; no unhandled errors.
+- `npm run lint -- --quiet` — passed.
+- `npm run typecheck` — passed.
+
+### Final fix-round concerns
+
+- No new task-specific concerns. The shared worktree contains unrelated user changes; they were preserved and excluded from this commit.

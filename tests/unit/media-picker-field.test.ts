@@ -362,9 +362,13 @@ describe('MediaPickerField', () => {
     const page = deferred<{ items: MediaItem[], total: number }>()
     const oldDetail = deferred<MediaItem>()
     const newDetail = deferred<MediaItem>()
-    const fetcher = vi.fn((url: string) => {
+    let oldDetailSignal: AbortSignal | undefined
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
       if (url === '/api/admin/media') return page.promise
-      if (url === '/api/admin/media/12') return oldDetail.promise
+      if (url === '/api/admin/media/12') {
+        oldDetailSignal = options?.signal
+        return oldDetail.promise
+      }
       if (url === '/api/admin/media/13') return newDetail.promise
       throw new Error(`Unexpected media request: ${url}`)
     })
@@ -374,6 +378,7 @@ describe('MediaPickerField', () => {
     await flushPromises()
     mounted.props.modelValue = 13
     await flushPromises()
+    expect(oldDetailSignal?.aborted).toBe(true)
     oldDetail.resolve(mediaResponse(12))
     await flushPromises()
     expect(mounted.container.textContent).not.toContain('selected-12.png')
@@ -461,6 +466,73 @@ describe('MediaPickerField', () => {
     })
     expect(signal?.aborted).toBe(true)
     mounted.unmount()
+  })
+
+  it('cancels a pending detail request independently during unmount', async () => {
+    const page = deferred<{ items: MediaItem[], total: number }>()
+    const detail = deferred<MediaItem>()
+    let signal: AbortSignal | undefined
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') return page.promise
+      if (url === '/api/admin/media/12') {
+        signal = options?.signal
+        return detail.promise
+      }
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(12, fetcher)
+
+    page.resolve(pageResponse())
+    await flushPromises()
+    expect(signal?.aborted).toBe(false)
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      detail.reject(abortError())
+      await flushPromises()
+    })
+
+    expect(signal?.aborted).toBe(true)
+  })
+
+  it('ignores a folder AbortError after picker unmount without an unhandled rejection', async () => {
+    const folders = deferred<{ items: Array<{ id: number, name: string }> }>()
+    let signal: AbortSignal | undefined
+    const fetcher = vi.fn((url: string, options?: FetchOptions) => {
+      if (url === '/api/admin/media') return Promise.resolve(pageResponse())
+      if (url === '/api/admin/media/folders') {
+        signal = options?.signal
+        return folders.promise
+      }
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await flushPromises()
+    mounted.findButton('admin.mediaPicker.choose').click()
+    await flushPromises()
+    await expectNoUnhandledRejection(async () => {
+      mounted.unmount()
+      folders.reject(abortError())
+      await flushPromises()
+    })
+
+    expect(signal?.aborted).toBe(true)
+  })
+
+  it('renders a controlled error when the initial page request fails', async () => {
+    const page = deferred<{ items: MediaItem[], total: number }>()
+    const fetcher = vi.fn((url: string) => {
+      if (url === '/api/admin/media') return page.promise
+      throw new Error(`Unexpected media request: ${url}`)
+    })
+    const mounted = await mountMediaPicker(null, fetcher)
+
+    await expectNoUnhandledRejection(async () => {
+      page.reject(new Error('media service unavailable'))
+      await flushPromises()
+    })
+
+    expect(mounted.container.textContent).toContain('media service unavailable')
   })
 
   it('emits null from clear and a number from selecting a media button', async () => {

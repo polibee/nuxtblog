@@ -8,11 +8,11 @@ function sectionFields(node: SchemaNode): FieldNode[] {
 
 describe('post resource', () => {
   beforeAll(() => {
-    const field = (name: string, _label: string, options: Record<string, unknown> = {}) => ({
+    const field = (name: string, label: string, options: Record<string, unknown> = {}) => ({
       type: 'field' as const,
       kind: 'text' as const,
       name,
-      label: '',
+      label,
       ...options
     })
     vi.stubGlobal('defineResource', <T>(resource: T) => resource)
@@ -31,15 +31,22 @@ describe('post resource', () => {
 
   afterAll(() => vi.unstubAllGlobals())
 
-  it('post resource uses the top-level featuredMediaId field', async () => {
+  it('post resource uses the top-level featuredMediaId field and translated hint', async () => {
     const { default: createPostResource } = await import('../../app/modules/posts/admin/PostResource')
-    const resource = createPostResource(key => key)
+    const translations: Record<string, string> = {
+      'res.posts.field.featuredImage': '特色图片',
+      'res.posts.help.featuredImage': '推荐尺寸 1600×1000，比例 16:10'
+    }
+    const translator = vi.fn((key: string) => translations[key] ?? `missing:${key}`)
+    const resource = createPostResource(translator)
     const fields = resource.form!().flatMap(sectionFields)
     const featuredMedia = fields.find(field => field.name === 'featuredMediaId')
 
     expect(featuredMedia).toMatchObject({
       name: 'featuredMediaId',
-      helpText: 'res.posts.help.featuredImage'
+      label: '特色图片',
+      helpText: '推荐尺寸 1600×1000，比例 16:10'
     })
+    expect(translator).toHaveBeenCalledWith('res.posts.help.featuredImage')
   })
 })

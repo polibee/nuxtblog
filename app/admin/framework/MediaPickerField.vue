@@ -21,7 +21,7 @@
         type="button"
         class="h-8 shrink-0 rounded-md border px-3 text-xs hover:bg-accent"
         :disabled="disabled"
-        @click="openPicker"
+        @click="runOpenPicker"
       >
         {{ t('admin.mediaPicker.change') }}
       </button>
@@ -40,7 +40,7 @@
       type="button"
       class="flex h-9 w-full items-center gap-2 rounded-md border border-input px-3 text-sm text-muted-foreground hover:bg-accent/50 disabled:opacity-50"
       :disabled="disabled"
-      @click="openPicker"
+      @click="runOpenPicker"
     >
       {{ t('admin.mediaPicker.choose') }}
     </button>
@@ -50,6 +50,13 @@
       class="text-[10px] text-muted-foreground"
     >
       {{ recommended }}
+    </p>
+    <p
+      v-if="loadError"
+      role="alert"
+      class="text-xs text-destructive"
+    >
+      {{ loadError }}
     </p>
 
     <!-- 弹窗：媒体库网格 -->
@@ -77,13 +84,13 @@
               accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
               class="sr-only"
               :disabled="uploading"
-              @change="onUpload"
+              @change="runUpload"
             >
           </label>
           <select
             v-model="folderFilter"
             class="h-8 rounded-md border bg-background px-2 text-sm"
-            @change="reload"
+            @change="runReload"
           >
             <option :value="null">
               {{ t('admin.mediaPicker.allFolders') }}
@@ -98,7 +105,7 @@
           </select>
           <form
             class="flex items-center gap-1"
-            @submit.prevent="createFolder"
+            @submit.prevent="runCreateFolder"
           >
             <input
               v-model="newFolderName"
@@ -166,7 +173,7 @@
             type="button"
             class="mt-4 h-9 w-full rounded-md border text-sm hover:bg-accent"
             :disabled="loading"
-            @click="loadMore"
+            @click="runLoadMore"
           >
             {{ t('admin.mediaPicker.loadMore') }}
           </button>
@@ -217,6 +224,7 @@ const newFolderName = ref('')
 const total = ref(0)
 const page = ref(1)
 const loading = ref(false)
+const loadError = ref<string | null>(null)
 
 const selectedMedia = computed(() => items.value.find(i => i.id === props.modelValue) ?? null)
 const search = ref('')
@@ -233,6 +241,17 @@ function isPositiveMediaId(value: number | null | undefined): value is number {
 
 function isAbortError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+}
+
+function handleAsyncError(error: unknown): void {
+  if (isAbortError(error)) return
+  loadError.value = error instanceof Error && error.message
+    ? error.message
+    : t('toast.loadFailed', { label: t('admin.mediaPicker.title') })
+}
+
+function runAsync(task: () => Promise<unknown>): void {
+  void task().catch(handleAsyncError)
 }
 
 async function rehydrateSelectedMedia(): Promise<void> {
@@ -257,8 +276,28 @@ async function rehydrateSelectedMedia(): Promise<void> {
 function onSearch(): void {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => {
-    void reload()
+    runReload()
   }, 300)
+}
+
+function runUpload(event: Event): void {
+  runAsync(() => onUpload(event))
+}
+
+function runCreateFolder(): void {
+  runAsync(createFolder)
+}
+
+function runReload(): void {
+  runAsync(reload)
+}
+
+function runLoadMore(): void {
+  runAsync(loadMore)
+}
+
+function runOpenPicker(): void {
+  runAsync(openPicker)
 }
 
 async function onUpload(event: Event): Promise<void> {
@@ -353,6 +392,7 @@ async function fetchPage(): Promise<boolean> {
 }
 
 async function reload(): Promise<void> {
+  loadError.value = null
   page.value = 1
   if (!await fetchPage() || disposed) return
   await rehydrateSelectedMedia()
@@ -360,6 +400,7 @@ async function reload(): Promise<void> {
 
 async function loadMore(): Promise<void> {
   if (disposed) return
+  loadError.value = null
   page.value += 1
   if (!await fetchPage() || disposed) return
   await rehydrateSelectedMedia()
@@ -371,7 +412,7 @@ async function openPicker(): Promise<void> {
 }
 
 onMounted(() => {
-  void reload()
+  runReload()
 })
 
 watch(() => props.modelValue, () => {
@@ -383,7 +424,7 @@ watch(() => props.modelValue, () => {
   }
   selectedMediaRequest?.abort()
   selectedMediaRequest = null
-  if (!loading.value) void rehydrateSelectedMedia()
+  if (!loading.value) runAsync(rehydrateSelectedMedia)
 })
 
 onBeforeUnmount(() => {
