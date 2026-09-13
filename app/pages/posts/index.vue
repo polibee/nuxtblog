@@ -7,6 +7,9 @@
       <div class="flex rounded-lg border p-0.5 text-sm">
         <button
           type="button"
+          :aria-label="t('public.posts.listView')"
+          :aria-pressed="view === 'list'"
+          :title="t('public.posts.listView')"
           class="rounded-md px-2.5 py-1 transition-colors"
           :class="view === 'list' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
           @click="setView('list')"
@@ -15,6 +18,9 @@
         </button>
         <button
           type="button"
+          :aria-label="t('public.posts.cardView')"
+          :aria-pressed="view === 'card'"
+          :title="t('public.posts.cardView')"
           class="rounded-md px-2.5 py-1 transition-colors"
           :class="view === 'card' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
           @click="setView('card')"
@@ -45,7 +51,7 @@
         class="group overflow-hidden rounded-xl border transition-colors hover:bg-accent/30"
       >
         <NuxtLink
-          :to="`/posts/${post.alias}`"
+          :to="publicPath(`/posts/${post.alias}`)"
           class="block"
         >
           <img
@@ -103,11 +109,11 @@ import PublicPagination from '~/components/public/Pagination.vue'
 import { formatDate, formatViews } from '~/utils/blog'
 import type { PublicPostSummary } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/posts'] })
 
 const route = useRoute()
 const { t } = useI18n()
-const { localeCode } = useLocale()
+const { localeCode, publicPath } = useLocale()
 
 const perPage = 10
 const page = computed(() => Math.max(Number(route.query.page) || 1, 1))
@@ -115,7 +121,7 @@ const page = computed(() => Math.max(Number(route.query.page) || 1, 1))
 const { data } = await useFetch<{ items: PublicPostSummary[], total: number }>(
   '/api/public/posts',
   {
-    key: `posts-index-${localeCode.value}`,
+    key: computed(() => `posts-index-${localeCode.value}-${page.value}`),
     query: computed(() => ({ locale: localeCode.value, page: page.value, perPage }))
   }
 )

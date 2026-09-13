@@ -190,6 +190,26 @@ describe('featured image public API regression', () => {
     expect(findPublishedByAlias).toHaveBeenCalledWith(2, 'cover-regression')
   })
 
+  it('keeps public article title and content in the requested locale', async () => {
+    listLocales.mockResolvedValue([
+      { id: 1, code: 'zh-CN', isDefault: true },
+      { id: 2, code: 'en', isDefault: false }
+    ])
+    findPublishedByAlias.mockImplementation(async (localeId: number) => ({
+      ...publicRow(),
+      title: localeId === 2 ? 'English title' : '中文标题',
+      content: localeId === 2 ? '<p>English body</p>' : '<p>中文正文</p>'
+    }))
+
+    const zh = await getPublicPostByAlias('zh-CN', 'cover-regression')
+    const en = await getPublicPostByAlias('en', 'cover-regression')
+
+    expect(zh).toMatchObject({ title: '中文标题', content: '<p>中文正文</p>' })
+    expect(en).toMatchObject({ title: 'English title', content: '<p>English body</p>' })
+    expect(findPublishedByAlias).toHaveBeenNthCalledWith(1, 1, 'cover-regression')
+    expect(findPublishedByAlias).toHaveBeenNthCalledWith(2, 2, 'cover-regression')
+  })
+
   it('renders archive cover URLs from the shared public archive contract', () => {
     const archivePage = readFileSync('app/pages/archive.vue', 'utf8')
     const publicTypes = readFileSync('shared/types/post.ts', 'utf8')

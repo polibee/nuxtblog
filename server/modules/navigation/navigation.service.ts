@@ -27,7 +27,8 @@ import {
   type NavigationRecord,
   type NavigationVariantMeta
 } from '../../repositories/navigation.runtime.repository'
-import { updateVariantStatus, insertNavigation } from '../../repositories/navigation.runtime.repository'
+import { updateVariantStatus, insertNavigation, updateNavigationMeta as updateNavigationMetaRow } from '../../repositories/navigation.runtime.repository'
+import { resolveDisplayLabel } from '#shared/utils/display-label'
 
 /* Navigation module service (navigation-menu-design.md §7).
    Variants are per-locale menu versions; saveNavigationTree replaces
@@ -60,11 +61,12 @@ function assertSafeCustomUrl(url: string): void {
   })
 }
 
-async function assertEntityExists(type: 'page' | 'post' | 'category', entityId: number): Promise<void> {
+async function assertEntityExists(type: 'page' | 'post' | 'category' | 'tag', entityId: number): Promise<void> {
   let exists = false
   if (type === 'page') exists = Boolean(await findNavigationPageRow(entityId))
   if (type === 'post') exists = Boolean(await findNavigationPostRow(entityId))
   if (type === 'category') exists = Boolean(await findTaxonomyRow('category', entityId))
+  if (type === 'tag') exists = Boolean(await findTaxonomyRow('tag', entityId))
   if (!exists) {
     throw createError({ statusCode: 422, statusMessage: `Referenced ${type} #${entityId} does not exist` })
   }
@@ -91,7 +93,7 @@ function collectTree(items: NavigationTreeItemInput[], depth: number, path: stri
     }
     if (item.type === 'custom') {
       if (item.customUrl) assertSafeCustomUrl(item.customUrl)
-    } else {
+    } else if (item.type !== 'group') {
       if (!item.targetEntityType || !item.targetEntityId) {
         throw createError({
           statusCode: 422,
@@ -142,8 +144,8 @@ export async function saveNavigationTree(variantId: number, body: unknown): Prom
         parentTempKey,
         sortOrder: item.sortOrder ?? index,
         type: item.type,
-        targetEntityType: item.type === 'custom' ? null : item.targetEntityType ?? null,
-        targetEntityId: item.type === 'custom' ? null : item.targetEntityId ?? null,
+        targetEntityType: item.type === 'custom' || item.type === 'group' ? null : item.targetEntityType ?? null,
+        targetEntityId: item.type === 'custom' || item.type === 'group' ? null : item.targetEntityId ?? null,
         enabled: item.enabled ?? true,
         openInNewTab: item.openInNewTab ?? false,
         rel: item.rel ?? null,
@@ -165,7 +167,7 @@ export async function saveNavigationTree(variantId: number, body: unknown): Prom
 
   const location = (await findNavigationRow(variant.navigationId))?.location ?? ''
   const localeCode = (await listLocales()).find(l => l.id === variant.localeId)?.code ?? 'zh-CN'
-  invalidateNavigationCache(location, localeCode)
+  await invalidateNavigationCache(location, localeCode)
 }
 
 export async function getNavigationVariantTree(navigationId: number, localeCode: string): Promise<{
@@ -211,7 +213,7 @@ export async function createNavigationVariant(navigationId: number, body: {
   const isDefault = navigation.variants.length === 0
   const variantId = await insertVariant({ navigationId, localeId, isDefault })
   if (copyFrom) {
-    await copyVariantItems(copyFrom, variantId, localeId)
+    await copyVariantItems(copyFrom, variantId, localeId, localeId === (locales.find(l => l.isDefault)?.id ?? locales[0]?.id))
   }
   const variant = await findVariantById(variantId)
   if (!variant) throw createError({ statusCode: 500, statusMessage: 'Variant disappeared after create' })
@@ -248,7 +250,7 @@ export async function updateNavigationMeta(id: number, body: { adminName?: strin
       await deleteVariant(variant.id)
     }
   }
-  await updateNavigationMeta(id, body)
+  await updateNavigationMetaRow(id, body)
   const localeCodes = (await listLocales()).map(l => l.code)
   for (const code of localeCodes) {
     invalidateNavigationCache(navigation.location, code)
@@ -301,27 +303,38 @@ async function resolveNavigationUncached(location: string, localeCode: string): 
   if (variant.status === 'disabled') return { ...empty, fallbackUsed }
 
   const items = await listVariantItems(variant.id)
-  const resolved = await resolveItems(items, null, (localeId ?? defaultLocaleId) as number)
+  const resolved = await resolveItems(items, null, (localeId ?? defaultLocaleId) as number, localeCode)
   return { location, locale: localeCode, fallbackUsed, items: resolved }
 }
 
 async function resolveItems(
   items: Awaited<ReturnType<typeof listVariantItems>>,
   parentId: number | null,
-  localeId: number
+  localeId: number,
+  localeCode: string
 ): Promise<PublicNavigationItem[]> {
   const result: PublicNavigationItem[] = []
   for (const item of items.filter(i => i.parentId === parentId)) {
-    const resolved = await resolveItem(item, localeId)
+    const resolved = await resolveItem(item, localeId, localeCode)
     if (!resolved) continue
-    result.push({ ...resolved, children: await resolveItems(items, item.id, localeId) })
+    result.push({ ...resolved, children: await resolveItems(items, item.id, localeId, localeCode) })
   }
   return result
 }
 
-async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[number], localeId: number): Promise<PublicNavigationItem | undefined> {
+async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[number], localeId: number, localeCode: string): Promise<PublicNavigationItem | undefined> {
   let url: string | null = null
   let alias: string | null = null
+  if (item.type === 'group') {
+    return {
+      label: resolveDisplayLabel({ locale: localeCode, defaultLabel: item.label ?? '', localizedLabel: item.label, systemKey: `group-${item.id}` }),
+      url: '#',
+      titleAttribute: item.titleAttribute,
+      target: null,
+      rel: null,
+      children: []
+    }
+  }
   if (item.type === 'custom') {
     url = item.customUrl
     if (!url) return undefined
@@ -332,8 +345,8 @@ async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[nu
     } else if (item.targetEntityType === 'post') {
       alias = await findPublishedPostAliasById(item.targetEntityId, localeId)
       url = alias ? contentUrl('post', alias) : null
-    } else if (item.targetEntityType === 'category') {
-      alias = await findTaxonomyAliasById('category', item.targetEntityId)
+    } else if (item.targetEntityType === 'category' || item.targetEntityType === 'tag') {
+      alias = await findTaxonomyAliasById(item.targetEntityType, item.targetEntityId)
       url = alias ? contentUrl('category', alias) : null
     }
     if (!url) return undefined // missing/unpublished translation in this locale
@@ -343,7 +356,7 @@ async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[nu
 
   const relParts = [item.rel, item.nofollow ? 'nofollow' : null].filter(Boolean)
   return {
-    label: item.label ?? '',
+    label: resolveDisplayLabel({ locale: localeCode, defaultLabel: item.label ?? '', localizedLabel: item.label, alias: alias ?? undefined, systemKey: `${item.type}-${item.targetEntityId ?? item.id}` }),
     url,
     titleAttribute: item.titleAttribute,
     target: item.type === 'custom' ? null : { type: item.targetEntityType ?? '', alias },
@@ -368,31 +381,61 @@ export async function ensureDefaultNavigations(): Promise<void> {
     // per-variant completion: partially seeded or wiped states heal on reboot
     const navigation = await findNavigationByLocation(definition.location)
       ?? await createNavigationRow(definition)
-    if (navigation.variants.some(v => v.localeId === defaultLocale.id)) continue
-    const variantId = await insertVariant({
-      navigationId: navigation.id,
-      localeId: defaultLocale.id,
-      isDefault: true
-    })
-    await replaceVariantItems(variantId, defaultLocale.id, [
-      {
-        tempKey: 1,
-        parentTempKey: null,
-        sortOrder: 0,
-        type: 'custom',
-        targetEntityType: null,
-        targetEntityId: null,
-        enabled: true,
-        openInNewTab: false,
-        rel: null,
-        label: '首页',
-        customUrl: '/',
-        titleAttribute: null,
-        nofollow: false
-      }
-    ])
+    const hasVariant = navigation.variants.some(v => v.localeId === defaultLocale.id)
+    let createdDefaultVariant = false
+    if (!hasVariant) {
+      const variantId = await insertVariant({ navigationId: navigation.id, localeId: defaultLocale.id, isDefault: true })
+      createdDefaultVariant = true
+      await replaceVariantItems(variantId, defaultLocale.id, [
+        { tempKey: 1, parentTempKey: null, sortOrder: 0, type: 'custom', targetEntityType: null, targetEntityId: null, enabled: true, openInNewTab: false, rel: null, label: '首页', customUrl: '/', titleAttribute: null, nofollow: false }
+      ])
+    }
+    const variant = await findVariant(navigation.id, defaultLocale.id)
+    if (variant && createdDefaultVariant) await ensureAdvertisingMenuItem(variant.id, defaultLocale.code)
   }
   console.log('[blog-db] navigations ready')
+}
+
+async function ensureAdvertisingMenuItem(variantId: number, localeCode: string): Promise<void> {
+  const items = await listVariantItems(variantId)
+  if (items.some(item => item.type === 'custom' && item.customUrl === '/advertising')) return
+
+  const tempById = new Map<number, number>()
+  const rows = items.map((item, index) => {
+    const tempKey = index + 1
+    tempById.set(item.id, tempKey)
+    return {
+      tempKey,
+      parentTempKey: item.parentId === null ? null : tempById.get(item.parentId) ?? null,
+      sortOrder: item.sortOrder,
+      type: item.type,
+      targetEntityType: item.targetEntityType,
+      targetEntityId: item.targetEntityId,
+      enabled: item.enabled,
+      openInNewTab: item.openInNewTab,
+      rel: item.rel,
+      label: item.label ?? '',
+      customUrl: item.customUrl,
+      titleAttribute: item.titleAttribute,
+      nofollow: item.nofollow
+    }
+  })
+  rows.push({
+    tempKey: rows.length + 1,
+    parentTempKey: null,
+    sortOrder: rows.length,
+    type: 'custom',
+    targetEntityType: null,
+    targetEntityId: null,
+    enabled: true,
+    openInNewTab: false,
+    rel: null,
+    label: localeCode.toLowerCase().startsWith('en') ? 'Advertise' : '广告位购买',
+    customUrl: '/advertising',
+    titleAttribute: null,
+    nofollow: false
+  })
+  await replaceVariantItems(variantId, (await listLocales()).find(locale => locale.code === localeCode)?.id ?? 1, rows)
 }
 
 async function createNavigationRow(definition: { location: string, adminName: string, key: string }): Promise<NavigationRecord> {

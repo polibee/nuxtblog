@@ -248,6 +248,8 @@ export const enCommon = {
   'public.posts.subtitle': 'Every published post.',
   'public.posts.prevPage': 'Previous',
   'public.posts.nextPage': 'Next',
+  'public.posts.listView': 'List view',
+  'public.posts.cardView': 'Card view',
   'public.posts.readingTime': '{n} min read',
   'public.post.viewsCount': '{n} views',
   'public.post.tags': 'Tags',

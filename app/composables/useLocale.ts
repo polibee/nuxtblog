@@ -1,7 +1,8 @@
 import type { ResolvedLocale } from '#shared/types/locale'
+import { localizedPath } from '#shared/utils/locale-navigation'
 
-/* Content locale state for the public site. Dev phase only serves the
-   default locale (no url prefix); P20 activates prefixed routes. */
+/* Content locale state for the public site. The route middleware hydrates
+   this from the URL first and the cookie second. */
 
 const BLOG_STATE_KEY = 'blog-locale'
 const BLOG_COOKIE = 'blog_locale'
@@ -19,15 +20,18 @@ export function useLocale() {
     locale.value.urlPrefix ? `/${locale.value.urlPrefix}` : ''
   )
 
-  function setLocale(code: string): void {
+  function setLocale(code: string, urlPrefix = ''): void {
     const cookie = useCookie<string>(BLOG_COOKIE, {
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax'
     })
     cookie.value = code
-    locale.value = { ...locale.value, code }
-    // P20: navigate to the prefixed content route and refetch lists
+    locale.value = { ...locale.value, code, urlPrefix }
   }
 
-  return { locale, localeCode, localePrefix, setLocale }
+  function publicPath(path: string): string {
+    return localizedPath(path, locale.value, locale.value.urlPrefix ? '__default__' : locale.value.code)
+  }
+
+  return { locale, localeCode, localePrefix, setLocale, publicPath }
 }

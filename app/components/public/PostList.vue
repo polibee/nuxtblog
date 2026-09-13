@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import { EyeIcon, MessageCircleIcon } from 'lucide-vue-next'
 import { formatDate, formatViews, splitHighlight } from '~/utils/blog'
 import type { PublicPostSummary } from '#shared/types/post'
 
 const props = defineProps<{
   posts: PublicPostSummary[]
   highlight?: string
+  layout?: 'list' | 'grid'
 }>()
 
 const { t } = useI18n()
+const { publicPath } = useLocale()
 
 function segments(text: string): Array<{ text: string, hit: boolean }> {
   return splitHighlight(text, props.highlight ?? '')
@@ -15,7 +18,10 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div
+    class="gap-4"
+    :class="props.layout === 'grid' ? 'grid sm:grid-cols-2' : 'space-y-4'"
+  >
     <UiEmpty v-if="posts.length === 0">
       <template #title>
         {{ t('posts.empty') }}
@@ -31,13 +37,15 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
         :to="publicPath(`/posts/${post.alias}`)"
         :aria-label="t('posts.actions.open', { title: post.title })"
         class="flex gap-4 p-4 sm:p-5"
+        :class="props.layout === 'grid' ? 'h-full flex-col' : 'flex-row'"
       >
         <img
           v-if="post.coverUrl"
           :src="post.coverUrl"
           :alt="post.title"
           loading="lazy"
-          class="h-16 w-24 shrink-0 rounded-lg border object-cover sm:h-[104px] sm:w-[156px]"
+          class="shrink-0 rounded-lg border object-cover"
+          :class="props.layout === 'grid' ? 'h-40 w-full sm:h-44' : 'h-16 w-24 sm:h-[104px] sm:w-[156px]'"
         >
         <div class="min-w-0 flex-1 space-y-1.5">
           <div class="flex flex-wrap items-center gap-1.5 text-xs">
@@ -79,9 +87,12 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
             <span
               v-if="post.readingMinutes"
             >· ⏱ {{ t('posts.meta.readingTime', { n: post.readingMinutes }) }}</span>
-            <span
-              v-if="post.views"
-            >· 👁 {{ t('posts.meta.views', { n: formatViews(post.views) }) }}</span>
+            <span class="inline-flex items-center gap-1">
+              · <EyeIcon class="h-3.5 w-3.5" aria-hidden="true" /> {{ t('posts.meta.views', { n: formatViews(post.views ?? 0) }) }}
+            </span>
+            <span class="inline-flex items-center gap-1">
+              · <MessageCircleIcon class="h-3.5 w-3.5" aria-hidden="true" /> {{ t('posts.meta.comments', { n: post.commentCount ?? 0 }) }}
+            </span>
           </p>
         </div>
       </NuxtLink>

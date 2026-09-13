@@ -45,3 +45,13 @@
 - `npm test -- --run tests/unit/post-public-cover.test.ts`：5/5 通过。
 - `npm run lint -- --quiet`：通过。
 - `npm run typecheck`：通过。
+
+## 公共多语言修复轮次 1（review-task3）
+
+- 纳入公共 URL 依赖 `useLocale`、locale middleware、`localizedPath`、受控 display-label resolver 及 localized route 入口，确保提交树可独立构建；未修改后台 UI 或数据仓库。
+- 修复语言切换契约：URL locale 优先于 cookie，`/en` 深链规范化为 `/en`，切换保留路径、查询和 hash，并原样保留外部 URL。
+- 实际接入首页布局、文章列表/卡片、PostList、PostDetail、SiteFooter、NavigationMenu 和 LanguageSwitcher 的翻译与 locale-aware 链接；文章标题/正文继续由请求 locale 独立决定。
+- 导航公开解析链使用受控 fallback：英文优先使用本地化 label，其次 alias、system key，最后默认 label；缺失 locale 内容仍隐藏目标项。
+- 将公共 i18n 覆盖改为运行时行为测试，新增导航服务链测试和文章标题/正文 locale 独立性测试。
+
+本轮报告与验证结果在收尾阶段补录：focused tests、audit:i18n、lint、typecheck 及提交状态以最终命令输出为准；audit:i18n 预期仍报告后台动态 key/硬编码问题，按 Task 5 范围保留。

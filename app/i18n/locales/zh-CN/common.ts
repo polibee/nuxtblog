@@ -248,6 +248,8 @@ export const zhCommon = {
   'public.posts.subtitle': '所有公开发布的文章。',
   'public.posts.prevPage': '上一页',
   'public.posts.nextPage': '下一页',
+  'public.posts.listView': '列表视图',
+  'public.posts.cardView': '卡片视图',
   'public.posts.readingTime': '{n} 分钟阅读',
   'public.post.viewsCount': '{n} 次浏览',
   'public.post.tags': '标签',

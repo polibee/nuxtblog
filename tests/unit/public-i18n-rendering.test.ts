@@ -1,18 +1,22 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
+import { computed, ref } from 'vue'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { useI18n } from '../../app/admin/i18n'
+import { useLocale } from '../../app/composables/useLocale'
 import { resolveDisplayLabel } from '../../shared/utils/display-label'
+import { localizedPath } from '../../shared/utils/locale-navigation'
 
-const root = resolve(import.meta.dirname, '../..')
-
-function source(path: string): string {
-  return readFileSync(resolve(root, path), 'utf8')
+interface StateBox<T = unknown> {
+  value: T
 }
 
-describe('public i18n rendering', () => {
-  it('renders the public labels in both locales instead of returning raw keys', () => {
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.resetModules()
+})
+
+describe('public i18n behavior', () => {
+  it('renders public labels from the real locale dictionaries', () => {
     vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
     const { locale, t } = useI18n()
 
@@ -34,70 +38,56 @@ describe('public i18n rendering', () => {
     expect(t('public.profile.loadFailed')).toBe('Failed to load profile')
     expect(t('public.profile.retry')).toBe('Retry')
     expect(t('public.profile.github')).toBe('GitHub')
-
-    vi.unstubAllGlobals()
   })
 
-  it('keeps public pages on translated labels and independent article fields', () => {
-    const home = source('app/pages/index.vue')
-    const postIndex = source('app/pages/posts/index.vue')
-    const postPage = source('app/pages/posts/[alias].vue')
-    const postList = source('app/components/public/PostList.vue')
-    const postDetail = source('app/components/public/PostDetail.vue')
-    const profile = source('app/pages/profile.vue')
-    const projectCard = source('app/components/public/ProfileProjectCard.vue')
-    const header = source('app/components/public/SiteHeader.vue')
+  it('builds locale-aware paths through useLocale and preserves external URLs', () => {
+    const state = ref({ id: null, code: 'zh-CN', urlPrefix: '' })
+    const cookie: StateBox = { value: 'zh-CN' }
+    vi.stubGlobal('useState', () => state)
+    vi.stubGlobal('useCookie', () => cookie)
+    vi.stubGlobal('computed', computed)
 
-    expect(home).toContain('t(\'public.home.layoutList\'')
-    expect(home).toContain('t(\'public.home.layoutGrid\'')
-    expect(postIndex).toContain('t(\'public.posts.title\'')
-    expect(postList).toContain('t(\'posts.meta.views\'')
-    expect(postDetail).toContain('t(\'posts.meta.readingTime\'')
-    expect(postDetail).toContain('post.title')
-    expect(postDetail).toContain('v-html="post.content"')
-    expect(postPage).toContain('detail.neighbors.prev.title')
-    expect(postPage).toContain('detail.neighbors.next.title')
-    expect(postPage).not.toContain('aria-label="Breadcrumb"')
-    expect(profile).not.toContain('t(SECTION_LABELS[type]')
-    expect(projectCard).toContain('t(\'public.profile.github\'')
-    expect(projectCard).not.toMatch(/>GitHub<\/a>/u)
-    expect(header).toContain('t(\'common.navigation.main\'')
-    expect(header).not.toContain('aria-label="Main navigation"')
-    expect(header).toContain(':to="publicPath(\'/\')"')
+    const { localeCode, publicPath, setLocale } = useLocale()
+    expect(localeCode.value).toBe('zh-CN')
+    expect(publicPath('/posts/hello')).toBe('/posts/hello')
+    expect(publicPath('https://example.com/docs')).toBe('https://example.com/docs')
+
+    setLocale('en', 'en')
+    expect(cookie.value).toBe('en')
+    expect(localeCode.value).toBe('en')
+    expect(publicPath('/posts/hello?tab=comments#top')).toBe('/en/posts/hello?tab=comments#top')
   })
 
-  it('resolves public navigation labels in English by name, alias, then system key', () => {
-    expect(resolveDisplayLabel({
-      locale: 'en',
-      defaultLabel: '文章',
-      localizedLabel: 'Posts',
-      alias: 'posts',
-      systemKey: 'post-12'
-    })).toBe('Posts')
-    expect(resolveDisplayLabel({
-      locale: 'en',
-      defaultLabel: '文章',
-      localizedLabel: '',
-      alias: 'posts',
-      systemKey: 'post-12'
-    })).toBe('posts')
-    expect(resolveDisplayLabel({
-      locale: 'en',
-      defaultLabel: '文章',
-      localizedLabel: '',
-      alias: '',
-      systemKey: 'post-12'
-    })).toBe('post-12')
+  it('normalizes /en deep links without a trailing slash and switches routes canonically', () => {
+    expect(localizedPath('/en', { code: 'en', urlPrefix: 'en' }, 'zh-CN')).toBe('/en')
+    expect(localizedPath('/en/posts/hello?locale=en&page=2#comments', { code: 'en', urlPrefix: 'en' }, 'zh-CN'))
+      .toBe('/en/posts/hello?page=2#comments')
+    expect(localizedPath('/en/profile', { code: 'zh-CN', urlPrefix: '' }, 'zh-CN')).toBe('/profile')
   })
 
-  it('localizes internal menu links without changing external URLs', () => {
-    const menu = source('app/components/public/NavigationMenu.vue')
-    const footer = source('app/components/public/SiteFooter.vue')
+  it('resolves the locale middleware from the URL before the cookie', async () => {
+    const states = new Map<string, StateBox>()
+    states.set('public-locales', {
+      value: [{ code: 'zh-CN', urlPrefix: '', isDefault: true, contentEnabled: true }, { code: 'en', urlPrefix: 'en', isDefault: false, contentEnabled: true }]
+    })
+    vi.stubGlobal('useState', (key: string, init: () => unknown) => {
+      if (!states.has(key)) states.set(key, { value: init() })
+      return states.get(key)
+    })
+    vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
+    vi.stubGlobal('defineNuxtRouteMiddleware', (handler: unknown) => handler)
+    vi.stubGlobal('$fetch', vi.fn())
+    vi.stubGlobal('navigateTo', vi.fn())
 
-    expect(menu).toContain('const { publicPath } = useLocale()')
-    expect(menu).toContain(':to="linkPath(item.url)"')
-    expect(menu).toContain(':to="linkPath(item.url)"')
-    expect(footer).toContain('function linkPath(url: string): string')
-    expect(footer).toContain(':to="linkPath(child.url)"')
+    const { default: middleware } = await import('../../app/middleware/locale.global')
+    await middleware({ path: '/en', fullPath: '/en', query: {} } as never)
+
+    expect(states.get('blog-locale')?.value).toMatchObject({ code: 'en', urlPrefix: 'en' })
+  })
+
+  it('uses English label, then alias, then system key for public navigation', () => {
+    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: 'Posts', alias: 'posts', systemKey: 'post-12' })).toBe('Posts')
+    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: '', alias: 'posts', systemKey: 'post-12' })).toBe('posts')
+    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: '', alias: '', systemKey: 'post-12' })).toBe('post-12')
   })
 })
