@@ -222,6 +222,29 @@ const selectedMedia = computed(() => items.value.find(i => i.id === props.modelV
 const search = ref('')
 const uploading = ref(false)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
+let selectedMediaRequest: AbortController | null = null
+
+function isPositiveMediaId(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
+async function rehydrateSelectedMedia(): Promise<void> {
+  const mediaId = props.modelValue
+  if (!isPositiveMediaId(mediaId) || selectedMedia.value) return
+
+  selectedMediaRequest?.abort()
+  const controller = new AbortController()
+  selectedMediaRequest = controller
+  try {
+    const media = await $fetch<MediaItem>(`/api/admin/media/${mediaId}`, { signal: controller.signal })
+    if (controller.signal.aborted || props.modelValue !== mediaId || items.value.some(item => item.id === mediaId)) return
+    items.value = [media, ...items.value]
+  } catch {
+    // A missing or no-longer-authorized selected media item remains unselected.
+  } finally {
+    if (selectedMediaRequest === controller) selectedMediaRequest = null
+  }
+}
 
 function onSearch(): void {
   if (searchTimer) clearTimeout(searchTimer)
@@ -299,6 +322,7 @@ async function fetchPage(): Promise<void> {
 async function reload(): Promise<void> {
   page.value = 1
   await fetchPage()
+  await rehydrateSelectedMedia()
 }
 
 async function loadMore(): Promise<void> {
@@ -310,6 +334,22 @@ async function openPicker(): Promise<void> {
   open.value = true
   await Promise.all([fetchFolders(), reload()])
 }
+
+onMounted(() => {
+  void reload()
+})
+
+watch(() => props.modelValue, () => {
+  if (!isPositiveMediaId(props.modelValue)) {
+    selectedMediaRequest?.abort()
+    return
+  }
+  if (!loading.value) void rehydrateSelectedMedia()
+})
+
+onBeforeUnmount(() => {
+  selectedMediaRequest?.abort()
+})
 
 function select(item: MediaItem): void {
   emit('update:modelValue', item.id)
