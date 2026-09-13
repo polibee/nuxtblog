@@ -21,4 +21,17 @@ describe('post featured image input', () => {
       }
     })).toThrow()
   })
+
+  it('continues stripping unrelated unknown translation fields', () => {
+    const parsed = postInputSchema.parse({
+      translations: {
+        'zh-CN': {
+          title: 'Featured image contract',
+          unrelatedLegacyField: 'ignored'
+        }
+      }
+    })
+
+    expect(parsed.translations?.['zh-CN']).not.toHaveProperty('unrelatedLegacyField')
+  })
 })
