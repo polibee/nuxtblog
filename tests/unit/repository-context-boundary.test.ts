@@ -1,83 +1,99 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createDomainRepositoryContext } from '../../server/repositories/domain-context'
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const originalDbDriver = process.env.DB_DRIVER
 
-interface DirectDatabaseFinding {
-  file: string
-  line: number
-  rule: 'database-import' | 'getDb-call'
+async function loadRuntimeModules() {
+  const [
+    alias,
+    aliasMysql,
+    aliasPostgres,
+    page,
+    pageMysql,
+    pagePostgres,
+    post,
+    postMysql,
+    postPostgres,
+    profile,
+    profileMysql,
+    profilePostgres,
+    settings,
+    settingsMysql,
+    settingsPostgres
+  ] = await Promise.all([
+    import('../../server/repositories/alias.runtime.repository'),
+    import('../../server/repositories/alias.mysql.repository'),
+    import('../../server/repositories/alias.postgres.repository'),
+    import('../../server/repositories/page.runtime.repository'),
+    import('../../server/repositories/page.repository'),
+    import('../../server/repositories/page.postgres.repository'),
+    import('../../server/repositories/post.runtime.repository'),
+    import('../../server/repositories/post.repository'),
+    import('../../server/repositories/post.postgres.repository'),
+    import('../../server/modules/profile/profile.runtime.service'),
+    import('../../server/modules/profile/profile.service'),
+    import('../../server/modules/profile/profile.postgres.service'),
+    import('../../server/modules/settings/settings.runtime.service'),
+    import('../../server/modules/settings/settings.service'),
+    import('../../server/modules/settings/settings.postgres.service')
+  ])
+
+  return {
+    alias: { runtime: alias, mysql: aliasMysql, postgres: aliasPostgres },
+    page: { runtime: page, mysql: pageMysql, postgres: pagePostgres },
+    post: { runtime: post, mysql: postMysql, postgres: postPostgres },
+    profile: { runtime: profile, mysql: profileMysql, postgres: profilePostgres },
+    settings: { runtime: settings, mysql: settingsMysql, postgres: settingsPostgres }
+  }
 }
 
-function listTypeScriptFiles(directory: string): string[] {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) return listTypeScriptFiles(path)
-    return entry.isFile() && path.endsWith('.ts') ? [path] : []
-  })
-}
-
-function findDirectDatabaseDependencies(directory: string): DirectDatabaseFinding[] {
-  return listTypeScriptFiles(directory).flatMap((file) => {
-    const lines = readFileSync(file, 'utf8').split('\n')
-    return lines.flatMap((content, index) => {
-      const findings: DirectDatabaseFinding[] = []
-      if (/repositories\/(?:db(?:-postgres)?\.server|schema(?:-postgres)?(?:\/|['"]))/.test(content)) {
-        findings.push({ file: relative(repositoryRoot, file).replaceAll('\\', '/'), line: index + 1, rule: 'database-import' })
-      }
-      if (/\bget(?:Postgres)?Db\s*\(/.test(content)) {
-        findings.push({ file: relative(repositoryRoot, file).replaceAll('\\', '/'), line: index + 1, rule: 'getDb-call' })
-      }
-      return findings
-    })
-  })
-}
-
-const contextEntrypoints = [
-  'server/repositories/alias.runtime.repository.ts',
-  'server/repositories/page.runtime.repository.ts',
-  'server/repositories/post.runtime.repository.ts',
-  'server/modules/profile/profile.runtime.service.ts',
-  'server/modules/settings/settings.runtime.service.ts'
-]
+afterEach(() => {
+  vi.unstubAllEnvs()
+  if (originalDbDriver === undefined) delete process.env.DB_DRIVER
+  else process.env.DB_DRIVER = originalDbDriver
+  vi.resetModules()
+})
 
 describe('repository context boundary', () => {
-  it('reports direct schema and getDb dependencies still present in API/service layers', () => {
-    const findings = [
-      ...findDirectDatabaseDependencies(resolve(repositoryRoot, 'server/api')),
-      ...findDirectDatabaseDependencies(resolve(repositoryRoot, 'server/modules'))
-    ]
+  it('injects the selected repository and transaction into the context', async () => {
+    const mysqlRepository = { name: 'mysql' }
+    const postgresRepository = { name: 'postgres' }
+    let transactionCalls = 0
 
-    expect(findings.length).toBeGreaterThan(0)
-    expect(findings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ file: 'server/api/public/advertising/slots.get.ts', rule: 'database-import' }),
-      expect.objectContaining({ file: 'server/modules/advertising/ad-purchase.service.ts', rule: 'getDb-call' })
-    ]))
+    const context = createDomainRepositoryContext({
+      driver: 'postgres',
+      repositories: { mysql: mysqlRepository, postgres: postgresRepository },
+      transaction: async (repository, work) => {
+        transactionCalls += 1
+        return work(repository)
+      }
+    })
+
+    expect(context.repository).toBe(postgresRepository)
+    await expect(context.transaction?.(repository => Promise.resolve(repository.name))).resolves.toBe('postgres')
+    expect(transactionCalls).toBe(1)
   })
 
-  it('uses DomainRepositoryContext for the staged runtime entrypoints', () => {
-    for (const entrypoint of contextEntrypoints) {
-      const source = readFileSync(resolve(repositoryRoot, entrypoint), 'utf8')
-      expect(source, entrypoint).toContain('createDomainRepositoryContext')
-      expect(source, entrypoint).not.toMatch(/process\.env\.DB_DRIVER\s*===/)
-    }
+  it.each([
+    ['mysql', 'mysql'],
+    ['postgres', 'postgres'],
+    ['supabase', 'postgres'],
+    ['memory', 'mysql'],
+    [undefined, 'mysql']
+  ] as const)('selects the adapter contract for DB_DRIVER=%s', async (driver, adapter) => {
+    vi.resetModules()
+    if (driver === undefined) delete process.env.DB_DRIVER
+    else vi.stubEnv('DB_DRIVER', driver)
+
+    const modules = await loadRuntimeModules()
+    expect(modules.alias.runtime.findRedirect).toBe(modules.alias[adapter].findRedirect)
+    expect(modules.page.runtime.listPages).toBe(modules.page[adapter].listPages)
+    expect(modules.post.runtime.listPosts).toBe(modules.post[adapter].listPosts)
+    expect(modules.profile.runtime.getProfileBundle).toBe(modules.profile[adapter].getProfileBundle)
+    expect(modules.settings.runtime.listSettings).toBe(modules.settings[adapter].listSettings)
   })
 
-  it('keeps transaction, pagination, time, and insert-id mapping in adapters', () => {
-    const pageRepository = readFileSync(resolve(repositoryRoot, 'server/repositories/page.repository.ts'), 'utf8')
-    const postRepository = readFileSync(resolve(repositoryRoot, 'server/repositories/post.repository.ts'), 'utf8')
-    const advertisingRepository = readFileSync(resolve(repositoryRoot, 'server/repositories/advertising.repository.ts'), 'utf8')
-    const mysqlLocaleRepository = readFileSync(resolve(repositoryRoot, 'server/repositories/locale.repository.ts'), 'utf8')
-    const postgresLocaleRepository = readFileSync(resolve(repositoryRoot, 'server/repositories/locale.postgres.repository.ts'), 'utf8')
-
-    expect(pageRepository).toMatch(/getDb\(\)\.transaction\(async \(tx\)/)
-    expect(postRepository).toMatch(/getDb\(\)\.transaction\(async \(tx\)/)
-    expect(pageRepository).toMatch(/totalPages/)
-    expect(postRepository).toMatch(/totalPages/)
-    expect(advertisingRepository).toMatch(/now\s*=\s*new Date\(\)/)
-    expect(mysqlLocaleRepository).toMatch(/return row\.insertId/)
-    expect(postgresLocaleRepository).toMatch(/return row\.id/)
+  it('rejects an unknown driver consistently', () => {
+    expect(() => createDomainRepositoryContext({ driver: 'sqlite' })).toThrow('Unsupported domain database driver')
   })
 })

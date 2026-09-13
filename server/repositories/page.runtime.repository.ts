@@ -2,7 +2,11 @@ import * as mysql from './page.repository'
 import * as postgres from './page.postgres.repository'
 import { createDomainRepositoryContext } from './domain-context'
 
-const implementation = (createDomainRepositoryContext({ driver: process.env.DB_DRIVER }).isPostgres ? postgres : mysql) as typeof mysql
+const context = createDomainRepositoryContext({
+  driver: process.env.DB_DRIVER,
+  repositories: { mysql, postgres }
+})
+const implementation = context.repository as typeof mysql
 
 export type { PageRecord, PageTranslationRow, PageListQuery, PublishedPage } from './page.repository'
 export const listPages = implementation.listPages

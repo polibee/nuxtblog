@@ -2,7 +2,11 @@ import * as mysql from './post.repository'
 import * as postgres from './post.postgres.repository'
 import { createDomainRepositoryContext } from './domain-context'
 
-const implementation = (createDomainRepositoryContext({ driver: process.env.DB_DRIVER }).isPostgres ? postgres : mysql) as typeof mysql
+const context = createDomainRepositoryContext({
+  driver: process.env.DB_DRIVER,
+  repositories: { mysql, postgres }
+})
+const implementation = context.repository as typeof mysql
 // Both repository variants retain translationFeaturedId only as a read-only
 // legacy cover fallback; writes enter through PostRecord.featuredMediaId.
 

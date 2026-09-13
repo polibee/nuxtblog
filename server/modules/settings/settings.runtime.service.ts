@@ -2,7 +2,11 @@ import * as mysql from './settings.service'
 import * as postgres from './settings.postgres.service'
 import { createDomainRepositoryContext } from '../../repositories/domain-context'
 
-const implementation = (createDomainRepositoryContext({ driver: process.env.DB_DRIVER }).isPostgres ? postgres : mysql) as typeof mysql
+const context = createDomainRepositoryContext({
+  driver: process.env.DB_DRIVER,
+  repositories: { mysql, postgres }
+})
+const implementation = context.repository as typeof mysql
 
 export type { SettingType, SettingItem } from './settings.service'
 export const invalidateSettingsCache = implementation.invalidateSettingsCache
