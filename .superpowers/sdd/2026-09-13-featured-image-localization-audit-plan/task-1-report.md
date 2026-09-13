@@ -116,6 +116,42 @@ Fix-round concerns:
 - Repository tests use the existing unit-test Vitest mocking style with a deterministic MySQL repository double; they do not require a live database.
 - Existing unrelated working-tree changes remain untouched and uncommitted.
 
+## Fix round 3
+
+Review findings addressed:
+
+- Added explicit `translationFeaturedId: 11` priority assertions for both the MySQL and PostgreSQL alias lookups.
+- Changed the published-row fixture to a factory and rebuilds it in `beforeEach`, so each test starts with the default legacy cover `11` and no test depends on execution order.
+
+Fix commit:
+
+- `9b2ae4a test(posts): isolate featured image alias fixtures`
+
+Covering test and lint commands:
+
+```text
+npm test -- --run tests/unit/post-featured-image.test.ts tests/unit/post-repository-featured-image.test.ts tests/unit/post-excerpt.test.ts
+npm run lint -- --quiet
+```
+
+Output:
+
+```text
+Test Files  3 passed (3)
+Tests  13 passed (13)
+Duration  759ms
+
+> lint
+> eslint . --quiet
+```
+
+Both commands exited with code `0`.
+
+Fix-round-3 concerns:
+
+- Changes are test-only; production code and the featured-image contract were not modified.
+- Existing unrelated working-tree changes remain untouched and uncommitted.
+
 ## Fix round 2
 
 Review finding addressed:
