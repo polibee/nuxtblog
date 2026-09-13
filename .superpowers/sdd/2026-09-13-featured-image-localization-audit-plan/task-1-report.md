@@ -70,3 +70,48 @@ Exit code: `0`.
 
 - The existing `post_translations.featured_image_id` database column remains intentionally present for legacy reads. It is no longer accepted from new post input, while public `coverUrl` continues to use the required legacy-first fallback.
 - The workspace contains extensive unrelated user changes; the implementation commit contains only the six Task 1 files listed above. This report is committed separately so it can record the immutable implementation commit hash.
+
+## Fix round 1
+
+Review findings addressed:
+
+- Replaced broad translation `.strict()` with `featuredImageId: z.never().optional()`. Existing unknown translation fields continue to be stripped, while the legacy featured-image key is rejected.
+- Added MySQL repository-level regression tests for retaining `post_translations.featured_image_id` during translation replacement and for the legacy-first public cover mapping.
+
+Fix commit:
+
+- `ca06b3d fix(posts): narrow featured image schema contract`
+
+Covering test command:
+
+```text
+npm test -- --run tests/unit/post-featured-image.test.ts tests/unit/post-repository-featured-image.test.ts tests/unit/post-excerpt.test.ts
+```
+
+Output:
+
+```text
+Test Files  3 passed (3)
+Tests  8 passed (8)
+Duration  567ms
+```
+
+Lint command:
+
+```text
+npm run lint -- --quiet
+```
+
+Output:
+
+```text
+> lint
+> eslint . --quiet
+```
+
+Exit code: `0`.
+
+Fix-round concerns:
+
+- Repository tests use the existing unit-test Vitest mocking style with a deterministic MySQL repository double; they do not require a live database.
+- Existing unrelated working-tree changes remain untouched and uncommitted.
