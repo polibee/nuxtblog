@@ -50,6 +50,13 @@ npm run dev        # http://localhost:3000
 
 生产部署请参阅 [PM2 / Docker 部署手册](docs/deployment/pm2-docker.zh-CN.md)。当前建议使用 MySQL 8+；部署前请配置私有 `.env`，不要提交密码和密钥。
 
+### 部署与 GPU 资源
+
+[![RackNerd VPS](https://img.shields.io/badge/RackNerd-VPS%20%E4%B8%BB%E6%9C%BA-2563eb?logo=serverfault&logoColor=white)](https://www.racknerd.com/)
+[![Vast.ai GPU](https://img.shields.io/badge/Vast.ai-GPU%20%E7%A7%9F%E7%94%A8-7c3aed?logo=nvidia&logoColor=white)](https://cloud.vast.ai/?ref_id=91181)
+
+RackNerd 用于租用 VPS 并部署 NuxtBlog；Vast.ai 用于需要 GPU 的 AI、推理或批处理任务。两者都是外部资源入口，不会自动创建服务器、配置 DNS/HTTPS 或迁移数据库。部署前请按 [PM2 / Docker 部署手册](docs/deployment/pm2-docker.zh-CN.md) 完成 MySQL、环境变量、迁移和安全检查。
+
 演示账号（仅隔离演示站，默认只读）：
 
 - `demo@example.com` — Viewer，只读查看前台和后台数据

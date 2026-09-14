@@ -44,6 +44,13 @@ npm run dev          # http://localhost:3000
 
 See the [PM2 / Docker deployment guide](docs/deployment/pm2-docker.en.md) for production deployment. MySQL 8+ is currently recommended. Keep `.env` private and never commit passwords or keys.
 
+### VPS and GPU resources
+
+[![RackNerd VPS](https://img.shields.io/badge/RackNerd-VPS%20hosting-2563eb?logo=serverfault&logoColor=white)](https://www.racknerd.com/)
+[![Vast.ai GPU](https://img.shields.io/badge/Vast.ai-GPU%20rental-7c3aed?logo=nvidia&logoColor=white)](https://cloud.vast.ai/?ref_id=91181)
+
+Use RackNerd to rent a VPS for NuxtBlog deployment and Vast.ai for GPU-backed AI, inference, or batch workloads. These are external resource links, not zero-touch deployment: they do not create DNS/TLS, migrate the database, or configure the application automatically. Follow the [PM2 / Docker deployment guide](docs/deployment/pm2-docker.en.md) for MySQL, environment variables, migrations, and security checks.
+
 Demo account (isolated demo site only, read-only):
 
 | Account | Role | Capabilities |

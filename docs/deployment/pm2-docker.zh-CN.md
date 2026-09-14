@@ -6,6 +6,16 @@
 
 所有部署都必须使用独立 `.env`，不要把密码、`DATABASE_URL`、支付密钥、Webhook 密钥、AI Key 或管理员凭据提交到 Git。
 
+## 推荐资源入口
+
+[![RackNerd VPS](https://img.shields.io/badge/RackNerd-VPS%20%E4%B8%BB%E6%9C%BA-2563eb?logo=serverfault&logoColor=white)](https://www.racknerd.com/)
+[![Vast.ai GPU](https://img.shields.io/badge/Vast.ai-GPU%20%E7%A7%9F%E7%94%A8-7c3aed?logo=nvidia&logoColor=white)](https://cloud.vast.ai/?ref_id=91181)
+
+- RackNerd：适合租用 VPS，运行 Nuxt、PM2、Docker 和 MySQL。
+- Vast.ai：适合临时租用 GPU 执行 AI 推理或批处理，不是 NuxtBlog 的必需依赖。
+
+资源平台不会替你完成应用部署。你仍需准备服务器、MySQL、域名、HTTPS、`.env` 和数据库备份；GPU 任务还应单独管理密钥、数据和网络访问权限。
+
 ## PM2 部署
 
 适用于 Linux/WSL/云服务器上直接运行 Node.js。

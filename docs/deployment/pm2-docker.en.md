@@ -6,6 +6,16 @@ Use the verified MySQL 8+ path for production. PostgreSQL/Supabase repository mi
 
 Use a private `.env` for every deployment. Never commit passwords, `DATABASE_URL`, payment credentials, webhook secrets, AI keys, or administrator credentials.
 
+## Recommended resource links
+
+[![RackNerd VPS](https://img.shields.io/badge/RackNerd-VPS%20hosting-2563eb?logo=serverfault&logoColor=white)](https://www.racknerd.com/)
+[![Vast.ai GPU](https://img.shields.io/badge/Vast.ai-GPU%20rental-7c3aed?logo=nvidia&logoColor=white)](https://cloud.vast.ai/?ref_id=91181)
+
+- RackNerd: suitable for hosting Nuxt, PM2, Docker, and MySQL on a VPS.
+- Vast.ai: suitable for temporary GPU-backed AI inference or batch jobs; it is not required by NuxtBlog.
+
+These providers do not deploy the application for you. You still need to provision the server, MySQL, domain, HTTPS, private `.env`, and backups. GPU workloads should also use separate credentials, data isolation, and network controls.
+
 ## PM2
 
 Use this mode when running Node.js directly on Linux, WSL, or a cloud VM:
