@@ -55,10 +55,12 @@ import {
   Undo2Icon
 } from 'lucide-vue-next'
 import { cn } from '~/admin/utils/cn'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 import TurndownService from 'turndown'
 import { marked } from 'marked'
 import { useForm } from 'vee-validate'
+import { normalizeArticleEmbeds } from '#shared/utils/article-embed'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
@@ -89,6 +91,16 @@ function applyMarkdown(): void {
 }
 
 const previewHtml = computed(() => marked.parse(markdownSource.value, { async: false }) as string)
+
+function handlePaste(_view: unknown, event: ClipboardEvent): boolean {
+  const text = event.clipboardData?.getData('text/plain')?.trim() ?? ''
+  if (!text || /\s/u.test(text)) return false
+  const normalized = normalizeArticleEmbeds(text)
+  if (normalized === text) return false
+  event.preventDefault()
+  editor.value?.commands.insertContent(normalized)
+  return true
+}
 
 function switchMode(next: EditorMode): void {
   if (next === mode.value) return
@@ -154,6 +166,7 @@ const editor = useEditor({
     TableCell,
     TableHeader
   ],
+  editorProps: { handlePaste },
   onUpdate: ({ editor }) => {
     emit('update:modelValue', editor.isEmpty ? '' : editor.getHTML())
   }
@@ -401,7 +414,7 @@ function insertBelow(): void {
         :class="mode === m ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-accent'"
         @click="switchMode(m)"
       >
-        {{ t(`editor.mode.${m}`) }}
+        {{ resolveAdminDisplayLabel(t, 'editorMode', m) }}
       </button>
       <button
         type="button"
@@ -470,31 +483,31 @@ function insertBelow(): void {
           class="ml-auto h-8 rounded-md border bg-background px-2 text-xs"
         >
           <option value="improve">
-            Improve
+            {{ t('editor.ai.feature.improve') }}
           </option>
           <option value="rewrite">
-            Rewrite
+            {{ t('editor.ai.feature.rewrite') }}
           </option>
           <option value="shorten">
-            Shorten
+            {{ t('editor.ai.feature.shorten') }}
           </option>
           <option value="expand">
-            Expand
+            {{ t('editor.ai.feature.expand') }}
           </option>
           <option value="grammar">
-            Fix grammar
+            {{ t('editor.ai.feature.grammar') }}
           </option>
           <option value="clarify">
-            Clarify
+            {{ t('editor.ai.feature.clarify') }}
           </option>
           <option value="summarize">
-            Summarize
+            {{ t('editor.ai.feature.summarize') }}
           </option>
           <option value="tone">
-            Change tone
+            {{ t('editor.ai.feature.tone') }}
           </option>
           <option value="custom">
-            Custom…
+            {{ t('editor.ai.feature.custom') }}
           </option>
         </select>
         <select
@@ -637,7 +650,7 @@ function insertBelow(): void {
                 v-if="promptUrl && !promptValid"
                 class="text-xs text-destructive"
               >
-                $t('dialog.urlInvalid')
+                {{ t('dialog.urlInvalid') }}
               </p>
             </div>
 
@@ -646,7 +659,7 @@ function insertBelow(): void {
               class="space-y-1.5"
             >
               <UiLabel for="editor-prompt-alt">
-                Alt text (optional)
+                {{ t('dialog.altLabel') }}
               </UiLabel>
               <UiInput
                 id="editor-prompt-alt"

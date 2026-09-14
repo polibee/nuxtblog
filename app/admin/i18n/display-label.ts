@@ -189,8 +189,39 @@ export type AdminDisplayLabelDomain = keyof typeof ADMIN_DISPLAY_LABEL_KEYS
 
 const dynamicKeys = Object.values(ADMIN_DISPLAY_LABEL_KEYS).flatMap(labels => Object.values(labels))
 
-/** Exact dynamic expression allowlist consumed by the static i18n audit. */
-export const ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST = { key: dynamicKeys } as const
+export type AdminI18nDynamicKeyAllowlist = Readonly<Record<string, readonly string[]>>
+
+/**
+ * The audit indexes this map by the exact first argument expression, not by a
+ * variable name.  Keeping the expression and its finite output set together
+ * prevents a broad `key`/`string` exemption from hiding an unsafe translation.
+ */
+export const ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST: AdminI18nDynamicKeyAllowlist = {
+  '`ext.localized.${props.status}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.localizedStatus),
+  '`editor.mode.${m}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.editorMode),
+  '`res.aichat.suggest_${key}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiSuggestion),
+  '`res.aichat.scope_${s}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiScope),
+  '`res.aichat.scope_${scope}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiScope),
+  '`res.aichat.scope_${preset.defaultScope}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiScope),
+  '`res.aichat.depth_${d}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiDepth),
+  '`res.aichat.depth_${depth}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiDepth),
+  '`res.aichat.depth_${preset.defaultDepth}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiDepth),
+  '`res.aichat.source_${type}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiSource),
+  '`res.aichat.tool_${name.replace(/\\./g, \'_\')}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.aiTool),
+  '`res.profile.sectionType.${section.type}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.profileSectionType),
+  '`res.eximp.type.${job.type}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.exportType),
+  '`res.eximp.status.${job.status}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.exportStatus),
+  '`res.friendlinks.backlink_${link.backlinkStatus}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.friendBacklinkStatus),
+  '`res.friendlinks.site_${submission.siteStatus}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.friendSiteStatus),
+  '`res.friendlinks.backlink_${submission.backlinkStatus}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.friendBacklinkStatus),
+  '`res.media.usage.${usage}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.mediaUsage),
+  '`res.navigation.status.${status}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.navigationStatus),
+  '`res.navigation.type.${item.type}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.navigationType),
+  '`res.notifications.tab_${name}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.notificationTab),
+  '`res.notifications.dl_${delivery.status}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.notificationDeliveryStatus),
+  '`res.slider.status.${statusOf(item)}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.sliderStatus),
+  key: dynamicKeys
+}
 
 /** Technical identifiers intentionally remain unchanged in admin templates. */
 export const ADMIN_I18N_HARDCODED_COPY_ALLOWLIST = [

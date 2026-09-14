@@ -62,7 +62,7 @@ export interface AuditOptions {
   localeDir?: string
   locales?: string[]
   /** Map the exact first argument expression to the finite keys it can produce. */
-  dynamicKeyAllowlist?: Record<string, string[]>
+  dynamicKeyAllowlist?: Readonly<Record<string, readonly string[]>>
   /** Exact template text intentionally kept as a technical identifier. */
   hardcodedCopyAllowlist?: readonly string[]
 }

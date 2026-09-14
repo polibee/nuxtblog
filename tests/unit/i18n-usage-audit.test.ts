@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST } from '../../app/admin/i18n/display-label'
 import { auditI18nUsage } from '../../scripts/audit-i18n-usage'
 
 const temporaryDirectories: string[] = []
@@ -85,6 +86,25 @@ const unsafe = t('user.' + userInput)`,
     expect(report.dynamicKeyRisks).toHaveLength(1)
     expect(report.dynamicKeyRisks[0]?.expression).toBe('\'user.\' + userInput')
     expect(report.dynamicKeyRisks[0]?.reason).toMatch(/user input/i)
+  })
+
+  it('recognizes every explicitly mapped controlled dynamic expression', async () => {
+    const expressions = Object.keys(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST).filter(expression => expression !== 'key')
+    const rootDir = await createFixture({
+      'src/controlled.ts': expressions.map((expression, index) => `const value${index} = t(${expression})`).join('\n'),
+      'app/i18n/locales/zh-CN/common.ts': 'export default {}',
+      'app/i18n/locales/en/common.ts': 'export default {}'
+    })
+
+    const report = await auditI18nUsage({
+      rootDir,
+      sourceDirs: ['src'],
+      localeDir: 'app/i18n/locales',
+      dynamicKeyAllowlist: ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST
+    })
+
+    expect(report.dynamicKeyRisks).toEqual([])
+    expect(report.findings).toEqual([])
   })
 
   it('finds raw known keys and hardcoded template copy while ignoring permission metadata', async () => {

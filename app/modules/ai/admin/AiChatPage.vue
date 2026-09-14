@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notifyError } from '~/admin/notifications/notify'
 import { SendIcon, SparklesIcon } from 'lucide-vue-next'
 import AIConversationSidebar from './assistant/AIConversationSidebar.vue'
@@ -36,7 +37,7 @@ interface Preset {
   suggestedQuestions: string[]
 }
 
-const SCOPES = ['site', 'posts', 'pages', 'seo', 'profile', 'store', 'comments', 'media'] as const
+const SCOPES = ['site', 'posts', 'pages', 'seo', 'profile', 'store', 'comments', 'media', 'advertising'] as const
 const DEPTHS = ['quick', 'balanced', 'deep'] as const
 
 /* §27 suggested questions per scope (empty state fallback) */
@@ -48,7 +49,8 @@ const SUGGESTION_KEYS: Record<string, string[]> = {
   profile: ['reviewProfile', 'reviewProjects', 'reviewFocus'],
   store: ['reviewProducts', 'findProductGaps', 'compareProducts'],
   comments: ['commentInsights', 'findPendingComments'],
-  media: ['mediaAudit', 'findMissingAlt']
+  media: ['mediaAudit', 'findMissingAlt'],
+  advertising: ['adPerformance', 'adBudgetRisk', 'adCampaignSummary']
 }
 
 const conversations = ref<Conversation[]>([])
@@ -71,7 +73,7 @@ const activePreset = computed(() => presets.value.find(p => p.id === presetId.va
 const suggestions = computed(() => {
   const presetSuggestions = activePreset.value?.suggestedQuestions ?? []
   if (presetSuggestions.length > 0) return presetSuggestions
-  return (SUGGESTION_KEYS[scope.value] ?? []).map(key => t(`res.aichat.suggest_${key}`))
+  return (SUGGESTION_KEYS[scope.value] ?? []).map(key => resolveAdminDisplayLabel(t, 'aiSuggestion', key))
 })
 
 async function loadPresets(): Promise<void> {
@@ -331,7 +333,7 @@ onMounted(() => {
               :key="s"
               :value="s"
             >
-              {{ t(`res.aichat.scope_${s}`) }}
+              {{ resolveAdminDisplayLabel(t, 'aiScope', s) }}
             </option>
           </select>
           <select
@@ -344,7 +346,7 @@ onMounted(() => {
               :key="d"
               :value="d"
             >
-              {{ t(`res.aichat.depth_${d}`) }}
+              {{ resolveAdminDisplayLabel(t, 'aiDepth', d) }}
             </option>
           </select>
           <span class="text-muted-foreground">{{ t('res.aichat.readOnlyHint') }}</span>

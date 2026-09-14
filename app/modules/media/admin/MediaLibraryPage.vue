@@ -1,81 +1,110 @@
 <template>
-  <div class="grid gap-6 lg:grid-cols-[240px,1fr]">
-    <!-- 左：分类栏 -->
-    <aside class="space-y-1">
-      <button
-        type="button"
-        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors"
-        :class="folderFilter === null ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-accent'"
-        @click="setFolder(null)"
-      >
-        {{ t('res.media.library.all') }}
-      </button>
-      <button
-        type="button"
-        class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors"
-        :class="folderFilter === 0 ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-accent'"
-        @click="setFolder(0)"
-      >
-        {{ t('res.media.library.uncategorized') }}
-      </button>
-      <template
-        v-for="folder in folders"
-        :key="folder.id"
-      >
-        <form
-          v-if="renamingId === folder.id"
-          class="flex items-center gap-1 px-3 py-1"
-          @submit.prevent="saveRename"
-        >
-          <input
-            v-model="renamingName"
-            class="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
-            autofocus
-            @keydown.esc="renamingId = null"
-          >
-          <button
-            type="submit"
-            class="h-8 shrink-0 rounded-md border px-2 text-xs hover:bg-accent"
-          >
-            ✓
-          </button>
-        </form>
+  <div class="grid gap-6 lg:grid-cols-[260px,1fr]">
+    <!-- 分类面板：桌面端卡片化，小屏横向滚动 -->
+    <aside class="min-w-0 space-y-3">
+      <div class="flex items-center justify-between px-1">
+        <div>
+          <p class="text-sm font-semibold">
+            {{ t('media.library.categories') }}
+          </p>
+          <p class="text-xs text-muted-foreground">
+            {{ t('media.library.categoriesHint') }}
+          </p>
+        </div>
+        <FolderIcon
+          class="h-4 w-4 text-muted-foreground"
+          aria-hidden="true"
+        />
+      </div>
+      <div class="flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-2 lg:overflow-visible">
         <button
-          v-else
           type="button"
-          class="group flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors"
-          :class="folderFilter === folder.id ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-accent'"
-          @click="setFolder(folder.id)"
+          class="flex min-w-[132px] items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors"
+          :class="folderFilter === null ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-accent'"
+          @click="setFolder(null)"
         >
-          <span class="truncate">{{ folder.name }}</span>
-          <span class="flex items-center gap-1">
-            <span class="text-xs text-muted-foreground">{{ folder.mediaCount }}</span>
-            <span
-              class="hidden text-xs text-muted-foreground group-hover:inline"
-              :title="t('res.media.library.renameFolder')"
-              @click.stop="startRename(folder)"
-            >✎</span>
-            <span
-              class="hidden text-xs text-muted-foreground group-hover:inline"
-              :title="t('res.media.library.deleteFolder')"
-              @click.stop="removeFolder(folder)"
-            >✕</span>
-          </span>
+          <ImageIcon
+            class="h-4 w-4 shrink-0"
+            aria-hidden="true"
+          />
+          <span class="min-w-0 flex-1 truncate">{{ t('media.library.all') }}</span>
+          <span class="text-xs text-muted-foreground">{{ total }}</span>
         </button>
-      </template>
+        <button
+          type="button"
+          class="flex min-w-[132px] items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors"
+          :class="folderFilter === 0 ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-accent'"
+          @click="setFolder(0)"
+        >
+          <FolderOpenIcon
+            class="h-4 w-4 shrink-0"
+            aria-hidden="true"
+          />
+          <span class="min-w-0 flex-1 truncate">{{ t('media.library.uncategorized') }}</span>
+        </button>
+        <template
+          v-for="folder in folders"
+          :key="folder.id"
+        >
+          <form
+            v-if="renamingId === folder.id"
+            class="flex items-center gap-1 px-3 py-1"
+            @submit.prevent="saveRename"
+          >
+            <input
+              v-model="renamingName"
+              class="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
+              autofocus
+              @keydown.esc="renamingId = null"
+            >
+            <button
+              type="submit"
+              class="h-8 shrink-0 rounded-md border px-2 text-xs hover:bg-accent"
+            >
+              ✓
+            </button>
+          </form>
+          <button
+            v-else
+            type="button"
+            class="group flex min-w-[180px] items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-colors"
+            :class="folderFilter === folder.id ? 'bg-primary/10 font-medium text-primary' : 'hover:bg-accent'"
+            @click="setFolder(folder.id)"
+          >
+            <FolderIcon
+              class="h-4 w-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 flex-1 truncate">{{ folder.name }}</span>
+            <span class="text-xs text-muted-foreground">{{ folder.mediaCount }}</span>
+            <span class="flex items-center gap-1">
+              <span
+                class="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                :title="t('media.library.renameFolder')"
+                @click.stop="startRename(folder)"
+              >✎</span>
+              <span
+                class="text-xs text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                :title="t('media.library.deleteFolder')"
+                @click.stop="removeFolder(folder)"
+              >✕</span>
+            </span>
+          </button>
+        </template>
+      </div>
 
       <form
-        class="flex gap-1 pt-2"
+        class="flex gap-2 rounded-xl border border-dashed p-2"
         @submit.prevent="createFolder"
       >
         <input
           v-model="newFolderName"
-          :placeholder="t('res.media.library.newFolder')"
-          class="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
+          :placeholder="t('media.library.newFolder')"
+          class="h-9 min-w-0 flex-1 rounded-lg border-0 bg-transparent px-2 text-sm outline-none ring-0"
         >
         <button
           type="submit"
-          class="h-8 shrink-0 rounded-md border px-2 text-xs hover:bg-accent"
+          class="h-9 w-9 shrink-0 rounded-lg bg-primary text-sm text-primary-foreground hover:bg-primary/90"
         >
           +
         </button>
@@ -98,7 +127,7 @@
         <input
           v-model="search"
           type="search"
-          :placeholder="t('res.media.library.search')"
+          :placeholder="t('media.library.search')"
           class="h-9 w-44 rounded-md border bg-background px-3 text-sm"
           @input="onSearch"
         >
@@ -108,14 +137,14 @@
           @change="reload"
         >
           <option value="">
-            {{ t('res.media.library.usageAll') }}
+            {{ t('media.library.usageAll') }}
           </option>
           <option
             v-for="usage in MEDIA_USAGE_TYPES"
             :key="usage"
             :value="usage"
           >
-            {{ t(`res.media.usage.${usage}`) }}
+            {{ resolveAdminDisplayLabel(t, 'mediaUsageShort', usage) }}
           </option>
         </select>
         <select
@@ -124,13 +153,13 @@
           @change="reload"
         >
           <option value="">
-            {{ t('res.media.library.usedAll') }}
+            {{ t('media.library.usedAll') }}
           </option>
           <option value="true">
-            {{ t('res.media.library.used') }}
+            {{ t('media.library.used') }}
           </option>
           <option value="false">
-            {{ t('res.media.library.unused') }}
+            {{ t('media.library.unused') }}
           </option>
         </select>
         <label class="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -140,10 +169,10 @@
             class="h-4 w-4"
             @change="reload"
           >
-          {{ t('res.media.library.missingAlt') }}
+          {{ t('media.library.missingAlt') }}
         </label>
         <span class="ml-auto text-xs text-muted-foreground">
-          {{ t('res.media.library.count', { n: total }) }}
+          {{ t('media.library.count', { n: total }) }}
         </span>
       </div>
 
@@ -164,7 +193,7 @@
         v-else-if="items.length === 0"
         class="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground"
       >
-        {{ t('res.media.library.empty') }}
+        {{ t('media.library.empty') }}
       </div>
 
       <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
@@ -193,7 +222,7 @@
               {{ item.mime }}
             </div>
             <div class="absolute inset-0 hidden items-center justify-center bg-black/40 group-hover:flex">
-              <span class="rounded-md bg-white/90 px-3 py-1 text-xs font-medium text-neutral-900">{{ t('res.media.library.detail') }}</span>
+              <span class="rounded-md bg-white/90 px-3 py-1 text-xs font-medium text-neutral-900">{{ t('media.library.detail') }}</span>
             </div>
           </button>
           <div class="space-y-1.5 p-3">
@@ -219,7 +248,7 @@
         :disabled="loading"
         @click="loadMore"
       >
-        {{ t('admin.mediaPicker.loadMore') }}
+        {{ t('media.library.loadMore') }}
       </button>
     </div>
   </div>
@@ -271,29 +300,29 @@
           v-if="drawer.width && drawer.height"
           class="flex justify-between"
         >
-          <dt>{{ t('res.media.drawer.dimensions') }}</dt>
+          <dt>{{ t('media.drawer.dimensions') }}</dt>
           <dd>{{ drawer.width }} × {{ drawer.height }}</dd>
         </div>
         <div class="flex justify-between">
-          <dt>{{ t('res.media.drawer.size') }}</dt>
+          <dt>{{ t('media.drawer.size') }}</dt>
           <dd>{{ formatSize(drawer.size) }} · {{ drawer.mime.split('/')[1]?.toUpperCase() }}</dd>
         </div>
         <div class="flex justify-between">
-          <dt>{{ t('res.media.drawer.uploaded') }}</dt>
+          <dt>{{ t('media.drawer.uploaded') }}</dt>
           <dd>{{ new Date(drawer.createdAt).toLocaleDateString() }}</dd>
         </div>
       </dl>
 
       <div class="mb-4 grid grid-cols-2 gap-2">
         <label class="space-y-1 text-xs">
-          <span class="text-muted-foreground">{{ t('res.media.library.folder') }}</span>
+          <span class="text-muted-foreground">{{ t('media.library.folder') }}</span>
           <select
             v-model="drawer.folderId"
             class="h-8 w-full rounded-md border bg-background px-2 text-xs"
             @change="saveDrawerMeta()"
           >
             <option :value="null">
-              {{ t('res.media.library.uncategorized') }}
+              {{ t('media.library.uncategorized') }}
             </option>
             <option
               v-for="folder in folders"
@@ -305,7 +334,7 @@
           </select>
         </label>
         <label class="space-y-1 text-xs">
-          <span class="text-muted-foreground">{{ t('res.media.drawer.usage') }}</span>
+          <span class="text-muted-foreground">{{ t('media.drawer.usage') }}</span>
           <select
             v-model="drawer.usageType"
             class="h-8 w-full rounded-md border bg-background px-2 text-xs"
@@ -316,7 +345,7 @@
               :key="usage"
               :value="usage"
             >
-              {{ t(`res.media.usage.${usage}`) }}
+              {{ resolveAdminDisplayLabel(t, 'mediaUsage', usage) }}
             </option>
           </select>
         </label>
@@ -324,17 +353,17 @@
 
       <div class="mb-4 space-y-2">
         <p class="text-xs font-medium text-muted-foreground">
-          {{ t('res.media.drawer.copy') }} ({{ drawerLocale }})
+          {{ t('media.drawer.copy') }} ({{ drawerLocale }})
         </p>
         <input
           v-model="drawerAlt"
-          :placeholder="t('res.media.drawer.alt')"
+          :placeholder="t('media.drawer.alt')"
           maxlength="255"
           class="h-8 w-full rounded-md border bg-background px-2 text-xs"
         >
         <textarea
           v-model="drawerCaption"
-          :placeholder="t('res.media.drawer.caption')"
+          :placeholder="t('media.drawer.caption')"
           maxlength="500"
           rows="2"
           class="w-full rounded-md border bg-background px-2 py-1 text-xs"
@@ -350,13 +379,13 @@
 
       <div class="mb-4">
         <p class="mb-1 text-xs font-medium text-muted-foreground">
-          {{ t('res.media.drawer.usedBy') }}
+          {{ t('media.drawer.usedBy') }}
         </p>
         <p
           v-if="drawerReferences === null"
           class="text-xs text-muted-foreground"
         >
-          {{ t('common.loading') }}
+          {{ t('common.status.loading') }}
         </p>
         <ul
           v-else-if="drawerReferences.length"
@@ -375,7 +404,7 @@
           v-else
           class="text-xs text-[var(--success)]"
         >
-          {{ t('res.media.drawer.notUsed') }}
+          {{ t('media.drawer.notUsed') }}
         </p>
       </div>
 
@@ -384,7 +413,7 @@
         class="mb-4"
       >
         <p class="mb-1 text-xs font-medium text-muted-foreground">
-          {{ t('res.media.drawer.variants') }}
+          {{ t('media.drawer.variants') }}
         </p>
         <ul class="space-y-0.5 text-xs text-muted-foreground">
           <li
@@ -403,14 +432,14 @@
           size="sm"
           @click="openLightbox(drawer)"
         >
-          {{ t('res.media.library.preview') }}
+          {{ t('media.library.preview') }}
         </UiButton>
         <UiButton
           size="sm"
           variant="outline"
           @click="copyUrl(drawer)"
         >
-          {{ t('res.media.drawer.copyUrl') }}
+          {{ t('media.drawer.copyUrl') }}
         </UiButton>
         <UiButton
           size="sm"
@@ -465,14 +494,14 @@
           class="rounded px-2 py-1 text-xs hover:bg-white/10"
           @click="resetZoom"
         >
-          {{ t('res.media.lightbox.fit') }}
+          {{ t('media.lightbox.fit') }}
         </button>
         <button
           type="button"
           class="rounded px-2 py-1 text-xs hover:bg-white/10"
           @click="toggleFullscreen"
         >
-          {{ t('res.media.lightbox.fullscreen') }}
+          {{ t('media.lightbox.fullscreen') }}
         </button>
         <a
           :href="lightbox.url"
@@ -480,7 +509,7 @@
           rel="noopener"
           class="rounded px-2 py-1 text-xs hover:bg-white/10"
         >
-          {{ t('res.media.lightbox.download') }}
+          {{ t('media.lightbox.download') }}
         </a>
         <button
           type="button"
@@ -536,7 +565,9 @@
 </template>
 
 <script setup lang="ts">
+import { FolderIcon, FolderOpenIcon, ImageIcon } from 'lucide-vue-next'
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notify, notifyError } from '~/admin/notifications/notify'
 import { onAdminEvent } from '~/admin/core/events'
 import { MEDIA_USAGE_TYPES } from '#shared/schemas/media'
@@ -723,7 +754,7 @@ async function onUpload(event: Event): Promise<void> {
       body.append('file', file)
       const created = await $fetch<{ duplicateOf: number | null }>('/api/admin/media/upload', { method: 'POST', body })
       if (created.duplicateOf) {
-        notify(t('res.media.library.duplicate', { id: created.duplicateOf }))
+        notify(t('media.library.duplicate', { id: created.duplicateOf }))
       }
     }
     await refreshAll()
@@ -748,7 +779,7 @@ async function createFolder(): Promise<void> {
 }
 
 async function removeFolder(folder: MediaFolder): Promise<void> {
-  if (!confirm(t('res.media.library.deleteFolderConfirm', { name: folder.name }))) return
+  if (!confirm(t('media.library.deleteFolderConfirm', { name: folder.name }))) return
   try {
     await $fetch(`/api/admin/media/folders/${folder.id}`, { method: 'DELETE' })
     if (folderFilter.value === folder.id) folderFilter.value = null
@@ -781,9 +812,9 @@ async function saveDrawerMeta(): Promise<void> {
       method: 'PUT',
       body: { folderId: item.folderId, usageType: item.usageType }
     })
-    notify(t('res.slider.saved'))
+    notify(t('media.messages.saved'))
   } catch (e) {
-    notifyError(t('res.media.library.moveFailed'), (e as Error).message)
+    notifyError(t('media.library.moveFailed'), (e as Error).message)
   }
 }
 
@@ -802,14 +833,14 @@ async function saveDrawerCopy(): Promise<void> {
       body: { translations }
     })
     item.translations = updated.translations
-    notify(t('res.slider.saved'))
+    notify(t('media.messages.saved'))
   } catch (e) {
-    notifyError(t('res.slider.saveFailed'), (e as Error).message)
+    notifyError(t('media.messages.saveFailed'), (e as Error).message)
   }
 }
 
 async function removeItem(item: MediaItem): Promise<void> {
-  if (!confirm(t('res.media.library.deleteConfirm', { name: item.filename }))) return
+  if (!confirm(t('media.library.deleteConfirm', { name: item.filename }))) return
   try {
     await $fetch(`/api/admin/media/${item.id}`, { method: 'DELETE' })
     drawer.value = null
@@ -818,7 +849,7 @@ async function removeItem(item: MediaItem): Promise<void> {
     const err = e as Error & { data?: { references?: MediaReference[] } }
     if (err.data?.references?.length) {
       const list = err.data.references.map(r => `• ${r.module}: ${r.label}`).join('\n')
-      error.value = t('res.media.library.inUse', { list })
+      error.value = t('media.library.inUse', { list })
     } else {
       error.value = err.message
     }
@@ -828,9 +859,9 @@ async function removeItem(item: MediaItem): Promise<void> {
 async function copyUrl(item: MediaItem): Promise<void> {
   try {
     await navigator.clipboard.writeText(`${window.location.origin}${item.url}`)
-    notify(t('res.media.drawer.copied'))
+    notify(t('media.drawer.copied'))
   } catch {
-    notifyError(t('res.media.drawer.copied'), item.url)
+    notifyError(t('media.drawer.copied'), item.url)
   }
 }
 

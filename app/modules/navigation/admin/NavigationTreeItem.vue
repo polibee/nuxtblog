@@ -2,12 +2,13 @@
 <script setup lang="ts">
 /* eslint-disable vue/no-mutating-props -- items are local draft state owned by the manager page */
 import { GripVerticalIcon, ChevronDownIcon, ChevronRightIcon, EyeOffIcon, EyeIcon, TrashIcon, PencilIcon } from 'lucide-vue-next'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 export interface EditorItem {
   uid: string
   label: string
-  type: 'page' | 'post' | 'category' | 'custom'
-  targetEntityType?: 'page' | 'post' | 'category'
+  type: 'page' | 'post' | 'category' | 'custom' | 'group'
+  targetEntityType?: 'page' | 'post' | 'category' | 'tag'
   targetEntityId?: number
   targetSummary?: string
   customUrl?: string
@@ -95,7 +96,7 @@ function onDrop(): void {
       </button>
       <span class="flex-1 truncate text-sm">
         {{ item.label }}
-        <span class="ml-1 text-xs text-muted-foreground">({{ t(`res.navigation.type.${item.type}`) }}<template v-if="item.targetSummary">: {{ item.targetSummary }}</template>)</span>
+        <span class="ml-1 text-xs text-muted-foreground">({{ resolveAdminDisplayLabel(t, 'navigationType', item.type) }}<template v-if="item.targetSummary">: {{ item.targetSummary }}</template>)</span>
         <span
           v-if="!item.enabled"
           class="ml-1 text-xs text-destructive"

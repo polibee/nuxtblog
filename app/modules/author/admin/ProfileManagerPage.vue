@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import MediaPickerField from '~/admin/framework/MediaPickerField.vue'
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notify, notifyError } from '~/admin/notifications/notify'
+import { FileDownIcon } from 'lucide-vue-next'
 import { AUTHOR_SOCIAL_PLATFORMS } from '#shared/schemas/author-card'
+import { emptyProfileTranslation, buildProfileTranslationMap, type ProfileTranslationValues } from '#shared/utils/profile-localization'
 
 /* P29 profile editor (docs/ai优化.txt §2): one page, one bulk save.
    Collections are repeaters; section order is managed with up/down
@@ -11,6 +14,7 @@ import { AUTHOR_SOCIAL_PLATFORMS } from '#shared/schemas/author-card'
 defineProps<{ resource: { name: string } }>()
 
 const { t } = useI18n()
+const canExport = computed(() => useCan()('profile.export'))
 
 interface ProfileForm {
   displayName: string
@@ -45,6 +49,7 @@ const form = reactive({
     avatarMediaId: null as number | null,
     location: ''
   } as ProfileForm,
+  translations: {} as Record<string, ProfileTranslationValues>,
   socials: [] as SocialForm[],
   sections: SECTION_ORDER.map(type => ({ type, enabled: type === 'about' })) as SectionForm[],
   experiences: [] as ExperienceForm[],
@@ -56,6 +61,8 @@ const form = reactive({
 })
 
 const loading = ref(false)
+const profileLocales = ref<Array<{ code: string, nativeName: string, isDefault: boolean }>>([])
+const activeLocale = ref('zh-CN')
 
 const PLATFORM_OPTIONS = AUTHOR_SOCIAL_PLATFORMS.map(p => ({ value: p, label: p }))
 
@@ -67,6 +74,8 @@ async function load(): Promise<void> {
   loading.value = true
   try {
     const res = await $fetch<Record<string, unknown>>('/api/admin/author/profile')
+    const localeRes = await $fetch<{ locales: Array<{ code: string, nativeName: string, isDefault: boolean, contentEnabled: boolean }> }>('/api/public/locales')
+    profileLocales.value = localeRes.locales.filter(locale => locale.contentEnabled)
     const p = (res.profile ?? {}) as Record<string, unknown>
     form.profile = {
       displayName: String(p.displayName ?? ''),
@@ -75,6 +84,15 @@ async function load(): Promise<void> {
       avatarMediaId: Number(p.avatarMediaId) || null,
       location: String(p.location ?? '')
     }
+    form.translations = buildProfileTranslationMap((res.translations ?? {}) as Record<string, Partial<ProfileTranslationValues>>)
+    if (Object.keys(form.translations).length === 0) {
+      form.translations['zh-CN'] = { ...emptyProfileTranslation(), ...form.profile }
+    }
+    for (const locale of profileLocales.value) {
+      form.translations[locale.code] ??= emptyProfileTranslation()
+    }
+    activeLocale.value = profileLocales.value.find(locale => locale.isDefault)?.code ?? Object.keys(form.translations)[0] ?? 'zh-CN'
+    form.profile = { ...form.profile, ...emptyProfileTranslation(), ...(form.translations[activeLocale.value] ?? {}) }
     form.socials = asArray<SocialForm>(res.socials).map(s => ({
       platform: String(s.platform ?? 'custom'),
       url: String(s.url ?? ''),
@@ -128,6 +146,12 @@ async function load(): Promise<void> {
   }
 }
 
+function selectLocale(code: string): void {
+  form.translations[activeLocale.value] = { ...form.profile }
+  activeLocale.value = code
+  form.profile = { ...form.profile, ...emptyProfileTranslation(), ...(form.translations[code] ?? {}) }
+}
+
 function move<T>(list: T[], index: number, delta: -1 | 1): void {
   const target = index + delta
   if (target < 0 || target >= list.length) return
@@ -136,6 +160,7 @@ function move<T>(list: T[], index: number, delta: -1 | 1): void {
 }
 
 async function save(): Promise<void> {
+  form.translations[activeLocale.value] = { ...form.profile }
   if (!form.profile.displayName.trim()) {
     notifyError(t('res.profile.saveFailed'), t('res.profile.nameRequired'))
     return
@@ -149,6 +174,10 @@ async function save(): Promise<void> {
   } catch (e) {
     notifyError(t('res.profile.saveFailed'), (e as Error).message)
   }
+}
+
+function exportPdf(): void {
+  window.open('/api/admin/author/profile/resume', '_blank', 'noopener,noreferrer')
 }
 
 onMounted(load)
@@ -166,11 +195,44 @@ onMounted(load)
         >{{ t('res.profile.viewPublic') }} ↗</NuxtLink>
       </h1>
       <UiButton
+        v-if="canExport"
+        variant="outline"
+        :title="t('res.profile.exportPdfHint')"
+        @click="exportPdf"
+      >
+        <FileDownIcon class="mr-1.5 h-4 w-4" />
+        {{ t('res.profile.exportPdf') }}
+      </UiButton>
+      <UiButton
         :disabled="loading"
         @click="save"
       >
         {{ t('common.save') }}
       </UiButton>
+    </div>
+
+    <div class="rounded-xl border bg-card/60 p-2">
+      <div class="flex flex-wrap gap-2" role="tablist" :aria-label="t('res.profile.languageTabs')">
+        <button
+          v-for="locale in profileLocales"
+          :key="locale.code"
+          type="button"
+          role="tab"
+          :aria-selected="activeLocale === locale.code"
+          class="rounded-lg px-3 py-2 text-sm transition-colors"
+          :class="activeLocale === locale.code ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-muted hover:text-foreground'"
+          @click="selectLocale(locale.code)"
+        >
+          {{ locale.nativeName }}
+          <span
+            v-if="!form.translations[locale.code]?.displayName"
+            class="ml-1 text-[10px] opacity-75"
+          >{{ t('res.profile.incomplete') }}</span>
+        </button>
+      </div>
+      <p class="px-2 pt-2 text-xs text-muted-foreground">
+        {{ t('res.profile.languageHint', { language: profileLocales.find(locale => locale.code === activeLocale)?.nativeName ?? activeLocale }) }}
+      </p>
     </div>
 
     <!-- basic -->
@@ -237,7 +299,7 @@ onMounted(load)
           :key="section.type"
           class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
         >
-          <span class="text-sm">{{ t(`res.profile.sectionType.${section.type}`) }}</span>
+          <span class="text-sm">{{ resolveAdminDisplayLabel(t, 'profileSectionType', section.type) }}</span>
           <span class="flex items-center gap-2">
             <button
               type="button"

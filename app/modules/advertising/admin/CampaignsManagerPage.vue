@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notify, notifyError } from '~/admin/notifications/notify'
 import { formatMoney } from '~/utils/money'
 
@@ -16,10 +17,29 @@ interface Campaign {
   name: string
   status: string
   budgetMinor: number
+  spentMinor: number
   currency: string
   paidAmountMinor: number
   orderId: number | null
   paidAt: string | null
+  startAt: string | null
+  endAt: string | null
+  billingUnit: string
+  billingUnits: number
+  unitPriceMinor: number
+  materialTitle: string | null
+  materialDescription: string | null
+  materialImageMediaId: number | null
+  materialImageUrl?: string | null
+  materialUrl: string | null
+  materialSlotKey: string | null
+  contactEmail: string | null
+  reviewNote: string | null
+  impressions: number
+  clicks: number
+  ctr: number
+  creatives: Array<{ id: number, provider: string, enabled: boolean, impressions: number, clicks: number }>
+  placements: Array<{ id: number, slotKey: string, slotName: string | null, priority: number, enabled: boolean }>
 }
 
 interface Attempt {
@@ -65,8 +85,10 @@ const purchaseCurrency = ref('USD')
 const purchasing = ref(false)
 
 const purchaseEnabled = ref(true)
+const reviewEnabled = ref(true)
 const rejectFor = ref<Campaign | null>(null)
 const rejectNote = ref('')
+const detailsFor = ref<Campaign | null>(null)
 
 async function loadPurchaseEnabled(): Promise<void> {
   try {
@@ -87,6 +109,36 @@ async function togglePurchaseEnabled(): Promise<void> {
   } catch (e) {
     notifyError(t('res.adpurchase.failed'), (e as Error).message)
     purchaseEnabled.value = !purchaseEnabled.value
+  }
+}
+
+async function loadReviewEnabled(): Promise<void> {
+  try {
+    const res = await $fetch<{ enabled: boolean }>('/api/admin/advertising/review-enabled')
+    reviewEnabled.value = res.enabled
+  } catch {
+    reviewEnabled.value = true
+  }
+}
+
+async function toggleReviewEnabled(): Promise<void> {
+  try {
+    await $fetch('/api/admin/advertising/review-enabled', { method: 'PUT', body: { enabled: reviewEnabled.value } })
+    notify(t('res.adreview.settingSaved'))
+  } catch (e) {
+    notifyError(t('res.adreview.failed'), (e as Error).message)
+    reviewEnabled.value = !reviewEnabled.value
+  }
+}
+
+async function toggleCampaign(campaign: Campaign): Promise<void> {
+  const status = campaign.status === 'paused' ? 'active' : 'paused'
+  try {
+    await $fetch(`/api/admin/advertising/campaigns/${campaign.id}`, { method: 'PUT', body: { status } })
+    notify(resolveAdminDisplayLabel(t, 'campaignToggleNotice', status))
+    await loadCampaigns()
+  } catch (e) {
+    notifyError(t('res.adreview.failed'), (e as Error).message)
   }
 }
 
@@ -149,6 +201,10 @@ function openPurchase(campaign: Campaign): void {
   purchaseCurrency.value = campaign.currency || 'USD'
 }
 
+function previewCampaign(campaign: Campaign): void {
+  if (campaign.materialUrl && import.meta.client) window.open(campaign.materialUrl, '_blank', 'noopener,noreferrer')
+}
+
 async function submitPurchase(): Promise<void> {
   const campaign = purchaseFor.value
   if (!campaign) return
@@ -190,6 +246,7 @@ async function openPayments(campaign: Campaign): Promise<void> {
 onMounted(async () => {
   await loadCampaigns()
   await loadPurchaseEnabled()
+  await loadReviewEnabled()
 })
 </script>
 
@@ -205,6 +262,13 @@ onMounted(async () => {
           <UiSwitch
             :model-value="purchaseEnabled"
             @update:model-value="purchaseEnabled = $event as boolean; togglePurchaseEnabled()"
+          />
+        </label>
+        <label class="flex items-center gap-2 text-sm text-muted-foreground">
+          {{ t('res.adreview.setting') }}
+          <UiSwitch
+            :model-value="reviewEnabled"
+            @update:model-value="reviewEnabled = $event as boolean; toggleReviewEnabled()"
           />
         </label>
         <NuxtLink
@@ -234,13 +298,25 @@ onMounted(async () => {
               {{ t('res.trans.col.status') }}
             </th>
             <th class="px-4 py-3">
+              {{ t('res.adcampaigns.slot') }}
+            </th>
+            <th class="px-4 py-3">
+              {{ t('res.adcampaigns.delivery') }}
+            </th>
+            <th class="px-4 py-3">
               {{ t('res.adcampaigns.field.budget') }}
+            </th>
+            <th class="px-4 py-3">
+              {{ t('res.adpurchase.spent') }}
             </th>
             <th class="px-4 py-3">
               {{ t('res.adpurchase.paid') }}
             </th>
             <th class="px-4 py-3">
               {{ t('res.adpurchase.order') }}
+            </th>
+            <th class="px-4 py-3">
+              {{ t('res.adcampaigns.metrics') }}
             </th>
             <th class="px-4 py-3 text-right">
               {{ t('res.adcampaigns.actions') }}
@@ -252,7 +328,7 @@ onMounted(async () => {
             v-if="loading"
           >
             <td
-              colspan="6"
+              colspan="10"
               class="px-4 py-10 text-center text-muted-foreground"
             >
               {{ t('common.loading') }}
@@ -262,7 +338,7 @@ onMounted(async () => {
             v-else-if="campaigns.length === 0"
           >
             <td
-              colspan="6"
+              colspan="10"
               class="px-4 py-10 text-center text-muted-foreground"
             >
               {{ t('res.adcampaigns.empty') }}
@@ -281,11 +357,30 @@ onMounted(async () => {
                 class="text-xs font-medium"
                 :class="statusStyle[campaign.status] ?? 'text-muted-foreground'"
               >
-                {{ campaign.status }}
+                {{ resolveAdminDisplayLabel(t, 'campaignStatus', campaign.status) }}
               </span>
+            </td>
+            <td class="px-4 py-3 text-xs text-muted-foreground">
+              {{ campaign.materialSlotKey || '—' }}
+            </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+              {{ campaign.startAt ? new Date(campaign.startAt).toLocaleDateString() : '—' }}
+              <span v-if="campaign.endAt"> → {{ new Date(campaign.endAt).toLocaleDateString() }}</span>
             </td>
             <td class="px-4 py-3">
               {{ formatMoney(campaign.budgetMinor, campaign.currency) }}
+            </td>
+            <td class="min-w-40 px-4 py-3">
+              <div class="mb-1 flex justify-between text-xs text-muted-foreground">
+                <span>{{ formatMoney(campaign.spentMinor ?? 0, campaign.currency) }}</span>
+                <span>{{ campaign.budgetMinor > 0 ? Math.min(100, Math.round((campaign.spentMinor ?? 0) / campaign.budgetMinor * 100)) : 0 }}%</span>
+              </div>
+              <div class="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  class="h-full rounded-full bg-primary transition-[width]"
+                  :style="{ width: `${campaign.budgetMinor > 0 ? Math.min(100, (campaign.spentMinor ?? 0) / campaign.budgetMinor * 100) : 0}%` }"
+                />
+              </div>
             </td>
             <td class="px-4 py-3">
               <template v-if="campaign.paidAt">
@@ -305,8 +400,19 @@ onMounted(async () => {
                 —
               </template>
             </td>
+            <td class="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
+              {{ campaign.impressions }} {{ t('res.adcampaigns.impressions') }} · {{ campaign.clicks }} {{ t('res.adcampaigns.clicks') }}
+              <span class="block">{{ t('res.adcampaigns.ctr') }} {{ campaign.ctr.toFixed(2) }}</span>
+            </td>
             <td class="px-4 py-3">
               <div class="flex justify-end gap-1.5">
+                <button
+                  type="button"
+                  class="h-8 rounded-md border px-3 text-xs hover:bg-accent"
+                  @click="detailsFor = campaign"
+                >
+                  {{ t('res.adcampaigns.details') }}
+                </button>
                 <template v-if="campaign.status === 'pending_review'">
                   <button
                     type="button"
@@ -323,6 +429,14 @@ onMounted(async () => {
                     {{ t('res.adreview.reject') }}
                   </button>
                 </template>
+                <button
+                  v-if="campaign.status === 'active' || campaign.status === 'paused'"
+                  type="button"
+                  class="h-8 rounded-md border px-3 text-xs hover:bg-accent"
+                  @click="toggleCampaign(campaign)"
+                >
+                  {{ resolveAdminDisplayLabel(t, 'campaignToggleAction', campaign.status) }}
+                </button>
                 <button
                   type="button"
                   class="h-8 rounded-md border px-3 text-xs hover:bg-accent"
@@ -343,6 +457,186 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- campaign detail drawer -->
+    <div
+      v-if="detailsFor"
+      class="fixed inset-0 z-50 flex justify-end bg-black/40"
+      @click.self="detailsFor = null"
+    >
+      <aside class="flex h-full w-full max-w-xl flex-col overflow-y-auto border-l bg-background p-5">
+        <div class="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">
+              {{ t('res.adcampaigns.details') }}
+            </p>
+            <h2 class="text-xl font-semibold">
+              {{ detailsFor.name }}
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="h-8 w-8 rounded border hover:bg-accent"
+            @click="detailsFor = null"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="rounded-lg border p-3">
+            <p class="text-xs text-muted-foreground">
+              {{ t('res.adcampaigns.slot') }}
+            </p><p class="mt-1 font-medium">
+              {{ detailsFor.materialSlotKey || '—' }}
+            </p>
+          </div>
+          <div class="rounded-lg border p-3">
+            <p class="text-xs text-muted-foreground">
+              {{ t('res.adcampaigns.delivery') }}
+            </p><p class="mt-1 font-medium">
+              {{ detailsFor.startAt ? new Date(detailsFor.startAt).toLocaleDateString() : '—' }} → {{ detailsFor.endAt ? new Date(detailsFor.endAt).toLocaleDateString() : '—' }}
+            </p>
+          </div>
+          <div class="rounded-lg border p-3">
+            <p class="text-xs text-muted-foreground">
+              {{ t('res.adcampaigns.priceSnapshot') }}
+            </p><p class="mt-1 font-medium">
+              {{ formatMoney(detailsFor.unitPriceMinor || 0, detailsFor.currency) }} / {{ detailsFor.billingUnit }} × {{ detailsFor.billingUnits || 1 }}
+            </p>
+          </div>
+          <div class="rounded-lg border p-3">
+            <p class="text-xs text-muted-foreground">
+              {{ t('res.adcampaigns.metrics') }}
+            </p><p class="mt-1 font-medium">
+              {{ detailsFor.impressions }} / {{ detailsFor.clicks }} · {{ t('res.adcampaigns.ctr') }} {{ detailsFor.ctr.toFixed(2) }}
+            </p>
+          </div>
+        </div>
+        <section class="mt-5 rounded-xl border p-4">
+          <h3 class="mb-3 font-medium">
+            {{ t('res.adcampaigns.material') }}
+          </h3>
+          <p class="font-medium">
+            {{ detailsFor.materialTitle || detailsFor.name }}
+          </p>
+          <p
+            v-if="detailsFor.materialDescription"
+            class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground"
+          >
+            {{ detailsFor.materialDescription }}
+          </p>
+          <a
+            v-if="detailsFor.materialUrl"
+            :href="detailsFor.materialUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-3 block truncate text-sm text-primary hover:underline"
+          >{{ detailsFor.materialUrl }}</a>
+          <img
+            v-if="detailsFor.materialImageUrl"
+            :src="detailsFor.materialImageUrl"
+            :alt="detailsFor.materialTitle || detailsFor.name"
+            class="mt-4 max-h-56 w-full rounded-lg object-contain bg-muted/30"
+          >
+          <p
+            v-if="detailsFor.contactEmail"
+            class="mt-3 text-xs text-muted-foreground"
+          >
+            {{ detailsFor.contactEmail }}
+          </p>
+          <p
+            v-if="detailsFor.reviewNote"
+            class="mt-3 rounded-md bg-destructive/10 p-2 text-sm text-destructive"
+          >
+            {{ detailsFor.reviewNote }}
+          </p>
+        </section>
+        <section class="mt-4 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-xl border p-4">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <h3 class="font-medium">
+                {{ t('res.adcampaigns.creatives') }}
+              </h3>
+              <NuxtLink
+                to="/admin/advertising/creatives"
+                class="text-xs text-primary hover:underline"
+              >
+                {{ t('res.adcampaigns.manage') }}
+              </NuxtLink>
+            </div>
+            <p
+              v-if="detailsFor.creatives.length === 0"
+              class="text-sm text-muted-foreground"
+            >
+              {{ t('res.adcampaigns.noCreatives') }}
+            </p>
+            <ul
+              v-else
+              class="space-y-2 text-sm"
+            >
+              <li
+                v-for="creative in detailsFor.creatives"
+                :key="creative.id"
+                class="flex items-center justify-between gap-2"
+              >
+                <span>#{{ creative.id }} · {{ creative.provider }}</span>
+                <span class="text-xs text-muted-foreground">{{ creative.impressions }} / {{ creative.clicks }} · {{ creative.enabled ? t('res.sidebar.enabled') : t('res.sidebar.disabled') }}</span>
+              </li>
+            </ul>
+          </div>
+          <div class="rounded-xl border p-4">
+            <div class="mb-3 flex items-center justify-between gap-2">
+              <h3 class="font-medium">
+                {{ t('res.adcampaigns.placements') }}
+              </h3>
+              <NuxtLink
+                to="/admin/advertising/placements"
+                class="text-xs text-primary hover:underline"
+              >
+                {{ t('res.adcampaigns.manage') }}
+              </NuxtLink>
+            </div>
+            <p
+              v-if="detailsFor.placements.length === 0"
+              class="text-sm text-muted-foreground"
+            >
+              {{ t('res.adcampaigns.noPlacements') }}
+            </p>
+            <ul
+              v-else
+              class="space-y-2 text-sm"
+            >
+              <li
+                v-for="placement in detailsFor.placements"
+                :key="placement.id"
+                class="flex items-center justify-between gap-2"
+              >
+                <span>{{ placement.slotName || placement.slotKey }}</span>
+                <span class="text-xs text-muted-foreground">{{ placement.enabled ? t('res.sidebar.enabled') : t('res.sidebar.disabled') }}</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button
+            v-if="detailsFor.materialUrl"
+            type="button"
+            class="h-9 rounded-md border px-4 text-sm hover:bg-accent"
+            @click="previewCampaign(detailsFor)"
+          >
+            {{ t('res.adcampaigns.preview') }}
+          </button>
+          <button
+            v-if="detailsFor.status === 'active' || detailsFor.status === 'paused'"
+            type="button"
+            class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            @click="toggleCampaign(detailsFor); detailsFor = null"
+          >
+            {{ resolveAdminDisplayLabel(t, 'campaignToggleAction', detailsFor.status) }}
+          </button>
+        </div>
+      </aside>
     </div>
 
     <!-- purchase dialog -->

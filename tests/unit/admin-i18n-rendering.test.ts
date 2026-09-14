@@ -6,6 +6,7 @@ import {
   resolveAdminDisplayLabel
 } from '../../app/admin/i18n/display-label'
 import { useI18n } from '../../app/admin/i18n'
+import { auditI18nUsage } from '../../scripts/audit-i18n-usage'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -37,14 +38,17 @@ describe('admin i18n rendering', () => {
   })
 
   it('publishes finite allowlists for every dynamic translation domain', () => {
+    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST['`res.aichat.source_${type}`']).toEqual(expect.arrayContaining([
+      'res.aichat.source_post',
+      'res.aichat.source_page',
+      'res.aichat.source_product'
+    ]))
+    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST['`res.aichat.source_${type}`']).not.toContain('res.aichat.source_${type}')
+    expect(Object.keys(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST)).toContain('`editor.mode.${m}`')
     expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST.key).toEqual(expect.arrayContaining([
       'res.adcampaigns.status.pending_review',
-      'res.aichat.source_post',
-      'res.media.usage.post_featured',
-      'editor.mode.rich'
+      'res.media.usage.post_featured'
     ]))
-    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST.key).not.toContain('res.aichat.source_${type}')
-    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST.key.length).toBeGreaterThan(40)
     expect(ADMIN_I18N_HARDCODED_COPY_ALLOWLIST).toEqual(expect.arrayContaining([
       'USD',
       'OpenAI',
@@ -78,5 +82,14 @@ describe('admin i18n rendering', () => {
     expect(zh.every(value => value && !value.includes('.'))).toBe(true)
     expect(en.every(value => value && !value.includes('.'))).toBe(true)
     expect(zh).not.toEqual(en)
+  })
+
+  it('runs the repository audit with zero findings', async () => {
+    const report = await auditI18nUsage({
+      dynamicKeyAllowlist: ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST,
+      hardcodedCopyAllowlist: ADMIN_I18N_HARDCODED_COPY_ALLOWLIST
+    })
+
+    expect(report.findings).toHaveLength(0)
   })
 })

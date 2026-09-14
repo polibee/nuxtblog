@@ -31,3 +31,9 @@ Task 5 审计剩余项为 0。lint/build 的 warning 不属于 i18n findings，�
 ## 工作区说明
 
 提交只应包含本报告、共享 resolver、审计器、locale bundle、Task5 测试和本任务涉及的后台调用点；工作区其余未提交改动属于前序任务，必须保留。
+
+## 修复轮次 1
+
+- 动态 allowlist 改为按源码首参数表达式查找的显式映射；每个表达式只允许其声明的有限 locale key，`key` 仅保留给 resolver 内部已经受控的映射结果。
+- 增加 fixture 回归，逐项执行受控动态表达式，并断言 `dynamicKeyRisks=[]`、`findings=[]`；仓库级测试直接断言审计 `findings=0`。
+- 补齐 `res.aichat.scope_advertising`，技术常量继续保留在明确 allowlist 中。

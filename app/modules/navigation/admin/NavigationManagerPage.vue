@@ -3,6 +3,7 @@ import NavigationItemPicker from './NavigationItemPicker.vue'
 import NavigationTree from './NavigationTree.vue'
 import type { EditorItem } from './NavigationTreeItem.vue'
 import type { NavigationTreeInput } from '#shared/schemas/navigation'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 /* WordPress-style navigation manager (spec §4). Location + locale
    selects load the matching variant; all edits are local until the
@@ -151,6 +152,7 @@ async function save(): Promise<void> {
       body: payload
     })
     status.value = 'saved'
+    if (import.meta.client) localStorage.setItem('public-navigation-updated', String(Date.now()))
     notify(t('res.navigation.saved'))
   } catch (e: unknown) {
     status.value = 'error'
@@ -162,8 +164,8 @@ function toPayload(items: EditorItem[]): NavigationTreeInput['items'] {
   return items.map(item => ({
     label: item.label,
     type: item.type,
-    targetEntityType: item.type === 'custom' ? undefined : item.targetEntityType,
-    targetEntityId: item.type === 'custom' ? undefined : item.targetEntityId,
+    targetEntityType: item.type === 'custom' || item.type === 'group' ? undefined : item.targetEntityType,
+    targetEntityId: item.type === 'custom' || item.type === 'group' ? undefined : item.targetEntityId,
     customUrl: item.type === 'custom' ? item.customUrl : undefined,
     titleAttribute: item.titleAttribute || undefined,
     openInNewTab: item.openInNewTab || undefined,
@@ -182,6 +184,18 @@ function markDirty(): void {
 /* picker: append items at the bottom of the root level */
 function addItems(items: EditorItem[]): void {
   tree.value.push(...items)
+  markDirty()
+}
+
+function addFooterColumn(): void {
+  tree.value.push({
+    uid: uid(),
+    label: t('res.navigation.footer.newColumn'),
+    type: 'group',
+    enabled: true,
+    editing: true,
+    children: []
+  })
   markDirty()
 }
 
@@ -321,7 +335,7 @@ watch([selectedLocation, selectedLocale], loadVariant)
             'text-destructive': status === 'error'
           }"
         >
-          {{ t(`res.navigation.status.${status}`) }}
+          {{ resolveAdminDisplayLabel(t, 'navigationStatus', status) }}
         </span>
       </div>
     </div>
@@ -366,9 +380,19 @@ watch([selectedLocation, selectedLocale], loadVariant)
       </UiCard>
 
       <UiCard class="p-4">
-        <h2 class="mb-3 text-sm font-semibold">
-          {{ t('res.navigation.tree.title') }}
-        </h2>
+        <div class="mb-3 flex items-center justify-between gap-2">
+          <h2 class="text-sm font-semibold">
+            {{ t('res.navigation.tree.title') }}
+          </h2>
+          <UiButton
+            v-if="selectedLocation === 'footer'"
+            size="sm"
+            variant="outline"
+            @click="addFooterColumn"
+          >
+            {{ t('res.navigation.footer.addColumn') }}
+          </UiButton>
+        </div>
         <NavigationTree
           :items="tree"
           :dragged-uid="draggedUid"

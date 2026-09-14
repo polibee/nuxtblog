@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { channelDeleteErrorMessage, channelDeleteMessage } from '#shared/utils/notification-channel'
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notify, notifyError } from '~/admin/notifications/notify'
 import { PlusIcon, PencilIcon, Trash2Icon, SendIcon, SearchIcon } from 'lucide-vue-next'
 
@@ -125,11 +127,14 @@ async function toggleChannel(channel: Channel): Promise<void> {
 }
 
 async function deleteChannel(channel: Channel): Promise<void> {
+  if (!window.confirm(t('res.notifications.channelDeleteConfirm'))) return
   try {
-    await $fetch(`/api/admin/notifications/channels/${channel.id}`, { method: 'DELETE' })
+    const result = await $fetch<{ ok: boolean, action: 'deleted' | 'disabled' }>(`/api/admin/notifications/channels/${channel.id}`, { method: 'DELETE' })
+    notify(channelDeleteMessage(result.action))
     await load()
   } catch (e) {
-    notifyError(t('res.notifications.saveFailed'), (e as Error).message)
+    const error = e as { statusCode?: number, statusMessage?: string, message?: string, data?: { statusMessage?: string } }
+    notifyError(t('res.notifications.deleteFailed'), channelDeleteErrorMessage(error.statusCode, error.data?.statusMessage ?? error.statusMessage ?? error.message ?? ''))
   }
 }
 
@@ -245,7 +250,7 @@ onMounted(load)
           :class="tab === name ? 'bg-accent font-medium' : 'text-muted-foreground'"
           @click="tab = name as typeof tab"
         >
-          {{ t(`res.notifications.tab_${name}`) }}
+          {{ resolveAdminDisplayLabel(t, 'notificationTab', name) }}
           <span
             v-if="name === 'channels'"
             class="ml-1 text-xs text-muted-foreground"
@@ -441,7 +446,7 @@ onMounted(load)
               class="px-4 py-3"
               :class="statusClass(delivery.status)"
             >
-              {{ t(`res.notifications.dl_${delivery.status}`) }}
+              {{ resolveAdminDisplayLabel(t, 'notificationDeliveryStatus', delivery.status) }}
               <span class="ml-1 text-xs text-muted-foreground">×{{ delivery.attemptCount }}</span>
             </td>
             <td class="px-4 py-3">

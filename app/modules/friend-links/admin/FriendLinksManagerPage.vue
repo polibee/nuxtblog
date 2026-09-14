@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notify, notifyError } from '~/admin/notifications/notify'
 import { RefreshCwIcon, BanIcon, Trash2Icon, PencilIcon } from 'lucide-vue-next'
 
@@ -160,6 +161,32 @@ function backlinkBadgeClass(status: string): string {
 
 <template>
   <div class="space-y-5">
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div class="rounded-2xl border bg-card p-4">
+        <p class="text-xs text-muted-foreground">
+          {{ t('res.friendlinks.statActive') }}
+        </p>
+        <p class="mt-1 text-2xl font-semibold">
+          {{ links.filter(link => link.status === 'active').length }}
+        </p>
+      </div>
+      <div class="rounded-2xl border bg-card p-4">
+        <p class="text-xs text-muted-foreground">
+          {{ t('res.friendlinks.statVerified') }}
+        </p>
+        <p class="mt-1 text-2xl font-semibold">
+          {{ links.filter(link => link.backlinkStatus === 'found').length }}
+        </p>
+      </div>
+      <div class="rounded-2xl border bg-card p-4">
+        <p class="text-xs text-muted-foreground">
+          {{ t('res.friendlinks.statPending') }}
+        </p>
+        <p class="mt-1 text-2xl font-semibold">
+          {{ submissions.length }}
+        </p>
+      </div>
+    </div>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex gap-1 rounded-lg border p-1 text-sm">
         <button
@@ -206,9 +233,59 @@ function backlinkBadgeClass(status: string): string {
     <!-- links tab (§38/39) -->
     <div
       v-if="tab === 'links'"
-      class="overflow-x-auto rounded-xl border"
+      class="overflow-x-auto rounded-2xl border"
     >
-      <table class="w-full text-sm">
+      <div class="grid gap-3 p-3 md:hidden">
+        <article
+          v-for="link in links"
+          :key="`card-${link.id}`"
+          class="rounded-xl border bg-card p-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate font-medium">
+                {{ link.name }} <span
+                  v-if="link.featured"
+                  class="text-primary"
+                >★</span>
+              </p>
+              <p class="truncate text-xs text-muted-foreground">
+                {{ link.domain }}
+              </p>
+            </div>
+            <span
+              class="shrink-0 text-xs"
+              :class="backlinkBadgeClass(link.backlinkStatus)"
+            >{{ resolveAdminDisplayLabel(t, 'friendBacklinkStatus', link.backlinkStatus) }}</span>
+          </div>
+          <p class="mt-3 line-clamp-2 text-sm text-muted-foreground">
+            {{ link.description || '—' }}
+          </p>
+          <div class="mt-4 flex justify-end gap-2">
+            <button
+              type="button"
+              class="h-8 rounded-md border px-3 text-xs"
+              @click="openEdit(link)"
+            >
+              {{ t('common.edit') }}
+            </button>
+            <button
+              type="button"
+              class="h-8 rounded-md border border-destructive/40 px-3 text-xs text-destructive"
+              @click="removeLink(link)"
+            >
+              {{ t('common.delete') }}
+            </button>
+          </div>
+        </article>
+        <p
+          v-if="links.length === 0"
+          class="p-8 text-center text-sm text-muted-foreground"
+        >
+          {{ t('res.friendlinks.noLinks') }}
+        </p>
+      </div>
+      <table class="hidden w-full text-sm md:table">
         <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-4 py-2.5">
@@ -249,7 +326,7 @@ function backlinkBadgeClass(status: string): string {
             </td>
             <td class="px-4 py-3">
               <span :class="backlinkBadgeClass(link.backlinkStatus)">
-                {{ t(`res.friendlinks.backlink_${link.backlinkStatus}`) }}
+                {{ resolveAdminDisplayLabel(t, 'friendBacklinkStatus', link.backlinkStatus) }}
                 <span v-if="link.backlinkFailureCount > 0">×{{ link.backlinkFailureCount }}</span>
               </span>
             </td>
@@ -346,10 +423,10 @@ function backlinkBadgeClass(status: string): string {
         <!-- §42: automatic checks summary -->
         <div class="mt-2 flex flex-wrap gap-3 text-xs">
           <span :class="submission.siteStatus === 'online' ? 'text-primary' : 'text-muted-foreground'">
-            {{ t('res.friendlinks.siteCheck') }}: {{ t(`res.friendlinks.site_${submission.siteStatus}`) }}{{ submission.siteHttpStatus ? ` (${submission.siteHttpStatus})` : '' }}
+            {{ t('res.friendlinks.siteCheck') }}: {{ resolveAdminDisplayLabel(t, 'friendSiteStatus', submission.siteStatus) }}{{ submission.siteHttpStatus ? ` (${submission.siteHttpStatus})` : '' }}
           </span>
           <span :class="backlinkBadgeClass(submission.backlinkStatus)">
-            {{ t('res.friendlinks.backlinkCheck') }}: {{ t(`res.friendlinks.backlink_${submission.backlinkStatus}`) }}
+            {{ t('res.friendlinks.backlinkCheck') }}: {{ resolveAdminDisplayLabel(t, 'friendBacklinkStatus', submission.backlinkStatus) }}
           </span>
           <span
             v-if="submission.backlinkFoundUrl"
