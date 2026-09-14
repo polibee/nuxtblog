@@ -1,7 +1,7 @@
 import { initBlogDb } from '../repositories/db.server'
 import { initPostgresBlogDb } from '../repositories/db-postgres.server'
 import { ensureDefaultSidebarCard } from '../modules/sidebar/sidebar-card.service'
-import { seedInitialAdmin } from '../modules/users/user.service'
+import { seedInitialAdmin, seedDemoAccount } from '../modules/users/user.service'
 import { seedDefaultSettings, seedLocalizedSettings } from '../modules/settings/settings.runtime.service'
 import { ensureDefaultNavigations } from '../modules/navigation/navigation.service'
 import { seedDefaultGateways } from '../modules/payments/gateway-manager'
@@ -33,6 +33,7 @@ export default defineNitroPlugin(async () => {
   if (await initBlogDb()) {
     const seeds = [
       ['admin', seedInitialAdmin],
+      ['demo account', seedDemoAccount],
       ['settings', seedDefaultSettings],
       ['localized settings', seedLocalizedSettings],
       ['navigations', ensureDefaultNavigations],

@@ -21,6 +21,7 @@ import {
 } from '../../repositories/user.runtime.repository'
 import { hashPassword } from '../../utils/password'
 import { grantBadge, revokeBadge } from '../../repositories/badge.repository'
+import { demoAccountEmail, isDemoAccountEnabled } from '../../utils/demo-account'
 
 /* User domain service (P01): validation, uniqueness, password
    hashing and the "never remove the last active admin" invariant. */
@@ -132,4 +133,21 @@ export async function seedInitialAdmin(): Promise<void> {
     passwordHash: await hashPassword(password)
   })
   console.log(`[blog-db] seeded initial admin ${email}`)
+}
+
+/** Seed the public demo account without changing an existing account. */
+export async function seedDemoAccount(): Promise<void> {
+  if (!isDomainDbReady() || !isDemoAccountEnabled()) return
+  const email = demoAccountEmail()
+  if (await emailExists(email)) return
+  const password = process.env.DEMO_ACCOUNT_PASSWORD ?? 'demo123456'
+  const name = process.env.DEMO_ACCOUNT_NAME ?? 'Demo Visitor'
+  await insertUser({
+    email,
+    name,
+    role: 'viewer',
+    status: 'active',
+    passwordHash: await hashPassword(password)
+  })
+  console.log(`[blog-db] seeded read-only demo account ${email}`)
 }
