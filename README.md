@@ -26,7 +26,7 @@
 - **Tiptap 富文本** — 表格/图片/任务列表/对齐/颜色/上下标，服务端白名单清洗防 XSS
 - **Autosave** — 按用户防抖草稿 + 恢复横幅
 - **邮件服务** — SMTP / 阿里云 DirectMail / Resend 三驱动 + 测试发送
-- **数据库与缓存** — PostgreSQL / MySQL / Supabase 持久化适配器 + Redis 缓存（会话/令牌/草稿），全参数绑定，配置面板含连接测试
+- **数据库与缓存** — 当前生产建议使用已验证的 MySQL 8+；PostgreSQL / Supabase 适配仍在迁移中，Redis 可用于会话/令牌/草稿缓存
 - **页面缓存与监控** — 公开端点响应缓存，事件驱动失效，命中率图表与一键清空
 - **双语界面** — 中文/English 一致切换，零混排
 
@@ -48,11 +48,13 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-演示账号（密码均为 `password`）：
+生产部署请参阅 [PM2 / Docker 部署手册](docs/deployment/pm2-docker.zh-CN.md)。当前建议使用 MySQL 8+；部署前请配置私有 `.env`，不要提交密码和密钥。
 
-- `admin@demo.dev` — 全部权限
-- `editor@demo.dev` — 内容/媒体/内容类型管理，用户与订单只读
-- `viewer@demo.dev` — 全局只读
+演示账号（仅隔离演示站，默认只读）：
+
+- `demo@example.com` — Viewer，只读查看前台和后台数据
+- 通过 `DEMO_ACCOUNT_ENABLED=true` 启用，并使用 `DEMO_ACCOUNT_PASSWORD` 设置密码
+- 生产站请保持演示账号关闭，不要连接真实业务数据库
 
 ## 质量基线
 
@@ -74,6 +76,8 @@ npm run dev        # http://localhost:3000
 | [工程审计报告](docs/工程审计报告.md) | 维护者 | 审计发现、验证矩阵、生产就绪正式结论 |
 | [开发文档](docs/开发文档.md) | 设计溯源 | 原始设计蓝本 |
 | [通用架构设计与开发约束](docs/architecture/通用架构设计与开发约束.md) | 维护者/开发者 | 模块边界、Repository context、Alias、i18n、安全、异步和质量闸门 |
+| [PM2 / Docker 部署手册](docs/deployment/pm2-docker.zh-CN.md) / [English](docs/deployment/pm2-docker.en.md) | 部署人员 | PM2、Docker Compose、MySQL、环境变量和上线检查 |
+| [测试数据清理手册](docs/guides/demo-data-cleanup.zh-CN.md) / [English](docs/guides/demo-data-cleanup.en.md) | 管理员/部署人员 | 一键清理测试数据、范围、备份和数据库兼容说明 |
 
 ## License
 

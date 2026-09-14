@@ -26,7 +26,7 @@ Not a template — a framework: declare resources, and full CRUD panels are gene
 - **Rich text** — full Tiptap editor (tables, images, task lists, align, colors, sub/superscript) with server-side HTML sanitization
 - **Autosave** — debounced per-user drafts with restore banner
 - **Mail** — SMTP / Aliyun DirectMail / Resend drivers with test sending
-- **Database & cache** — PostgreSQL / MySQL / Supabase persistence adapters + Redis (sessions/tokens/drafts), fully parameterized SQL, config panel with connection testing
+- **Database & cache** — MySQL 8+ is currently recommended for production; PostgreSQL / Supabase migration is still in progress, with optional Redis for sessions/tokens/drafts
 - **Page cache & monitoring** — public-endpoint response caching with event-driven
   invalidation, hit-rate charts and one-click purge
 - **i18n** — zh-CN / English, zero mixed-language UI
@@ -42,13 +42,15 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-Demo accounts (password: `password`):
+See the [PM2 / Docker deployment guide](docs/deployment/pm2-docker.en.md) for production deployment. MySQL 8+ is currently recommended. Keep `.env` private and never commit passwords or keys.
+
+Demo account (isolated demo site only, read-only):
 
 | Account | Role | Capabilities |
 |---|---|---|
-| `admin@demo.dev` | Administrator | Full access |
-| `editor@demo.dev` | Editor | Content/media/content-types management; read-only users & orders |
-| `viewer@demo.dev` | Viewer | Read-only everywhere |
+| `demo@example.com` | Viewer | Read-only access to the public site and admin data |
+
+Enable it explicitly with `DEMO_ACCOUNT_ENABLED=true` and set `DEMO_ACCOUNT_PASSWORD`. Keep it disabled on a real site and never connect a public demo to production data.
 
 ## Quality Baseline
 
@@ -68,6 +70,8 @@ Demo accounts (password: `password`):
 | [规划文档](docs/规划文档.md) (zh) | Maintainers | V0.1→V0.4 roadmap with per-batch status |
 | [开发指南](docs/开发指南.md) (zh) | Developers | Concepts, auto-import inventory, component list, module walkthrough, API reference |
 | [工程审计报告](docs/工程审计报告.md) (zh) | Maintainers | Audit findings, verification matrix, production-readiness verdict |
+| [PM2 / Docker deployment](docs/deployment/pm2-docker.en.md) (English) | Operators | PM2, Docker Compose, MySQL, environment variables, release checks |
+| [Test data cleanup](docs/guides/demo-data-cleanup.en.md) (English) | Admins/operators | One-click cleanup scope, backups, and database compatibility |
 
 ## License
 
