@@ -4,6 +4,16 @@
 
 ## Public pages
 
+### Example screenshots
+
+| Home | Article detail | Public profile |
+| --- | --- | --- |
+| ![English home](screenshots/public-home-en.png) | ![English article detail](screenshots/post-detail-en.png) | ![English profile](screenshots/profile-en.png) |
+
+| Friends | Advertising purchase | Store |
+| --- | --- | --- |
+| ![English friends](screenshots/friends-en.png) | ![English advertising](screenshots/advertising-en.png) | ![English store](screenshots/store-en.png) |
+
 | Feature | Chinese page | English page | Capture focus |
 | --- | --- | --- | --- |
 | Home, post cards, layout and pagination | [Chinese home](http://127.0.0.1:3001/) | [English home](http://127.0.0.1:3001/en) | Header locale switcher, list/grid, views/comments, pagination, author sidebar and footer groups |
@@ -15,6 +25,16 @@
 | Sitemap | [Chinese sitemap](http://127.0.0.1:3001/sitemap) | [English sitemap](http://127.0.0.1:3001/en/sitemap) | Pages, posts, taxonomy and public resource discovery |
 
 ## Admin pages
+
+### Admin example screenshots
+
+| Dashboard | Posts | Pages | Navigation |
+| --- | --- | --- | --- |
+| ![English dashboard](screenshots/admin-dashboard-en.png) | ![English posts](screenshots/admin-posts-en.png) | ![English pages](screenshots/admin-pages-en.png) | ![English navigation](screenshots/admin-navigations-en.png) |
+
+| Comments | Campaigns | Settings | AI assistant |
+| --- | --- | --- | --- |
+| ![English comments](screenshots/admin-comments-en.png) | ![English campaigns](screenshots/admin-advertising-en.png) | ![English settings](screenshots/admin-settings-en.png) | ![English AI assistant](screenshots/admin-ai-en.png) |
 
 Capture these pages after administrator login. Admin captures must cover lists, forms, details, permissions and error feedback without showing passwords, API keys or connection strings.
 
@@ -39,4 +59,3 @@ Capture these pages after administrator login. Admin captures must cover lists, 
 2. The Chinese guide references Chinese page entries and this guide references English entries. For admin pages use the visible Language control instead of guessing locale query parameters.
 3. Remove test dialogs and sensitive fields before capture. Committed image files belong in `docs/screenshots/` with stable names such as `public-home-zh.png` and `admin-dashboard-en.png`.
 4. The current database baseline is Laragon MySQL. PostgreSQL/Supabase remains paused per the project audit and is not claimed as verified by this gallery.
-

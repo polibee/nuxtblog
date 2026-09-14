@@ -4,6 +4,16 @@
 
 ## 前台页面
 
+### 示例截图
+
+| 首页 | 文章详情 | 公开个人主页 |
+| --- | --- | --- |
+| ![中文首页](screenshots/public-home-zh.png) | ![中文文章详情](screenshots/post-detail-zh.png) | ![中文个人主页](screenshots/profile-zh.png) |
+
+| 友链 | 广告购买 | 商城 |
+| --- | --- | --- |
+| ![中文友链](screenshots/friends-zh.png) | ![中文广告购买](screenshots/advertising-zh.png) | ![中文商城](screenshots/store-zh.png) |
+
 | 功能 | 中文页面 | 英文页面 | 截图验收重点 |
 | --- | --- | --- | --- |
 | 首页、文章卡片、布局切换、分页 | [中文首页](http://127.0.0.1:3001/) | [English home](http://127.0.0.1:3001/en) | 页眉语言切换、文章列表/网格、浏览量与评论数、分页、作者侧栏卡片、页脚分组 |
@@ -15,6 +25,16 @@
 | 站点地图 | [中文站点地图](http://127.0.0.1:3001/sitemap) | [English sitemap](http://127.0.0.1:3001/en/sitemap) | 页面、文章、分类、标签和公开资源发现 |
 
 ## 后台管理页面
+
+### 后台示例截图
+
+| 仪表盘 | 文章管理 | 页面管理 | 导航管理 |
+| --- | --- | --- | --- |
+| ![中文仪表盘](screenshots/admin-dashboard-zh.png) | ![中文文章管理](screenshots/admin-posts-zh.png) | ![中文页面管理](screenshots/admin-pages-zh.png) | ![中文导航管理](screenshots/admin-navigations-zh.png) |
+
+| 评论管理 | 广告计划 | 设置 | AI 助手 |
+| --- | --- | --- | --- |
+| ![中文评论管理](screenshots/admin-comments-zh.png) | ![中文广告计划](screenshots/admin-advertising-zh.png) | ![中文设置](screenshots/admin-settings-zh.png) | ![中文 AI 助手](screenshots/admin-ai-zh.png) |
 
 管理员登录后采集以下页面。后台截图应覆盖列表、表单、详情、权限和错误反馈，而不截图密码输入框、API key 或数据库连接串。
 
@@ -39,4 +59,3 @@
 2. 中文文档只引用中文页面入口，英文文档只引用英文页面入口；管理端通过右上角 Language 控件切换，不通过猜测 URL 参数切换。
 3. 采集前先清除测试弹窗和敏感字段；截图文件若提交，统一放入 `docs/screenshots/`，文件名使用 `public-home-zh.png`、`admin-dashboard-en.png` 这类稳定命名。
 4. 当前数据库兼容基线是 Laragon MySQL；PostgreSQL/Supabase 仍按项目审计结论暂缓，不在截图中宣称已验证。
-
