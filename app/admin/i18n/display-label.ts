@@ -220,7 +220,7 @@ export const ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST: AdminI18nDynamicKeyAllowlist = {
   '`res.notifications.tab_${name}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.notificationTab),
   '`res.notifications.dl_${delivery.status}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.notificationDeliveryStatus),
   '`res.slider.status.${statusOf(item)}`': Object.values(ADMIN_DISPLAY_LABEL_KEYS.sliderStatus),
-  key: dynamicKeys
+  'key': dynamicKeys
 }
 
 /** Technical identifiers intentionally remain unchanged in admin templates. */
