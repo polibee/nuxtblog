@@ -19,6 +19,18 @@ bash scripts/deploy-pm2.sh
 
 The script runs `npm ci`, builds the production output, reloads PM2, and saves the process list. The existing MySQL Drizzle migration runner runs at application startup; back up the database before the first deployment.
 
+### A VPS deployment is not zero-touch
+
+The application does not create the VPS MySQL instance, database users, DNS records, TLS certificates, or administrator credentials automatically. A first production deployment must at least:
+
+1. Install and start MySQL 8+ on the VPS, then create a dedicated database and least-privilege user.
+2. Deploy the code, copy `.env.example` to a private `.env`, and configure `DB_DRIVER=mysql`, database credentials, `BLOG_ADMIN_*`, and production secrets.
+3. Run `npm ci` and `npm run build`. The app runs the MySQL Drizzle migrations at startup; inspect logs and confirm they completed successfully.
+4. Sign in to the admin panel and verify site settings, permissions, mail/Webhooks, media storage, and scheduled jobs.
+5. Configure a reverse proxy, HTTPS, backups, and firewall rules, then run a health check and the core-flow regression checks.
+
+For later releases, pull the version, update `.env`, run the deployment script, and inspect migration logs. Whenever the schema changes, the matching migration must still run; replacing only the build output is not sufficient.
+
 Useful commands:
 
 ```bash

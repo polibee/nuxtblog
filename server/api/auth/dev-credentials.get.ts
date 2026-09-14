@@ -1,11 +1,6 @@
-/**
- * GET /api/auth/dev-credentials — DEVELOPMENT ONLY convenience.
- * Returns the seed admin credentials (from BLOG_ADMIN_* env) so the
- * login page can display/fill them during development. Disabled in
- * production builds (404); credentials in the DB are scrypt hashes.
- */
+/** Legacy admin-only hint endpoint. Use /api/auth/public-credentials for the login page. */
 export default defineEventHandler(() => {
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.BLOG_ADMIN_PUBLIC !== 'true') {
     throw createError({ statusCode: 404, statusMessage: 'Not found' })
   }
   return {

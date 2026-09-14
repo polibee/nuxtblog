@@ -48,7 +48,7 @@
     "lucide-vue-next": "^0.539.0",
     "marked": "^18.0.12",
     "mysql2": "^3.24.2",
-    "nodemailer": "^9.0.6",
+    "nodemailer": "^9.1.1",
     "nuxt": "^4.5.0",
     "pg": "^8.23.0",
     "pinia": "^3.0.3",

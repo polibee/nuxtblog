@@ -29,22 +29,27 @@ async function submit(): Promise<void> {
   }
 }
 
-/* dev-only seed credentials hint (endpoint 404s in production builds) */
-const devCredentials = ref<{ email: string, password: string } | null>(null)
+interface PublicLoginCredential {
+  kind: 'admin' | 'demo'
+  email: string
+  password: string
+  readOnly?: boolean
+}
+
+const publicCredentials = ref<PublicLoginCredential[]>([])
 
 onMounted(async () => {
   try {
-    const fetchJson = $fetch as unknown as (url: string) => Promise<{ email: string, password: string }>
-    devCredentials.value = await fetchJson('/api/auth/dev-credentials')
+    const response = await $fetch<{ credentials: PublicLoginCredential[] }>('/api/auth/public-credentials')
+    publicCredentials.value = response.credentials
   } catch {
-    devCredentials.value = null
+    publicCredentials.value = []
   }
 })
 
-function fillDev(): void {
-  if (!devCredentials.value) return
-  email.value = devCredentials.value.email
-  password.value = devCredentials.value.password
+function fillCredential(credential: PublicLoginCredential): void {
+  email.value = credential.email
+  password.value = credential.password
 }
 </script>
 
@@ -140,20 +145,31 @@ function fillDev(): void {
       </UiCard>
 
       <UiCard
-        v-if="devCredentials"
+        v-if="publicCredentials.length"
         class="space-y-2 border-dashed p-4"
       >
         <p class="text-xs font-medium text-muted-foreground">
-          {{ t('auth.devHint') }}
+          {{ t('auth.publicCredentialsHint') }}
         </p>
-        <div class="grid gap-1 text-xs">
+        <div class="grid gap-2 text-xs">
           <button
-            class="flex justify-between rounded px-2 py-1 hover:bg-accent"
+            v-for="credential in publicCredentials"
+            :key="credential.kind"
+            class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left hover:bg-accent"
             type="button"
-            @click="fillDev"
+            @click="fillCredential(credential)"
           >
-            <span>{{ devCredentials.email }}</span>
-            <span class="font-mono text-muted-foreground">{{ devCredentials.password }}</span>
+            <span>
+              <span class="block font-medium">{{ credential.kind === 'demo' ? t('auth.demoAccount') : t('auth.adminAccount') }}</span>
+              <span class="text-muted-foreground">{{ credential.email }}</span>
+            </span>
+            <span class="text-right">
+              <span class="block font-mono text-muted-foreground">{{ credential.password }}</span>
+              <span
+                v-if="credential.readOnly"
+                class="text-[10px] text-muted-foreground"
+              >{{ t('auth.readOnly') }}</span>
+            </span>
           </button>
         </div>
       </UiCard>

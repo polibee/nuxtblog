@@ -19,6 +19,18 @@ bash scripts/deploy-pm2.sh
 
 脚本会执行 `npm ci`、生产构建、`pm2 startOrReload` 和 `pm2 save`。应用启动时会执行现有 MySQL Drizzle migration runner；首次上线前请先备份数据库。
 
+### VPS 首次上线不是零操作
+
+部署程序不会自动创建 VPS 上的 MySQL 实例、数据库账号、域名 DNS、HTTPS 证书或管理员凭据。首次上线至少需要：
+
+1. 在 VPS 安装并启动 MySQL 8+，创建专用数据库和最小权限账号。
+2. 将代码部署到服务器，复制 `.env.example` 为私有 `.env`，填写 `DB_DRIVER=mysql`、数据库连接信息、`BLOG_ADMIN_*` 和生产密钥。
+3. 执行 `npm ci` 和 `npm run build`；应用启动时会执行 MySQL Drizzle migration，首次启动后检查日志确认迁移完成。
+4. 使用管理员账号登录后台，检查站点设置、权限、邮件/Webhook、媒体存储和定时任务。
+5. 配置反向代理、HTTPS、备份策略和防火墙，再做一次健康检查与核心流程回归。
+
+后续同一版本发布通常只需拉取代码、更新 `.env`、执行部署脚本并检查迁移日志；数据库 schema 发生变化时仍必须执行对应迁移，不能只替换构建产物。
+
 常用命令：
 
 ```bash

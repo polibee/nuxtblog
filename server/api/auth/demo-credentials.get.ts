@@ -1,13 +1,10 @@
-import { demoAccountEmail, isDemoAccountEnabled } from '../../utils/demo-account'
+import { getPublicLoginCredentials } from '../../utils/login-credentials'
 
 /** Public demo login hint; expose it only when explicitly enabled. */
 export default defineEventHandler(() => {
-  if (!isDemoAccountEnabled() || process.env.DEMO_ACCOUNT_PUBLIC !== 'true') {
+  const credential = getPublicLoginCredentials().find(item => item.kind === 'demo')
+  if (!credential) {
     throw createError({ statusCode: 404, statusMessage: 'Not found' })
   }
-  return {
-    email: demoAccountEmail(),
-    password: process.env.DEMO_ACCOUNT_PASSWORD ?? 'demo123456',
-    readOnly: true
-  }
+  return credential
 })

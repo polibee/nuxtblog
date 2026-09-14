@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Trash2Icon } from 'lucide-vue-next'
 import { useI18n } from '~/admin/i18n'
 import { notify, notifyError } from '~/admin/notifications/notify'
 
@@ -9,6 +10,8 @@ import { notify, notifyError } from '~/admin/notifications/notify'
 defineProps<{ resource: { name: string } }>()
 
 const { t } = useI18n()
+const allow = useCan()
+const canCleanup = computed(() => allow('settings.edit'))
 
 interface BackupJob {
   id: number
@@ -43,6 +46,9 @@ const restoreFile = ref<File | null>(null)
 const preview = ref<RestorePreview | null>(null)
 const confirmText = ref('')
 const restoring = ref(false)
+const cleanupCounts = ref<{ posts: number, comments: number, campaigns: number, creatives: number, media: number } | null>(null)
+const cleaning = ref(false)
+const cleanupResult = ref<{ ok: boolean, message: string } | null>(null)
 
 function formatSize(bytes: number | null): string {
   if (!bytes) return '—'
@@ -59,6 +65,35 @@ async function loadJobs(): Promise<void> {
     error.value = (e as Error).message
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCleanupCounts(): Promise<void> {
+  if (!canCleanup.value) return
+  try {
+    const response = await $fetch<{ counts: NonNullable<typeof cleanupCounts.value> }>('/api/admin/database/test-data')
+    cleanupCounts.value = response.counts
+  } catch {
+    cleanupCounts.value = null
+  }
+}
+
+async function cleanupTestData(): Promise<void> {
+  if (!cleanupCounts.value || !window.confirm(t('db.cleanupConfirm'))) return
+  cleaning.value = true
+  cleanupResult.value = null
+  try {
+    const response = await $fetch<{ cleaned: NonNullable<typeof cleanupCounts.value> }>('/api/admin/database/test-data', {
+      method: 'POST',
+      body: { confirm: true }
+    })
+    cleanupCounts.value = { posts: 0, comments: 0, campaigns: 0, creatives: 0, media: 0 }
+    cleanupResult.value = { ok: true, message: t('db.cleanupDone', response.cleaned) }
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string } }
+    cleanupResult.value = { ok: false, message: err?.data?.statusMessage ?? (e as Error).message }
+  } finally {
+    cleaning.value = false
   }
 }
 
@@ -120,7 +155,10 @@ async function runRestore(): Promise<void> {
   }
 }
 
-onMounted(loadJobs)
+onMounted(async () => {
+  await loadJobs()
+  await loadCleanupCounts()
+})
 </script>
 
 <template>
@@ -209,6 +247,47 @@ onMounted(loadJobs)
         </tbody>
       </table>
     </div>
+
+    <section
+      v-if="canCleanup"
+      class="rounded-xl border border-destructive/30 bg-destructive/5 p-5"
+    >
+      <div class="flex items-start gap-3">
+        <Trash2Icon class="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+        <div class="min-w-0 flex-1">
+          <h2 class="text-sm font-semibold">
+            {{ t('db.cleanupTitle') }}
+          </h2>
+          <p class="mt-1 text-xs text-muted-foreground">
+            {{ t('db.cleanupDescription') }}
+          </p>
+          <p
+            v-if="cleanupCounts"
+            class="mt-2 text-xs text-muted-foreground"
+          >
+            {{ t('db.cleanupCounts', cleanupCounts) }}
+          </p>
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <UiButton
+              type="button"
+              variant="destructive"
+              size="sm"
+              :disabled="cleaning || !cleanupCounts"
+              @click="cleanupTestData"
+            >
+              <Trash2Icon /> {{ cleaning ? t('db.cleanupRunning') : t('db.cleanupAction') }}
+            </UiButton>
+            <span
+              v-if="cleanupResult"
+              class="text-xs"
+              :class="cleanupResult.ok ? 'text-[var(--success)]' : 'text-destructive'"
+            >
+              {{ cleanupResult.message }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- restore -->
     <div class="space-y-3 rounded-xl border border-warning/40 p-5">
