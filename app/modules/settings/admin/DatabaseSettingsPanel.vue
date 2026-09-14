@@ -4,7 +4,8 @@ import {
   DatabaseIcon,
   PlugZapIcon,
   SendIcon,
-  ServerIcon
+  ServerIcon,
+  Trash2Icon
 } from 'lucide-vue-next'
 import { cn } from '~/admin/utils/cn'
 
@@ -42,8 +43,13 @@ const saving = ref(false)
 const loading = ref(true)
 const result = ref<{ ok: boolean, message: string } | null>(null)
 const restartNeeded = ref(false)
+const cleanupCounts = ref<{ posts: number, comments: number, campaigns: number, creatives: number, media: number } | null>(null)
+const cleaning = ref(false)
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  if (canEdit.value) await loadCleanupCounts()
+})
 
 async function load(): Promise<void> {
   loading.value = true
@@ -53,6 +59,34 @@ async function load(): Promise<void> {
     notifyError(t('mail.loadFailed'), (e as Error).message)
   } finally {
     loading.value = false
+  }
+}
+
+async function loadCleanupCounts(): Promise<void> {
+  try {
+    const response = await $fetch<{ counts: NonNullable<typeof cleanupCounts.value> }>('/api/admin/database/test-data')
+    cleanupCounts.value = response.counts
+  } catch {
+    cleanupCounts.value = null
+  }
+}
+
+async function cleanup(): Promise<void> {
+  if (!window.confirm(t('db.cleanupConfirm'))) return
+  cleaning.value = true
+  result.value = null
+  try {
+    const response = await $fetch<{ cleaned: NonNullable<typeof cleanupCounts.value> }>('/api/admin/database/test-data', {
+      method: 'POST',
+      body: { confirm: true }
+    })
+    cleanupCounts.value = { posts: 0, comments: 0, campaigns: 0, creatives: 0, media: 0 }
+    result.value = { ok: true, message: t('db.cleanupDone', response.cleaned) }
+  } catch (e: unknown) {
+    const err = e as { data?: { statusMessage?: string } }
+    result.value = { ok: false, message: err?.data?.statusMessage ?? (e as Error).message }
+  } finally {
+    cleaning.value = false
   }
 }
 
@@ -280,6 +314,39 @@ async function test(target: 'database' | 'cache'): Promise<void> {
         >
           <PlugZapIcon /> {{ t('db.testCache') }}
         </UiButton>
+      </div>
+    </div>
+
+    <div
+      v-if="canEdit"
+      class="rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+    >
+      <div class="flex items-start gap-3">
+        <Trash2Icon class="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+        <div class="min-w-0 flex-1">
+          <h3 class="text-sm font-semibold">
+            {{ t('db.cleanupTitle') }}
+          </h3>
+          <p class="mt-1 text-xs text-muted-foreground">
+            {{ t('db.cleanupDescription') }}
+          </p>
+          <p
+            v-if="cleanupCounts"
+            class="mt-2 text-xs text-muted-foreground"
+          >
+            {{ t('db.cleanupCounts', cleanupCounts) }}
+          </p>
+          <UiButton
+            type="button"
+            variant="destructive"
+            size="sm"
+            class="mt-3"
+            :disabled="cleaning || !cleanupCounts"
+            @click="cleanup"
+          >
+            <Trash2Icon /> {{ cleaning ? t('db.cleanupRunning') : t('db.cleanupAction') }}
+          </UiButton>
+        </div>
       </div>
     </div>
 
