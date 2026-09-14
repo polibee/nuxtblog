@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import UiBadge from '~/admin/ui/UiBadge.vue'
 import type { TranslationCompleteness } from '#shared/types/locale'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 const props = defineProps<{ status: TranslationCompleteness }>()
 
@@ -15,7 +16,7 @@ const variant = computed(() => {
   }
 })
 
-const label = computed(() => t(`ext.localized.${props.status}`))
+const label = computed(() => resolveAdminDisplayLabel(t, 'localizedStatus', props.status))
 </script>
 
 <template>

@@ -163,7 +163,7 @@ function onExport(): void {
         class="ml-auto"
         @click="state.clearSelection()"
       >
-        Clear
+        {{ t('common.clear') }}
       </UiButton>
     </div>
 

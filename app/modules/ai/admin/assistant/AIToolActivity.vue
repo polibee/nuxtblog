@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { CircleCheckIcon, CircleDotIcon, ZapIcon } from 'lucide-vue-next'
 import type { ToolActivityItem } from './types'
 
@@ -11,7 +12,7 @@ const props = defineProps<{ items: ToolActivityItem[] }>()
 const { t } = useI18n()
 
 function toolLabel(name: string): string {
-  return t(`res.aichat.tool_${name.replace(/\./g, '_')}`)
+  return resolveAdminDisplayLabel(t, 'aiTool', name)
 }
 
 function statusLabel(item: ToolActivityItem): string {

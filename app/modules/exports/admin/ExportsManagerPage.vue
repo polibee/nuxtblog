@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 interface ExportJob {
   id: number
@@ -188,7 +189,7 @@ function statusBadgeClass(job: ExportJob): string {
               #{{ job.id }}
             </td>
             <td class="px-4 py-3">
-              {{ t(`res.eximp.type.${job.type}`) }}
+              {{ resolveAdminDisplayLabel(t, 'exportType', job.type) }}
             </td>
             <td class="px-4 py-3 text-xs text-muted-foreground">
               {{ job.dateFrom && job.dateTo ? `${job.dateFrom} ~ ${job.dateTo}` : '—' }}
@@ -201,7 +202,7 @@ function statusBadgeClass(job: ExportJob): string {
                 class="rounded px-1.5 py-0.5 text-xs"
                 :class="statusBadgeClass(job)"
               >
-                {{ t(`res.eximp.status.${job.status}`) }}
+                {{ resolveAdminDisplayLabel(t, 'exportStatus', job.status) }}
               </span>
               <span
                 v-if="job.error"

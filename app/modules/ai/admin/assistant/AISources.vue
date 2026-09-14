@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { ChevronDownIcon } from 'lucide-vue-next'
 
 /* C1/§22-23 sources: collapsible reference list, internal links open in
@@ -23,7 +24,7 @@ function hrefFor(ref: Reference): string {
 }
 
 function typeLabel(type: string): string {
-  return t(`res.aichat.source_${type}`)
+  return resolveAdminDisplayLabel(t, 'aiSource', type)
 }
 </script>
 

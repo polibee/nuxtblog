@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import MediaPickerField from '~/admin/framework/MediaPickerField.vue'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 /* Slider manager (P19): per-slider settings + drag & drop slide list.
    Slide status (active/scheduled/expired/disabled) is computed at
@@ -463,10 +464,10 @@ watch(selectedId, loadSlider)
               class="h-9 flex-1 rounded-md border bg-background px-2 text-sm"
             >
               <option value="slide">
-                slide
+                {{ t('res.slider.transition.slide') }}
               </option>
               <option value="fade">
-                fade
+                {{ t('res.slider.transition.fade') }}
               </option>
             </select>
           </label>
@@ -543,7 +544,7 @@ watch(selectedId, loadSlider)
               class="shrink-0 text-xs font-medium"
               :class="statusStyles[statusOf(item)]"
             >
-              {{ t(`res.slider.status.${statusOf(item)}`) }}
+              {{ resolveAdminDisplayLabel(t, 'sliderStatus', statusOf(item)) }}
             </span>
             <div class="flex shrink-0 items-center gap-1">
               <button

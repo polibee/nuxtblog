@@ -59,13 +59,13 @@ onMounted(async () => {
           variant="outline"
           @click="navigateTo(basePath)"
         >
-          <ArrowLeftIcon /> Back
+          <ArrowLeftIcon /> {{ t('common.back') }}
         </UiButton>
         <UiButton
           v-if="canEdit"
           @click="navigateTo(`${basePath}/${id}/edit`)"
         >
-          <PencilIcon /> Edit
+          <PencilIcon /> {{ t('common.edit') }}
         </UiButton>
       </div>
     </div>

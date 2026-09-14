@@ -1,6 +1,10 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { dirname, extname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST,
+  ADMIN_I18N_HARDCODED_COPY_ALLOWLIST
+} from '../app/admin/i18n/display-label.ts'
 
 export interface SourceLocation {
   file: string
@@ -59,6 +63,8 @@ export interface AuditOptions {
   locales?: string[]
   /** Map the exact first argument expression to the finite keys it can produce. */
   dynamicKeyAllowlist?: Record<string, string[]>
+  /** Exact template text intentionally kept as a technical identifier. */
+  hardcodedCopyAllowlist?: readonly string[]
 }
 
 interface SourceFile {
@@ -266,14 +272,14 @@ function isHardcodedCopy(text: string): boolean {
   return /[\u3400-\u9fff]/u.test(text) || /[A-Za-z]{2,}/u.test(text)
 }
 
-function scanHardcodedCopy(sourceFile: SourceFile): HardcodedCopyRisk[] {
+function scanHardcodedCopy(sourceFile: SourceFile, allowlist: Set<string>): HardcodedCopyRisk[] {
   if (!sourceFile.relativePath.endsWith('.vue')) return []
   const visibleTemplate = templateTextOnly(sourceFile.content)
   const risks: HardcodedCopyRisk[] = []
   const textPattern = /[^\n<>]*[^\s<>][^\n<>]*/gu
   for (const match of visibleTemplate.matchAll(textPattern)) {
     const text = match[0]!.replace(/\s+/gu, ' ').trim()
-    if (text && isHardcodedCopy(text)) {
+    if (text && isHardcodedCopy(text) && !allowlist.has(text)) {
       risks.push({ ...locationAt(sourceFile.content, match.index ?? 0, sourceFile.relativePath), text })
     }
   }
@@ -326,6 +332,7 @@ export async function auditI18nUsage(options: AuditOptions = {}): Promise<I18nAu
   })))
   const localeKeys = new Map(localeFiles.map(({ locale, files }) => [locale, new Set(files.flatMap(file => [...extractLocaleKeys(file.content)]))]))
   const knownKeys = new Set([...localeKeys.values()].flatMap(keys => [...keys]))
+  const hardcodedCopyAllowlist = new Set(options.hardcodedCopyAllowlist ?? [])
   const scannedCalls = sourceFiles.reduce((result, sourceFile) => {
     const calls = scanCalls(sourceFile)
     result.staticUsages.push(...calls.staticUsages)
@@ -335,7 +342,7 @@ export async function auditI18nUsage(options: AuditOptions = {}): Promise<I18nAu
       result.dynamicKeyRisks.push(risk)
     }
     result.rawKeyRisks.push(...scanRawKeys(sourceFile, knownKeys))
-    result.hardcodedCopyRisks.push(...scanHardcodedCopy(sourceFile))
+    result.hardcodedCopyRisks.push(...scanHardcodedCopy(sourceFile, hardcodedCopyAllowlist))
     return result
   }, {
     staticUsages: [] as StaticKeyUsage[],
@@ -382,7 +389,10 @@ export function formatAuditReport(report: I18nAuditReport): string {
 
 const scriptPath = fileURLToPath(import.meta.url)
 if (process.argv[1] && resolve(process.argv[1]) === scriptPath) {
-  const report = await auditI18nUsage()
+  const report = await auditI18nUsage({
+    dynamicKeyAllowlist: ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST,
+    hardcodedCopyAllowlist: ADMIN_I18N_HARDCODED_COPY_ALLOWLIST
+  })
   console.log(formatAuditReport(report))
   process.exitCode = report.hasErrors ? 1 : 0
 }

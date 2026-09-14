@@ -122,13 +122,13 @@ function confirmDelete(s: SettingItem): void {
             v-if="s.public"
             variant="success"
           >
-            public
+            {{ t('settings.public') }}
           </UiBadge>
           <UiBadge
             v-else
             variant="secondary"
           >
-            private
+            {{ t('settings.private') }}
           </UiBadge>
         </div>
         <p

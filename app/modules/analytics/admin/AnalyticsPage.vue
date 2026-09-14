@@ -59,16 +59,16 @@ const maxPageviews = computed(() =>
           class="h-9 rounded-md border bg-background px-2 text-sm"
         >
           <option :value="7">
-            7 天
+            {{ t('res.analytics.days', { n: 7 }) }}
           </option>
           <option :value="14">
-            14 天
+            {{ t('res.analytics.days', { n: 14 }) }}
           </option>
           <option :value="30">
-            30 天
+            {{ t('res.analytics.days', { n: 30 }) }}
           </option>
           <option :value="90">
-            90 天
+            {{ t('res.analytics.days', { n: 90 }) }}
           </option>
         </select>
       </div>

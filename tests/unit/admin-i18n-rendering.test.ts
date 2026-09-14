@@ -1,0 +1,82 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST,
+  ADMIN_I18N_HARDCODED_COPY_ALLOWLIST,
+  resolveAdminDisplayLabel
+} from '../../app/admin/i18n/display-label'
+import { useI18n } from '../../app/admin/i18n'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('admin i18n rendering', () => {
+  it('resolves registered admin enum values in both locales', () => {
+    vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
+    const { locale, t } = useI18n()
+
+    expect(resolveAdminDisplayLabel(t, 'campaignStatus', 'pending_review')).toBe('待审核')
+    expect(resolveAdminDisplayLabel(t, 'mediaUsage', 'post_featured')).toBe('文章封面')
+    expect(resolveAdminDisplayLabel(t, 'aiSource', 'post')).toBe('文章')
+
+    locale.value = 'en'
+    expect(resolveAdminDisplayLabel(t, 'campaignStatus', 'pending_review')).toBe('Pending review')
+    expect(resolveAdminDisplayLabel(t, 'mediaUsage', 'post_featured')).toBe('Post featured')
+    expect(resolveAdminDisplayLabel(t, 'aiSource', 'post')).toBe('Post')
+  })
+
+  it('falls back to the supplied system value without exposing a generated i18n key', () => {
+    vi.stubGlobal('useCookie', () => ({ value: 'en' }))
+    const { t } = useI18n()
+
+    expect(resolveAdminDisplayLabel(t, 'campaignStatus', 'future_status')).toBe('future_status')
+    expect(resolveAdminDisplayLabel(t, 'aiTool', 'provider_health')).toBe('provider_health')
+    expect(resolveAdminDisplayLabel(t, 'mediaUsage', undefined)).toBe('—')
+    expect(resolveAdminDisplayLabel(t, 'mediaUsage', null)).toBe('—')
+  })
+
+  it('publishes finite allowlists for every dynamic translation domain', () => {
+    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST.key).toEqual(expect.arrayContaining([
+      'res.adcampaigns.status.pending_review',
+      'res.aichat.source_post',
+      'res.media.usage.post_featured',
+      'editor.mode.rich'
+    ]))
+    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST.key).not.toContain('res.aichat.source_${type}')
+    expect(ADMIN_I18N_DYNAMIC_KEY_ALLOWLIST.key.length).toBeGreaterThan(40)
+    expect(ADMIN_I18N_HARDCODED_COPY_ALLOWLIST).toEqual(expect.arrayContaining([
+      'USD',
+      'OpenAI',
+      'ms',
+      'nofollow',
+      'SSL',
+      '[paid]'
+    ]))
+  })
+
+  it('keeps technical constants unchanged while translating surrounding copy', () => {
+    vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
+    const { t } = useI18n()
+
+    expect(t('res.ai.providerOpenAI')).toBe('OpenAI')
+    expect(t('res.ai.providerAnthropic')).toBe('Anthropic')
+    expect(t('res.ai.unitMilliseconds')).toBe('ms')
+    expect(t('res.ai.unitTokens')).toBe('tok')
+    expect(t('res.media.formatWebp')).toBe('webp')
+    expect(ADMIN_I18N_HARDCODED_COPY_ALLOWLIST).toContain('SSL')
+  })
+
+  it('provides bilingual feedback copy for permission, network, and save outcomes', () => {
+    vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
+    const { locale, t } = useI18n()
+    const zh = [t('common.errors.forbidden'), t('common.errors.network'), t('common.saved')]
+
+    locale.value = 'en'
+    const en = [t('common.errors.forbidden'), t('common.errors.network'), t('common.saved')]
+
+    expect(zh.every(value => value && !value.includes('.'))).toBe(true)
+    expect(en.every(value => value && !value.includes('.'))).toBe(true)
+    expect(zh).not.toEqual(en)
+  })
+})

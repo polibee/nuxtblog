@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FileTextIcon } from 'lucide-vue-next'
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 interface RecentPost {
   id: number
@@ -27,9 +28,7 @@ onMounted(async () => {
 })
 
 const statusLabel = (status: string): string => {
-  const key = `status.${status}`
-  const translated = t(key)
-  return translated === key ? status : translated
+  return resolveAdminDisplayLabel(t, 'postStatus', status)
 }
 </script>
 

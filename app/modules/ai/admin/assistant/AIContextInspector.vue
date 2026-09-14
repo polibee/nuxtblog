@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 
 /* C2 §36-37 context inspector: what the AI currently "knows" and can
    access — scope, depth, tools, attached entities, ~context tokens. */
@@ -22,7 +23,7 @@ const tokenLabel = computed(() => {
 })
 
 function typeLabel(type: string): string {
-  return t(`res.aichat.source_${type}`)
+  return resolveAdminDisplayLabel(t, 'aiSource', type)
 }
 </script>
 
@@ -33,7 +34,7 @@ function typeLabel(type: string): string {
         {{ t('res.aichat.inspectorScope') }}
       </p>
       <p class="mt-0.5">
-        {{ t(`res.aichat.scope_${scope}`) }}
+        {{ resolveAdminDisplayLabel(t, 'aiScope', scope) }}
       </p>
     </div>
     <div>
@@ -41,7 +42,7 @@ function typeLabel(type: string): string {
         {{ t('res.aichat.inspectorDepth') }}
       </p>
       <p class="mt-0.5">
-        {{ t(`res.aichat.depth_${depth}`) }}
+        {{ resolveAdminDisplayLabel(t, 'aiDepth', depth) }}
       </p>
     </div>
     <div>

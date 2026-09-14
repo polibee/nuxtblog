@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { PlusIcon, SearchIcon, XIcon } from 'lucide-vue-next'
 
 /* C2 §38 context picker: search entities and attach them as chips.
@@ -47,7 +48,7 @@ function isAttached(item: SearchItem): boolean {
 }
 
 function typeLabel(type: string): string {
-  return t(`res.aichat.source_${type}`)
+  return resolveAdminDisplayLabel(t, 'aiSource', type)
 }
 </script>
 

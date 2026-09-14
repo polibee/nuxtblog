@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/admin/i18n'
+import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 import { notify, notifyError } from '~/admin/notifications/notify'
 import { PlusIcon, CopyIcon, PencilIcon, Trash2Icon } from 'lucide-vue-next'
 
@@ -172,7 +173,7 @@ onMounted(load)
               :key="s"
               :value="s"
             >
-              {{ t(`res.aichat.scope_${s}`) }}
+              {{ resolveAdminDisplayLabel(t, 'aiScope', s) }}
             </option>
           </select>
         </label>
@@ -187,7 +188,7 @@ onMounted(load)
               :key="d"
               :value="d"
             >
-              {{ t(`res.aichat.depth_${d}`) }}
+              {{ resolveAdminDisplayLabel(t, 'aiDepth', d) }}
             </option>
           </select>
         </label>
@@ -243,7 +244,7 @@ onMounted(load)
                 {{ preset.description }}
               </p>
               <p class="mt-1 text-[10px] text-muted-foreground">
-                {{ t(`res.aichat.scope_${preset.defaultScope}`) }} · {{ t(`res.aichat.depth_${preset.defaultDepth}`) }}
+                {{ resolveAdminDisplayLabel(t, 'aiScope', preset.defaultScope) }} · {{ resolveAdminDisplayLabel(t, 'aiDepth', preset.defaultDepth) }}
               </p>
             </div>
             <UiButton
@@ -288,7 +289,7 @@ onMounted(load)
                 {{ preset.description }}
               </p>
               <p class="mt-1 text-[10px] text-muted-foreground">
-                {{ t(`res.aichat.scope_${preset.defaultScope}`) }} · {{ t(`res.aichat.depth_${preset.defaultDepth}`) }} · v{{ preset.promptVersion }}
+                {{ resolveAdminDisplayLabel(t, 'aiScope', preset.defaultScope) }} · {{ resolveAdminDisplayLabel(t, 'aiDepth', preset.defaultDepth) }} · v{{ preset.promptVersion }}
               </p>
             </div>
             <span class="flex shrink-0 gap-1">
