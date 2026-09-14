@@ -72,6 +72,7 @@ Enable it explicitly with `DEMO_ACCOUNT_ENABLED=true` and set `DEMO_ACCOUNT_PASS
 | [工程审计报告](docs/工程审计报告.md) (zh) | Maintainers | Audit findings, verification matrix, production-readiness verdict |
 | [PM2 / Docker deployment](docs/deployment/pm2-docker.en.md) (English) | Operators | PM2, Docker Compose, MySQL, environment variables, release checks |
 | [Test data cleanup](docs/guides/demo-data-cleanup.en.md) (English) | Admins/operators | One-click cleanup scope, backups, and database compatibility |
+| [Bilingual UI screenshots](docs/ui-showcase.en.md) / [中文](docs/ui-showcase.zh-CN.md) | Product, QA, documentation | Reproducible Chinese/English public and admin capture sources and acceptance focus |
 
 ## License
 

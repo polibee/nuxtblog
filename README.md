@@ -78,6 +78,7 @@ npm run dev        # http://localhost:3000
 | [通用架构设计与开发约束](docs/architecture/通用架构设计与开发约束.md) | 维护者/开发者 | 模块边界、Repository context、Alias、i18n、安全、异步和质量闸门 |
 | [PM2 / Docker 部署手册](docs/deployment/pm2-docker.zh-CN.md) / [English](docs/deployment/pm2-docker.en.md) | 部署人员 | PM2、Docker Compose、MySQL、环境变量和上线检查 |
 | [测试数据清理手册](docs/guides/demo-data-cleanup.zh-CN.md) / [English](docs/guides/demo-data-cleanup.en.md) | 管理员/部署人员 | 一键清理测试数据、范围、备份和数据库兼容说明 |
+| [中英文界面截图与功能索引](docs/ui-showcase.zh-CN.md) / [English](docs/ui-showcase.en.md) | 产品/测试/文档 | 前台与后台核心功能的双语截图采集入口和验收重点 |
 
 ## License
 
