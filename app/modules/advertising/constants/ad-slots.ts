@@ -4,7 +4,10 @@
 
 export const AD_SLOTS = [
   { key: 'sidebar-ad', name: '侧边栏广告位 / Sidebar ad' },
-  { key: 'post-bottom', name: '文章底部广告位 / Post bottom ad' }
+  { key: 'home-feed', name: '首页文章流 / Home feed' },
+  { key: 'post-top', name: '文章顶部 / Post top' },
+  { key: 'post-bottom', name: '文章底部 / Post bottom' },
+  { key: 'footer-ad', name: '页脚广告位 / Footer ad' }
 ] as const
 
 export type AdSlotKey = typeof AD_SLOTS[number]['key']

@@ -10,7 +10,7 @@
           class="font-medium"
         >{{ post.authorName }}</span>
         <span>·</span>
-        <time>{{ formatDate(post.publishedAt) }}</time>
+        <time>{{ formatDate(post.publishedAt, localeCode) }}</time>
         <span
           v-if="readingMinutes"
         >· {{ t('posts.meta.readingTime', { n: readingMinutes }) }}</span>
@@ -128,7 +128,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { publicPath } = useLocale()
+const { localeCode, publicPath } = useLocale()
 
 const buying = ref(false)
 const error = ref('')

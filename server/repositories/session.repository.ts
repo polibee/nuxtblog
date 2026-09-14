@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt } from 'drizzle-orm'
+import { and, eq, gt, isNull, lt, ne } from 'drizzle-orm'
 import { getDb } from './db.server'
 import { passwordResetTokens, sessions, users } from './schema/users'
 import type { UserRecord } from '#shared/schemas/user'
@@ -47,6 +47,10 @@ export async function deleteSession(tokenHash: string): Promise<void> {
 
 export async function deleteSessionsForUser(userId: number): Promise<void> {
   await getDb().delete(sessions).where(eq(sessions.userId, userId))
+}
+
+export async function deleteSessionsForUserExcept(userId: number, currentTokenHash: string): Promise<void> {
+  await getDb().delete(sessions).where(and(eq(sessions.userId, userId), ne(sessions.tokenHash, currentTokenHash)))
 }
 
 export async function deleteExpiredSessions(): Promise<number> {

@@ -1,5 +1,6 @@
 import { requirePermission } from '../../../utils/auth'
 import { listSettings } from '../../../modules/settings/settings.runtime.service'
+import { maskSettingValue } from '../../../utils/setting-secrets'
 
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'settings.view')
@@ -12,7 +13,10 @@ export default defineEventHandler(async (event) => {
   const perPage = Math.min(Math.max(Number(query.perPage) || 200, 1), 200)
   const total = filtered.length
   return {
-    items: filtered.slice((page - 1) * perPage, page * perPage),
+    items: filtered.slice((page - 1) * perPage, page * perPage).map(item => ({
+      ...item,
+      value: maskSettingValue(item.value, item.type)
+    })),
     total,
     page,
     perPage,

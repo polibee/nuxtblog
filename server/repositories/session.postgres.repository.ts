@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lt } from 'drizzle-orm'
+import { and, eq, gt, isNull, lt, ne } from 'drizzle-orm'
 import { getPostgresDb } from './db-postgres.server'
 import { passwordResetTokens, sessions, users } from './schema-postgres/users'
 import type { UserRow } from './user.postgres.repository'
@@ -25,6 +25,10 @@ export async function deleteSession(tokenHash: string) {
 
 export async function deleteSessionsForUser(userId: number) {
   await getPostgresDb().delete(sessions).where(eq(sessions.userId, userId))
+}
+
+export async function deleteSessionsForUserExcept(userId: number, currentTokenHash: string) {
+  await getPostgresDb().delete(sessions).where(and(eq(sessions.userId, userId), ne(sessions.tokenHash, currentTokenHash)))
 }
 
 export async function deleteExpiredSessions() {

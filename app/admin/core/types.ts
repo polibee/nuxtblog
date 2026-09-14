@@ -130,6 +130,8 @@ export interface ActionDef {
   }
   /** optional modal form schema, resolved with the action context (record-aware) */
   form?: (ctx: ActionContext) => SchemaNode[]
+  /** optional modal defaults; omit to seed the form from the selected record */
+  initialValues?: (ctx: ActionContext) => Record<string, unknown>
   handler?: (ctx: ActionContext) => Promise<void> | void
   visible?: (record: Record<string, unknown>) => boolean
 }

@@ -7,6 +7,7 @@ export const createSession = implementation.createSession
 export const findActiveSession = implementation.findActiveSession
 export const deleteSession = implementation.deleteSession
 export const deleteSessionsForUser = implementation.deleteSessionsForUser
+export const deleteSessionsForUserExcept = implementation.deleteSessionsForUserExcept
 export const deleteExpiredSessions = implementation.deleteExpiredSessions
 export const createResetToken = implementation.createResetToken
 export const findUsableResetToken = implementation.findUsableResetToken

@@ -87,7 +87,7 @@ import StoreProductCard from '~/components/store/ProductCard.vue'
 import PublicPagination from '~/components/public/Pagination.vue'
 import type { StoreProduct } from '#shared/types/store'
 
-definePageMeta({ layout: 'public-full' })
+definePageMeta({ layout: 'public-full', alias: ['/en/store'] })
 
 const route = useRoute()
 const { t } = useI18n()

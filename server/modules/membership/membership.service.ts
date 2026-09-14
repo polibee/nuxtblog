@@ -68,13 +68,33 @@ export async function fulfillShadowOrderItems(orderId: number): Promise<void> {
       /* P21 ad purchase: payment activates the campaign */
       const campaignId = Number(item.productAliasSnapshot.replace(/^ad-/, ''))
       if (!Number.isInteger(campaignId) || campaignId <= 0) continue
+      const campaign = await db.select({ name: adCampaigns.name, slot: adCampaigns.materialSlotKey, budget: adCampaigns.budgetMinor }).from(adCampaigns).where(eq(adCampaigns.id, campaignId)).limit(1)
+      const reviewEnabled = await import('../settings/settings.runtime.service').then(settings => settings.getSettingValue('ADVERTISING_REVIEW_ENABLED', true))
       await db.update(adCampaigns).set({
-        /* paid but awaiting compliance review; admin approval activates */
         status: 'pending_review',
         paidAmountMinor: item.totalAmountMinor,
         orderId,
         paidAt: new Date()
       }).where(eq(adCampaigns.id, campaignId))
+      if (!reviewEnabled) {
+        const { approveCampaign } = await import('../advertising/ad-purchase.service')
+        await approveCampaign(campaignId)
+      }
+      const { appendOutbox } = await import('../notifications/engine')
+      await appendOutbox(reviewEnabled ? 'advertising.purchase.pending_review' : 'advertising.purchase.approved', {
+        module: 'advertising',
+        severity: reviewEnabled ? 'warning' : 'info',
+        entityType: 'ad_campaign',
+        entityId: String(campaignId),
+        data: {
+          'campaign.id': campaignId,
+          'campaign.name': campaign[0]?.name ?? `Campaign #${campaignId}`,
+          'campaign.slot': campaign[0]?.slot ?? '',
+          'campaign.budget': campaign[0]?.budget ?? item.totalAmountMinor,
+          'order.id': orderId,
+          'summary': reviewEnabled ? 'An advertising purchase requires review.' : 'An advertising purchase was automatically approved and placed.'
+        }
+      })
     } else if (item.productTypeSnapshot === 'post_access') {
       const postId = Number(item.productAliasSnapshot.replace(/^post-/, ''))
       if (!Number.isInteger(postId) || postId <= 0) continue
@@ -132,18 +152,21 @@ export async function hasPostAccess(postId: number, viewer: { id: number, email:
     .limit(1)
   if (purchased) return true
   // any active membership subscription unlocks member/paid content
-  if (viewer.id) {
-    const [active] = await db.select({ id: subscriptions.id })
-      .from(subscriptions)
-      .where(and(
-        eq(subscriptions.userId, viewer.id),
-        eq(subscriptions.status, 'active'),
-        gt(subscriptions.currentPeriodEnd, new Date())
-      ))
-      .limit(1)
-    if (active) return true
-  }
+  if (viewer.id && await hasActiveMembership(viewer.id)) return true
   return false
+}
+
+/** Single source of truth for the membership projection used by public identity badges. */
+export async function hasActiveMembership(userId: number, now = new Date()): Promise<boolean> {
+  const [active] = await getDb().select({ id: subscriptions.id })
+    .from(subscriptions)
+    .where(and(
+      eq(subscriptions.userId, userId),
+      eq(subscriptions.status, 'active'),
+      gt(subscriptions.currentPeriodEnd, now)
+    ))
+    .limit(1)
+  return Boolean(active)
 }
 
 /** public plans listing (published, with default-locale name) */

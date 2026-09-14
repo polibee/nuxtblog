@@ -37,7 +37,7 @@ export default (t: Translator) => {
             const translations = page.translations as Record<string, { slug?: string }>
             const primaryCode = page.primaryLocaleCode as string
             const slug = translations?.[primaryCode]?.slug ?? ''
-            if (import.meta.client && slug) window.open(`/pages/${slug}`, '_blank', 'noopener')
+            if (import.meta.client && slug) window.open(`/${slug}`, '_blank', 'noopener')
           }
         })
       ])

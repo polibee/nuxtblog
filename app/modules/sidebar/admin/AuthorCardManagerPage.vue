@@ -34,6 +34,13 @@ interface AuthorConfig {
   cta: { label: string, url: string, target: 'self' | 'blank' }
 }
 
+interface AuthorTranslation {
+  displayName: string
+  headline: string
+  bio: string
+  ctaLabel: string
+}
+
 const PLATFORM_OPTIONS = AUTHOR_SOCIAL_PLATFORMS.map(p => ({ value: p, label: p }))
 
 const config = ref<AuthorConfig>({
@@ -56,6 +63,9 @@ const cardId = ref<number | null>(null)
 const enabled = ref(true)
 const loading = ref(false)
 const avatarUrl = ref('')
+const localeOptions = ref<Array<{ code: string, nativeName: string, isDefault: boolean }>>([])
+const activeLocale = ref('zh-CN')
+const translations = ref<Record<string, AuthorTranslation>>({})
 
 const platformIcons: Record<string, string> = {
   github: 'GitHub',
@@ -73,7 +83,11 @@ const platformIcons: Record<string, string> = {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const res = await $fetch<{ id: number | null, enabled: boolean, config: AuthorConfig | null }>('/api/admin/sidebar/author-card')
+    const [res, locales] = await Promise.all([
+      $fetch<{ id: number | null, enabled: boolean, config: AuthorConfig | null, translations: Record<string, AuthorTranslation> }>('/api/admin/sidebar/author-card'),
+      $fetch<{ locales: Array<{ code: string, nativeName: string, isDefault: boolean }> }>('/api/public/locales')
+    ])
+    localeOptions.value = locales.locales
     cardId.value = res.id
     enabled.value = res.enabled
     const loaded = res.config as Partial<AuthorConfig> | null
@@ -84,10 +98,43 @@ async function load(): Promise<void> {
         cta: loaded.cta ?? { label: '', url: '', target: 'self' }
       }
     }
+    translations.value = { ...res.translations }
+    const defaultLocale = locales.locales.find(locale => locale.isDefault)?.code ?? locales.locales[0]?.code ?? 'zh-CN'
+    activeLocale.value = defaultLocale
+    const localized = translations.value[activeLocale.value]
+    if (localized) applyTranslation(localized)
+    else if (loaded?.displayName) translations.value[activeLocale.value] = toTranslation(loaded)
     await ensureAvatarPreview()
   } finally {
     loading.value = false
   }
+}
+
+function toTranslation(value: Partial<AuthorConfig> | undefined): AuthorTranslation {
+  return {
+    displayName: value?.displayName ?? '',
+    headline: value?.headline ?? '',
+    bio: value?.bio ?? '',
+    ctaLabel: value?.cta?.label ?? ''
+  }
+}
+
+function applyTranslation(value: AuthorTranslation): void {
+  config.value.displayName = value.displayName
+  config.value.headline = value.headline
+  config.value.bio = value.bio
+  config.value.cta = { ...config.value.cta, label: value.ctaLabel }
+}
+
+function saveActiveTranslation(): void {
+  translations.value[activeLocale.value] = toTranslation(config.value)
+}
+
+function selectLocale(code: string): void {
+  if (code === activeLocale.value) return
+  saveActiveTranslation()
+  activeLocale.value = code
+  applyTranslation(translations.value[code] ?? { displayName: '', headline: '', bio: '', ctaLabel: '' })
 }
 
 async function ensureAvatarPreview(): Promise<void> {
@@ -112,6 +159,7 @@ async function save(): Promise<void> {
     return
   }
   try {
+    saveActiveTranslation()
     const payload: Omit<AuthorConfig, 'cta'> & { cta: AuthorConfig['cta'] | null } = { ...config.value }
     const cta = config.value.cta
     payload.cta = config.value.showCta && cta && cta.label && cta.url
@@ -119,7 +167,7 @@ async function save(): Promise<void> {
       : null
     await $fetch('/api/admin/sidebar/author-card', {
       method: 'PUT',
-      body: { config: payload, enabled: enabled.value }
+      body: { config: payload, enabled: enabled.value, translations: translations.value }
     })
     notify(t('res.authorcard.saved'))
     await load()
@@ -240,6 +288,27 @@ onMounted(load)
             {{ t('common.save') }}
           </UiButton>
         </div>
+      </div>
+
+      <div
+        v-if="localeOptions.length"
+        class="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1"
+        role="tablist"
+        :aria-label="t('res.authorcard.content')"
+      >
+        <button
+          v-for="locale in localeOptions"
+          :key="locale.code"
+          type="button"
+          role="tab"
+          :aria-selected="activeLocale === locale.code"
+          class="rounded-md px-3 py-1.5 text-sm transition-colors"
+          :class="activeLocale === locale.code ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+          @click="selectLocale(locale.code)"
+        >
+          {{ locale.nativeName || locale.code }}
+          <span class="ml-1 text-xs text-muted-foreground">{{ locale.code }}</span>
+        </button>
       </div>
 
       <div class="rounded-xl border p-5">

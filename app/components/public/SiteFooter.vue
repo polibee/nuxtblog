@@ -20,7 +20,7 @@ function linkPath(url: string): string {
     :aria-label="t('common.navigation.footer')"
   >
     <div class="mx-auto max-w-7xl px-4 py-10">
-      <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-x-10 gap-y-8 md:gap-x-14 md:gap-y-10">
         <section
           v-for="item in items"
           :key="`${item.url}-${item.label}`"

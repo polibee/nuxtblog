@@ -14,10 +14,13 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody(event) as { name?: string, enabled?: boolean } | null
-  const patch: { name?: string, enabled?: boolean } = {}
+  const body = await readBody(event) as { name?: string, enabled?: boolean, billingUnit?: string, priceMinor?: number, currency?: string } | null
+  const patch: { name?: string, enabled?: boolean, billingUnit?: string, priceMinor?: number, currency?: string } = {}
   if (body?.name !== undefined && body.name.trim()) patch.name = body.name.trim()
   if (body?.enabled !== undefined) patch.enabled = body.enabled
+  if (body?.billingUnit !== undefined) patch.billingUnit = body.billingUnit === 'month' ? 'month' : 'day'
+  if (body?.priceMinor !== undefined) patch.priceMinor = Math.max(0, Math.floor(Number(body.priceMinor) || 0))
+  if (body?.currency !== undefined) patch.currency = String(body.currency).trim().toUpperCase().slice(0, 8) || 'USD'
   if (Object.keys(patch).length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'Nothing to update' })
   }

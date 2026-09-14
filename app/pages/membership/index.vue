@@ -77,7 +77,7 @@ interface MembershipPlan {
   period: string
 }
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/membership'] })
 
 const { t } = useI18n()
 

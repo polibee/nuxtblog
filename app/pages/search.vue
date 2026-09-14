@@ -62,7 +62,7 @@
 import PublicPostList from '~/components/public/PostList.vue'
 import type { PublicPostSummary, PublicTaxonomyTerm } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/search'] })
 
 const route = useRoute()
 const router = useRouter()

@@ -63,7 +63,7 @@ import PublicPagination from '~/components/public/Pagination.vue'
 import SiteSlider from '~/modules/slider/components/SiteSlider.vue'
 import type { PublicPostSummary } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en'] })
 
 const { t } = useI18n()
 const { localeCode } = useLocale()

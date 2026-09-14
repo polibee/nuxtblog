@@ -18,6 +18,16 @@ const { data: page, error } = await useFetch<PublicPageDetail>(
 )
 
 if (error.value || !page.value) {
+  /* Legacy post URLs used the root alias. Keep them working when the
+     language switcher preserves that path, while real pages still use the
+     root route. */
+  const { data: legacyPost } = await useFetch(`/api/public/posts/${alias.value}`, {
+    key: `legacy-post-${alias.value}-${localeCode.value}`,
+    query: { locale: localeCode.value }
+  })
+  if (legacyPost.value) {
+    await navigateTo(`/posts/${encodeURIComponent(alias.value)}?locale=${encodeURIComponent(localeCode.value)}`, { redirectCode: 301 })
+  }
   throw createError({ statusCode: 404, statusMessage: t('public.page.notFound'), fatal: true })
 }
 

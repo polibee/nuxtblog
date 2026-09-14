@@ -11,5 +11,7 @@ export const listCommentsByStatus = implementation.listCommentsByStatus
 export const updateCommentStatus = implementation.updateCommentStatus
 export const deleteCommentRow = implementation.deleteCommentRow
 export const parentBelongsToPost = implementation.parentBelongsToPost
+export const getCommentDepth = implementation.getCommentDepth
 export const countPendingComments = implementation.countPendingComments
 export const countApprovedComments = implementation.countApprovedComments
+export const countApprovedCommentsByPostIds = implementation.countApprovedCommentsByPostIds

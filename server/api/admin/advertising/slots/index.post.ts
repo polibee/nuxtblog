@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   if (!isBlogDbReady()) {
     throw createError({ statusCode: 503, statusMessage: 'Database unavailable' })
   }
-  const body = await readBody(event) as { key?: string, name?: string, enabled?: boolean } | null
+  const body = await readBody(event) as { key?: string, name?: string, enabled?: boolean, billingUnit?: string, priceMinor?: number, currency?: string } | null
   const key = body?.key?.trim() ?? ''
   const name = body?.name?.trim() ?? ''
   if (!/^[a-z][a-z0-9-]{1,58}$/.test(key)) {
@@ -18,8 +18,11 @@ export default defineEventHandler(async (event) => {
   if (!name) {
     throw createError({ statusCode: 400, statusMessage: 'name is required' })
   }
+  const billingUnit = body?.billingUnit === 'month' ? 'month' : 'day'
+  const priceMinor = Math.max(0, Math.floor(Number(body?.priceMinor) || 0))
+  const currency = String(body?.currency ?? 'USD').trim().toUpperCase().slice(0, 8) || 'USD'
   try {
-    const [row] = await getDb().insert(adSlots).values({ key, name, enabled: body?.enabled ?? true })
+    const [row] = await getDb().insert(adSlots).values({ key, name, enabled: body?.enabled ?? true, billingUnit, priceMinor, currency })
     return { id: row!.insertId }
   } catch {
     throw createError({ statusCode: 409, statusMessage: 'Slot key already exists' })

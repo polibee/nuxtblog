@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
     materialUrl: String(body?.materialUrl ?? ''),
     materialSlotKey: String(body?.materialSlotKey ?? ''),
     contactEmail: String(body?.contactEmail ?? ''),
-    budgetMinor: Number(body?.budgetMinor) || 0
+    budgetMinor: Number(body?.budgetMinor) || 0,
+    billingUnit: body?.billingUnit === 'month' ? 'month' : 'day',
+    billingUnits: Number(body?.billingUnits) || 1
   })
 })

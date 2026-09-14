@@ -2,6 +2,9 @@ import { createError } from 'h3'
 import type { Paginated } from '#shared/types/api'
 import type { TranslationsRecord } from '#shared/types/locale'
 import { sidebarCardInputSchema, type PublicSidebarCard, type SidebarCardInput } from '#shared/schemas/sidebar-card'
+import { resolvePublicAuthorCard } from '#shared/schemas/author-card'
+import { listAuthorCardTranslations } from '../../repositories/author-card.repository'
+import { resolveAuthorCardCopy } from './author-card.service'
 import { isBlogDbReady } from '../../repositories/db.server'
 import { listLocales } from '../../repositories/locale.repository'
 import {
@@ -179,32 +182,54 @@ export async function listPublicSidebarCards(localeCode: string): Promise<Public
   const mapped = await Promise.all(cards
     .filter(card => card.enabled)
     .map(async (card) => {
-      /* author cards carry a config JSON, not per-locale copy — fully
-         independent from the /profile module (user decision: the two
-         are different things and must not share data) */
+      /* Author cards keep shared visual/configuration fields separate from
+         localized copy and remain independent from the /profile module. */
       if (card.type === 'author') {
         const config = (card.config ?? null) as Record<string, unknown> | null
         if (!config) return undefined
+        const authorTranslations = await listAuthorCardTranslations(card.id)
+        const translations = Object.fromEntries(authorTranslations.flatMap((row) => {
+          const code = [...maps.codeToId.entries()]
+            .find(([, id]) => id === row.localeId)?.[0]
+          if (!code) return []
+          return [[code, {
+            displayName: row.displayName,
+            headline: row.headline,
+            bio: row.bio,
+            ctaLabel: row.ctaLabel
+          }]]
+        }))
+        const copy = resolveAuthorCardCopy(config, translations, localeCode, maps.defaultCode)
         let avatar: { url: string, alt: string } | null = null
         const avatarMediaId = Number(config.avatarMediaId) || 0
         if (avatarMediaId) {
           const { getMedia } = await import('../../repositories/media.repository')
           const media = await getMedia(avatarMediaId)
-          if (media) avatar = { url: `/media/${media.storageKey}`, alt: String(config.displayName ?? '') }
+          if (media) avatar = { url: `/media/${media.storageKey}`, alt: copy.displayName }
         }
         const socials = Array.isArray(config.socialLinks)
-          ? (config.socialLinks as Array<Record<string, unknown>>).slice(0, 5)
+          ? (config.socialLinks as Array<Record<string, unknown>>).slice(0, 8)
               .map(s => ({ platform: String(s.platform ?? 'custom'), url: String(s.url ?? ''), label: String(s.label ?? '') }))
-              .filter(s => s.url)
           : []
         const ctaRaw = config.cta as Record<string, unknown> | null | undefined
         const cta = ctaRaw && typeof ctaRaw.url === 'string' && ctaRaw.url
           ? {
-              label: String(ctaRaw.label ?? 'About Me'),
+              label: copy.ctaLabel || String(ctaRaw.label ?? 'About Me'),
               url: ctaRaw.url,
               external: /^https?:\/\//i.test(ctaRaw.url)
             }
           : null
+        const author = resolvePublicAuthorCard({
+          displayName: copy.displayName,
+          profilePath: '/profile',
+          headline: copy.headline,
+          bio: copy.bio,
+          avatar,
+          avatarStyle: config.avatarStyle === 'rounded' ? 'rounded' : 'circle',
+          layout: config.layout === 'compact' ? 'compact' : 'centered',
+          socials,
+          cta
+        })
         return {
           id: card.id,
           type: 'author',
@@ -212,16 +237,7 @@ export async function listPublicSidebarCards(localeCode: string): Promise<Public
           content: '',
           sortOrder: card.sortOrder,
           linkUrl: null,
-          author: {
-            name: String(config.displayName ?? ''),
-            headline: String(config.headline ?? ''),
-            bio: String(config.bio ?? ''),
-            avatar,
-            avatarStyle: config.avatarStyle === 'rounded' ? 'rounded' : 'circle',
-            layout: config.layout === 'compact' ? 'compact' : 'centered',
-            socials,
-            cta
-          }
+          author
         }
       }
       const fields = card.translations[String(localeId)] as

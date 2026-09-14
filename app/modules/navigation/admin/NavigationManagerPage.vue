@@ -4,6 +4,7 @@ import NavigationTree from './NavigationTree.vue'
 import type { EditorItem } from './NavigationTreeItem.vue'
 import type { NavigationTreeInput } from '#shared/schemas/navigation'
 import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
+import { isNotFoundError } from '#shared/utils/http-error'
 
 /* WordPress-style navigation manager (spec §4). Location + locale
    selects load the matching variant; all edits are local until the
@@ -30,6 +31,7 @@ interface NavigationInfo {
 }
 
 interface LocaleOption {
+  id: number
   code: string
   nativeName: string
 }
@@ -44,6 +46,7 @@ const draggedUid = ref<string | null>(null)
 const status = ref<'clean' | 'dirty' | 'saving' | 'saved' | 'error'>('clean')
 const loading = ref(false)
 const noVariant = ref(false)
+let variantLoadSequence = 0
 
 const maxDepth = 3
 let uidSeq = 0
@@ -65,7 +68,7 @@ async function loadLocations(): Promise<void> {
 }
 
 async function loadLocales(): Promise<void> {
-  const res = await $fetch<{ locales: Array<{ code: string, nativeName: string, enabled: boolean, contentEnabled: boolean }> }>(
+  const res = await $fetch<{ locales: Array<{ id: number, code: string, nativeName: string, enabled: boolean, contentEnabled: boolean }> }>(
     '/api/public/locales'
   )
   locales.value = res.locales.filter(l => l.enabled && l.contentEnabled)
@@ -74,9 +77,10 @@ async function loadLocales(): Promise<void> {
   }
 }
 
-async function loadVariant(): Promise<void> {
+async function loadVariant(): Promise<'found' | 'missing' | 'error'> {
   const navigation = selectedNavigation.value
-  if (!navigation || !selectedLocale.value) return
+  if (!navigation || !selectedLocale.value) return 'error'
+  const requestSequence = ++variantLoadSequence
   loading.value = true
   status.value = 'clean'
   noVariant.value = false
@@ -84,14 +88,26 @@ async function loadVariant(): Promise<void> {
     const res = await $fetch<{ variant: VariantMeta, items: Array<Record<string, unknown>> }>(
       `/api/admin/navigations/${navigation.id}/variants/${selectedLocale.value}`
     )
+    if (requestSequence !== variantLoadSequence) return 'error'
     variant.value = res.variant
     tree.value = buildEditorItems(res.items)
-  } catch {
+    return 'found'
+  } catch (error: unknown) {
+    if (requestSequence !== variantLoadSequence) return 'error'
+    if (!isNotFoundError(error)) {
+      variant.value = null
+      tree.value = []
+      noVariant.value = false
+      status.value = 'error'
+      notifyError(t('res.navigation.loadFailed'), (error as Error).message)
+      return 'error'
+    }
     variant.value = null
     tree.value = []
     noVariant.value = true
+    return 'missing'
   } finally {
-    loading.value = false
+    if (requestSequence === variantLoadSequence) loading.value = false
   }
 }
 
@@ -101,6 +117,7 @@ function buildEditorItems(flat: Array<Record<string, unknown>>): EditorItem[] {
     idToItem.set(Number(row.id), {
       uid: uid(),
       label: String(row.label ?? ''),
+      alias: (row.alias ?? undefined) as string | undefined,
       type: String(row.type ?? 'custom') as EditorItem['type'],
       targetEntityType: (row.targetEntityType ?? undefined) as EditorItem['targetEntityType'],
       targetEntityId: (row.targetEntityId ?? undefined) as number | undefined,
@@ -127,6 +144,17 @@ function buildEditorItems(flat: Array<Record<string, unknown>>): EditorItem[] {
 async function createVariant(copyFrom: number | null): Promise<void> {
   const navigation = selectedNavigation.value
   if (!navigation) return
+  // The empty-state can be stale after a location/locale change. Re-read
+  // before creating so an existing variant is opened instead of POSTing a
+  // duplicate and surfacing a misleading save failure.
+  const currentState = await loadVariant()
+  if (currentState !== 'missing') return
+  const selectedLocaleId = locales.value.find(item => item.code === selectedLocale.value)?.id
+  if (selectedLocaleId && navigation.variants.some(item => item.localeId === selectedLocaleId)) {
+    noVariant.value = false
+    await loadVariant()
+    return
+  }
   try {
     await $fetch(`/api/admin/navigations/${navigation.id}/variants`, {
       method: 'POST',
@@ -137,6 +165,12 @@ async function createVariant(copyFrom: number | null): Promise<void> {
     })
     await loadVariant()
   } catch (e: unknown) {
+    // Another request may have created the same variant between the preflight
+    // read and POST. Recover idempotently when the API reports that conflict.
+    if ((e as { statusCode?: number, status?: number }).statusCode === 409
+      || (e as { statusCode?: number, status?: number }).status === 409) {
+      if ((await loadVariant()) === 'found') return
+    }
     notifyError(t('res.navigation.saveFailed'), (e as Error).message)
   }
 }
@@ -163,6 +197,7 @@ async function save(): Promise<void> {
 function toPayload(items: EditorItem[]): NavigationTreeInput['items'] {
   return items.map(item => ({
     label: item.label,
+    alias: item.type === 'group' ? item.alias : undefined,
     type: item.type,
     targetEntityType: item.type === 'custom' || item.type === 'group' ? undefined : item.targetEntityType,
     targetEntityId: item.type === 'custom' || item.type === 'group' ? undefined : item.targetEntityId,

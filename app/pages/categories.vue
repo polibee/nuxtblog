@@ -14,7 +14,7 @@
       <NuxtLink
         v-for="category in categories"
         :key="category.alias"
-        :to="`/category/${category.alias}`"
+        :to="publicPath(`/category/${category.alias}`)"
         class="group rounded-xl border p-5 transition-colors hover:bg-accent/30"
       >
         <p class="font-semibold group-hover:text-primary">
@@ -31,10 +31,10 @@
 <script setup lang="ts">
 import type { PublicTaxonomyTerm } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/categories'] })
 
 const { t } = useI18n()
-const { localeCode } = useLocale()
+const { localeCode, publicPath } = useLocale()
 
 const { data } = await useFetch<{ categories: PublicTaxonomyTerm[] }>(
   '/api/public/categories',

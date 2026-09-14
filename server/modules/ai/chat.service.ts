@@ -336,7 +336,9 @@ export async function runAssistantTurn(input: {
       errorCode: null,
       userId: null,
       cacheStatus: toolCacheHits > 0 ? 'TOOL_HIT' : 'MISS',
-      savedTokens: toolCacheHits > 0 ? Math.ceil(toolCacheChars / 4) : 0
+      cachedInputTokens: toolCacheHits > 0 ? Math.ceil(toolCacheChars / 4) : 0,
+      savedTokens: toolCacheHits > 0 ? Math.ceil(toolCacheChars / 4) : 0,
+      pricing: input.provider.pricing
     })
   } catch { /* usage log failures never break the turn */ }
 

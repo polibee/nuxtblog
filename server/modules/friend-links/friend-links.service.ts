@@ -29,6 +29,24 @@ export interface SubmissionInput {
   website?: string
 }
 
+function optionalHttpUrl(value: string | undefined, maxLength: number): string | null {
+  const raw = value?.trim() ?? ''
+  if (!raw) return null
+  if (raw.length > maxLength) return null
+  try {
+    const url = new URL(raw)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? raw : null
+  } catch {
+    return null
+  }
+}
+
+function validEmail(value: string | undefined): string | null {
+  const raw = value?.trim() ?? ''
+  if (!raw) return null
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw) && raw.length <= 200 ? raw : null
+}
+
 export async function createSubmission(
   input: SubmissionInput,
   meta: { ip: string | null, userAgent: string | null }
@@ -45,6 +63,15 @@ export async function createSubmission(
   const domain = extractDomain(input.siteUrl)
   if (!siteName || !normalized || !domain) {
     throw createError({ statusCode: 422, statusMessage: 'A valid site URL and name are required' })
+  }
+  const logoUrl = optionalHttpUrl(input.logoUrl, 500)
+  const backlinkUrl = optionalHttpUrl(input.backlinkUrl, 500)
+  const contactEmail = validEmail(input.contactEmail)
+  if ((input.logoUrl?.trim() && !logoUrl) || (input.backlinkUrl?.trim() && !backlinkUrl)) {
+    throw createError({ statusCode: 422, statusMessage: 'Logo and backlink must be valid HTTP(S) URLs' })
+  }
+  if (input.contactEmail?.trim() && !contactEmail) {
+    throw createError({ statusCode: 422, statusMessage: 'Please provide a valid contact email' })
   }
   const ipHash = hashIp(meta.ip)
 
@@ -80,7 +107,7 @@ export async function createSubmission(
 
   /* server-side checks — the client's earlier result is never trusted (§74) */
   const site = await checkSite(normalized)
-  const backlink = await checkBacklink({ siteUrl: normalized, backlinkUrl: input.backlinkUrl, expectedDomain: domain })
+  const backlink = await checkBacklink({ siteUrl: normalized, backlinkUrl, expectedDomain: domain })
 
   const [row] = await getDb().insert(friendLinkSubmissions).values({
     siteName,
@@ -88,10 +115,10 @@ export async function createSubmission(
     normalizedUrl: normalized,
     domain,
     description,
-    logoUrl: input.logoUrl?.trim().slice(0, 500) || null,
+    logoUrl,
     contactName: input.contactName?.trim().slice(0, 80) || null,
-    contactEmail: input.contactEmail?.trim().slice(0, 200) || null,
-    backlinkUrl: input.backlinkUrl?.trim().slice(0, 500) || null,
+    contactEmail,
+    backlinkUrl,
     status: 'pending',
     backlinkStatus: backlink.status,
     backlinkCheckedAt: new Date(),

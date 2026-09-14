@@ -52,6 +52,8 @@ registerEvent({ name: 'order.created', module: 'store', label: { zh: '新订单'
 registerEvent({ name: 'order.paid', module: 'store', label: { zh: '订单已支付', en: 'Order paid' }, severity: 'info', variables: ['order.id', 'order.total'] })
 registerEvent({ name: 'order.refunded', module: 'store', label: { zh: '订单已退款', en: 'Order refunded' }, severity: 'warning', variables: ['order.id'] })
 registerEvent({ name: 'payment.failed', module: 'store', label: { zh: '支付失败', en: 'Payment failed' }, severity: 'error', variables: ['order.id', 'gateway'] })
+registerEvent({ name: 'advertising.purchase.pending_review', module: 'advertising', label: { zh: '广告购买待审核', en: 'Advertising purchase pending review' }, severity: 'warning', variables: ['campaign.id', 'campaign.name', 'campaign.slot', 'campaign.budget', 'order.id'] })
+registerEvent({ name: 'advertising.purchase.approved', module: 'advertising', label: { zh: '广告购买已自动投放', en: 'Advertising purchase auto-approved' }, severity: 'info', variables: ['campaign.id', 'campaign.name', 'campaign.slot', 'campaign.budget', 'order.id'] })
 registerEvent({ name: 'product.low_stock', module: 'store', label: { zh: '商品库存不足', en: 'Product low stock' }, severity: 'warning', variables: ['product.name'] })
 
 registerEvent({ name: 'membership.created', module: 'membership', label: { zh: '新会员', en: 'New membership' }, severity: 'info', variables: ['membership.plan'] })
@@ -88,6 +90,7 @@ export function eventModules(): Array<{ id: string, label: { zh: string, en: str
     { id: 'content', label: { zh: '内容', en: 'Content' } },
     { id: 'comments', label: { zh: '评论', en: 'Comments' } },
     { id: 'store', label: { zh: '商店', en: 'Store' } },
+    { id: 'advertising', label: { zh: '广告', en: 'Advertising' } },
     { id: 'membership', label: { zh: '会员', en: 'Membership' } },
     { id: 'security', label: { zh: '安全', en: 'Security' } },
     { id: 'ai', label: { zh: 'AI', en: 'AI' } },

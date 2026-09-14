@@ -42,8 +42,8 @@ export function extractToc(html: string): { toc: TocItem[], html: string } {
   return { toc, html: out }
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+export function formatDate(iso: string, locale?: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric'

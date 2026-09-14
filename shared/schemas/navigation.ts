@@ -1,12 +1,13 @@
 import { z } from 'zod'
 
 export const NAVIGATION_LOCATIONS = ['header', 'footer'] as const
-export const NAVIGATION_ITEM_TYPES = ['page', 'post', 'category', 'custom'] as const
+export const NAVIGATION_ITEM_TYPES = ['page', 'post', 'category', 'custom', 'group'] as const
 
 export interface NavigationTreeItemInput {
   label: string
+  alias?: string
   type: (typeof NAVIGATION_ITEM_TYPES)[number]
-  targetEntityType?: 'page' | 'post' | 'category'
+  targetEntityType?: 'page' | 'post' | 'category' | 'tag'
   targetEntityId?: number
   customUrl?: string
   titleAttribute?: string
@@ -20,9 +21,10 @@ export interface NavigationTreeItemInput {
 
 export const navigationTreeItemSchema: z.ZodType<NavigationTreeItemInput, z.ZodTypeDef, unknown> = z.lazy(() =>
   z.object({
-    label: z.string().trim().min(1).max(120),
+    label: z.string().trim().max(120),
+    alias: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/i).max(120).optional(),
     type: z.enum(NAVIGATION_ITEM_TYPES),
-    targetEntityType: z.enum(['page', 'post', 'category']).optional(),
+    targetEntityType: z.enum(['page', 'post', 'category', 'tag']).optional(),
     targetEntityId: z.number().int().positive().optional(),
     customUrl: z.string().trim().max(500).optional(),
     titleAttribute: z.string().trim().max(255).optional(),

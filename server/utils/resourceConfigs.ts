@@ -7,6 +7,7 @@
 
 import { getCollection } from './db'
 import { parseWebhookTarget } from './webhook'
+import { maskSettingValue } from './setting-secrets'
 
 interface FieldConfig {
   type: 'string' | 'number' | 'boolean' | 'list' | 'any'
@@ -213,7 +214,7 @@ export const RESOURCE_CONFIGS: Record<string, ServerResourceConfig> = {
       description: { type: 'string' }
     },
     enrichList: items => items.map(row => (
-      row.type === 'secret' ? { ...row, value: '••••••••' } : row
+      row.type === 'secret' ? { ...row, value: maskSettingValue(String(row.value ?? ''), 'secret') } : row
     ))
   }
 }

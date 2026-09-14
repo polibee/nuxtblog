@@ -11,7 +11,7 @@ export function contentUrl(entityType: ContentEntityType, alias: string): string
     case 'post':
       return `/posts/${alias}`
     case 'page':
-      return `/pages/${alias}`
+      return `/${alias}`
     case 'category':
       return `/category/${alias}`
     case 'tag':

@@ -14,6 +14,7 @@ import { comments } from '../../repositories/schema/comments'
 import { media } from '../../repositories/schema/media'
 import { locales } from '../../repositories/schema/locales'
 import { listLocales } from '../../repositories/locale.repository'
+import { getAdvertisingAnalysis } from '../../repositories/advertising.repository'
 
 /* P30 AI Assistant tools (READ only, §18/27): each tool calls business
    services/repos with narrow projections — never full rows, never
@@ -67,6 +68,13 @@ export const AI_TOOLS: AiTool[] = [
         latestPublished: latest[0]?.publishedAt?.toISOString() ?? null
       }
     }
+  },
+  {
+    name: 'advertising.summary',
+    description: 'Read-only advertising analysis: campaigns, status, budget spend, impressions, clicks, CTR and active placements. Never changes ads or approvals.',
+    parameters: {},
+    required: [],
+    execute: async () => getAdvertisingAnalysis()
   },
   {
     name: 'content.posts.list',

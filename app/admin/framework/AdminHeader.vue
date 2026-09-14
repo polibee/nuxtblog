@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GlobeIcon, LogOutIcon, MenuIcon, MoonIcon, SunIcon } from 'lucide-vue-next'
+import { ExternalLinkIcon, GlobeIcon, LogOutIcon, MenuIcon, MoonIcon, SunIcon } from 'lucide-vue-next'
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -37,6 +37,14 @@ const roleBadge = computed<Record<string, string>>(() => ({
     </UiButton>
 
     <div class="min-w-0 flex-1" />
+
+    <NuxtLink
+      to="/"
+      class="hidden h-9 items-center gap-1.5 rounded-md border px-3 text-sm font-medium transition-colors hover:bg-accent sm:inline-flex"
+    >
+      <ExternalLinkIcon class="h-4 w-4" />
+      {{ t('admin.visitSite') }}
+    </NuxtLink>
 
     <!-- locale switcher -->
     <DropdownMenuRoot>

@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { publicPath } = useLocale()
+const { localeCode, publicPath } = useLocale()
 
 function segments(text: string): Array<{ text: string, hit: boolean }> {
   return splitHighlight(text, props.highlight ?? '')
@@ -57,7 +57,7 @@ function segments(text: string): Array<{ text: string, hit: boolean }> {
               v-if="post.categories[0]"
               class="text-muted-foreground/60"
             >·</span>
-            <time class="text-muted-foreground">{{ formatDate(post.publishedAt) }}</time>
+            <time class="text-muted-foreground">{{ formatDate(post.publishedAt, localeCode) }}</time>
           </div>
           <h2 class="text-xl font-semibold leading-snug tracking-tight group-hover:text-primary">
             <template

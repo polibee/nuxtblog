@@ -171,10 +171,10 @@ const mediaId = computed(() => Number(props.modelValue) || null)
     <textarea
       v-else-if="field.type === 'textarea'"
       :value="String(modelValue ?? '')"
-      rows="3"
+      :rows="field.key === 'site.description' || field.key === 'SITE_DESCRIPTION' ? 6 : 3"
       :disabled="locked"
       :placeholder="field.placeholder ? label(field.placeholder) : ''"
-      class="w-full max-w-2xl rounded-md border bg-background px-3 py-2 text-sm disabled:opacity-60"
+      class="w-full max-w-3xl resize-y rounded-md border bg-background px-3 py-2 text-sm leading-6 disabled:opacity-60"
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
 

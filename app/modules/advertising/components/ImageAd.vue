@@ -4,27 +4,27 @@
     :href="payload.targetUrl"
     target="_blank"
     rel="noopener sponsored"
-    class="block"
+    class="block min-w-0"
   >
     <img
       v-if="payload.imageUrl"
       :src="payload.imageUrl"
       :alt="payload.altText || payload.title || 'ad'"
-      class="w-full object-cover"
+      class="h-auto max-h-80 w-full object-cover sm:max-h-96"
     >
     <div
       v-if="payload.title || payload.content"
-      class="space-y-1 p-4"
+      class="min-w-0 space-y-1 p-4"
     >
       <p
         v-if="payload.title"
-        class="text-sm font-semibold"
+        class="break-words text-sm font-semibold"
       >
         {{ payload.title }}
       </p>
       <p
         v-if="payload.content"
-        class="text-xs text-muted-foreground"
+        class="break-words text-xs text-muted-foreground"
       >
         {{ payload.content }}
       </p>

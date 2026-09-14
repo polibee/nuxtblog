@@ -215,7 +215,27 @@ registerSettingsPage({
         { key: 'comments.enabled', type: 'switch', label: { zh: '启用评论', en: 'Enable comments' }, defaultValue: true },
         { key: 'comments.guest_enabled', type: 'switch', label: { zh: '允许游客评论', en: 'Guest comments' }, defaultValue: true },
         { key: 'comments.require_guest_email', type: 'switch', label: { zh: '游客必须留邮箱', en: 'Require guest email' }, defaultValue: false, visibleWhen: { key: 'comments.guest_enabled', equals: true } },
-        { key: 'comments.max_length', type: 'number', label: { zh: '评论最大长度', en: 'Max length' }, defaultValue: 3000, min: 100, max: 10000 }
+        { key: 'comments.max_length', type: 'number', label: { zh: '评论最大长度', en: 'Max length' }, defaultValue: 3000, min: 100, max: 10000 },
+        { key: 'comments.max_reply_depth', type: 'number', label: { zh: '最大回复层级', en: 'Maximum reply depth' }, defaultValue: 3, min: 1, max: 10 }
+      ]
+    },
+    {
+      id: 'identity',
+      title: { zh: '身份与展示', en: 'Identity and display' },
+      fields: [
+        { key: 'comments.show_browser', type: 'switch', label: { zh: '显示浏览器', en: 'Show browser' }, defaultValue: true },
+        { key: 'comments.show_os', type: 'switch', label: { zh: '显示操作系统', en: 'Show operating system' }, defaultValue: true },
+        { key: 'comments.show_gravatar', type: 'switch', label: { zh: '显示 Gravatar', en: 'Show Gravatar' }, defaultValue: true },
+        { key: 'comments.show_guest_website', type: 'switch', label: { zh: '显示游客网址', en: 'Show guest websites' }, defaultValue: true }
+      ]
+    },
+    {
+      id: 'turnstile',
+      title: { zh: 'Turnstile 验证', en: 'Turnstile verification' },
+      fields: [
+        { key: 'comments.turnstile_enabled', type: 'switch', label: { zh: '启用 Turnstile', en: 'Enable Turnstile' }, defaultValue: false },
+        { key: 'comments.turnstile_site_key', type: 'text', envKey: 'TURNSTILE_SITE_KEY', label: { zh: '站点密钥', en: 'Site key' }, defaultValue: '' },
+        { key: 'comments.turnstile_secret_key', type: 'secret', envKey: 'TURNSTILE_SECRET_KEY', sensitive: true, label: { zh: '服务端密钥', en: 'Server secret key' }, description: { zh: '仅服务端使用，后台只显示配置状态和末四位。', en: 'Server-only; the admin shows configuration status and the last four characters.' }, defaultValue: '' }
       ]
     },
     {
@@ -254,11 +274,30 @@ registerSettingsPage({
       ]
     },
     {
+      id: 'integrations',
+      title: { zh: '站点验证与统计', en: 'Verification and analytics' },
+      description: { zh: '配置统计平台、站长验证和广告平台验证代码。', en: 'Configure analytics, webmaster verification, and advertising verification.' },
+      fields: [
+        { key: 'seo.analytics_enabled', type: 'switch', label: { zh: '启用统计代码', en: 'Enable analytics code' }, defaultValue: false },
+        { key: 'seo.analytics_head_code', type: 'textarea', label: { zh: '统计代码', en: 'Analytics code' }, description: { zh: '粘贴平台提供的页头代码，仅管理员可编辑。', en: 'Paste the provider snippet for the document head. Admin-only.' }, placeholder: { zh: '<script>…</script>', en: '<script>…</script>' } },
+        { key: 'seo.webmaster_google', type: 'text', label: { zh: 'Google Webmaster 验证', en: 'Google Webmaster verification' }, placeholder: { zh: '验证 token', en: 'Verification token' } },
+        { key: 'seo.webmaster_bing', type: 'text', label: { zh: 'Bing Webmaster 验证', en: 'Bing Webmaster verification' }, placeholder: { zh: '验证 token', en: 'Verification token' } },
+        { key: 'seo.webmaster_baidu', type: 'text', label: { zh: '百度站长验证', en: 'Baidu Webmaster verification' }, placeholder: { zh: '验证 token', en: 'Verification token' } },
+        { key: 'seo.ad_verification_code', type: 'textarea', label: { zh: '广告平台验证代码', en: 'Advertising verification code' }, description: { zh: '仅用于广告平台站点验证，不等同于广告创意代码。', en: 'For advertising platform site verification only; not an ad creative.' }, placeholder: { zh: '<meta …> 或验证代码', en: '<meta …> or verification code' } }
+      ]
+    },
+    {
       id: 'sitemap',
       title: { zh: 'Sitemap', en: 'Sitemap' },
       fields: [
         { key: 'seo.sitemap_enabled', type: 'switch', label: { zh: '启用 sitemap', en: 'Enable sitemap' }, defaultValue: true },
-        { key: 'seo.sitemap_include_images', type: 'switch', label: { zh: '包含图片', en: 'Include images' }, defaultValue: false }
+        { key: 'seo.sitemap_include_images', type: 'switch', label: { zh: '包含图片', en: 'Include images' }, defaultValue: false },
+        {
+          key: 'seo.robots_txt', type: 'textarea',
+          label: { zh: 'robots.txt 内容', en: 'robots.txt content' },
+          description: { zh: '留空使用安全默认规则；Sitemap 行会自动指向本站 sitemap.xml。', en: 'Leave empty to use safe defaults; the Sitemap line always points to this site.' },
+          placeholder: { zh: 'User-agent: *\nAllow: /', en: 'User-agent: *\nAllow: /' }
+        }
       ]
     }
   ]

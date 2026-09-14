@@ -26,6 +26,29 @@ export default (t: Translator) => {
       dateColumn('createdAt', t('comments.fields.date'), { sortable: true }),
       actionsColumn([
         defineAction({
+          name: 'reply',
+          label: t('comments.actions.reply'),
+          icon: 'message-square',
+          permission: 'comments.edit',
+          form: () => [
+            textarea('content', t('comments.fields.replyContent'), {
+              required: true,
+              max: 3000,
+              rows: 5,
+              placeholder: t('comments.fields.replyPlaceholder')
+            })
+          ],
+          initialValues: () => ({ content: '' }),
+          handler: async ({ record, values }) => {
+            await $fetch(`/api/admin/comments/${record!.id}/reply`, {
+              method: 'POST',
+              body: { content: values?.content }
+            })
+            notify(t('comments.messages.replied'))
+            emitAdminEvent('comments:refresh')
+          }
+        }),
+        defineAction({
           name: 'approve',
           label: t('comments.actions.approve'),
           icon: 'badge-check',

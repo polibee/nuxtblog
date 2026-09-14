@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './db.server'
 import { comments } from './schema/comments'
 import type { CommentStatus } from '#shared/schemas/comment'
@@ -10,8 +10,19 @@ export interface CommentRow {
   userId: number | null
   authorName: string
   authorEmail: string
+  authorUrl: string | null
+  gravatarHash: string | null
+  browserName: string | null
+  browserVersion: string | null
+  osName: string | null
+  osVersion: string | null
+  deviceType: string | null
+  ipHash: string | null
   content: string
   status: CommentStatus
+  moderationReason: string | null
+  approvedAt: Date | null
+  approvedBy: number | null
   createdAt: Date
 }
 
@@ -19,13 +30,27 @@ function toRow(row: typeof comments.$inferSelect): CommentRow {
   return { ...row, status: row.status as CommentStatus }
 }
 
+type CommentParentRow = Pick<typeof comments.$inferSelect, 'parentId'>
+
 export async function insertComment(input: {
   postId: number
   parentId: number | null
   userId: number | null
   authorName: string
   authorEmail: string
+  authorUrl: string | null
+  gravatarHash: string | null
+  browserName: string | null
+  browserVersion: string | null
+  osName: string | null
+  osVersion: string | null
+  deviceType: string | null
+  ipHash: string | null
   content: string
+  status: CommentStatus
+  moderationReason?: string | null
+  approvedAt?: Date | null
+  approvedBy?: number | null
 }): Promise<number> {
   const [row] = await getDb().insert(comments).values(input)
   if (!row) throw new Error('comment insert returned no id')
@@ -79,6 +104,26 @@ export async function parentBelongsToPost(parentId: number, postId: number): Pro
   return rows.length > 0
 }
 
+/** Return the zero-based depth of a comment in its parent chain. */
+export async function getCommentDepth(commentId: number): Promise<number> {
+  let currentId: number | null = commentId
+  let depth = 0
+  const visited = new Set<number>()
+  while (currentId !== null && !visited.has(currentId)) {
+    visited.add(currentId)
+    const rows: CommentParentRow[] = await getDb()
+      .select({ parentId: comments.parentId })
+      .from(comments)
+      .where(eq(comments.id, currentId))
+      .limit(1)
+    const row: CommentParentRow | undefined = rows[0]
+    if (!row || row.parentId === null) return depth
+    depth += 1
+    currentId = row.parentId
+  }
+  return depth
+}
+
 export async function countPendingComments(): Promise<number> {
   const [row] = await getDb()
     .select({ total: sql<number>`count(*)` })
@@ -93,4 +138,16 @@ export async function countApprovedComments(): Promise<number> {
     .from(comments)
     .where(eq(comments.status, 'approved'))
   return Number(row?.total ?? 0)
+}
+
+export async function countApprovedCommentsByPostIds(postIds: number[]): Promise<Map<number, number>> {
+  const result = new Map<number, number>()
+  if (postIds.length === 0) return result
+  const rows = await getDb()
+    .select({ postId: comments.postId, total: sql<number>`count(*)` })
+    .from(comments)
+    .where(and(eq(comments.status, 'approved'), inArray(comments.postId, postIds)))
+    .groupBy(comments.postId)
+  for (const row of rows) result.set(row.postId, Number(row.total))
+  return result
 }

@@ -4,6 +4,8 @@ import { getDb, isBlogDbReady } from '../../repositories/db.server'
 import { listLocales } from '../../repositories/locale.repository'
 import { localizedSettings, settings } from '../../repositories/schema/settings'
 
+export { maskSettingValue } from '../../utils/setting-secrets'
+
 /* Settings domain service (P02): the DB is the single source of truth
    for runtime settings. Values are stored as strings and coerced by
    the declared type on read. A short module-level cache absorbs hot
@@ -166,6 +168,11 @@ export async function publicSettingsMap(): Promise<Record<string, string | numbe
   for (const item of items) {
     if (item.public && item.type !== 'secret') map[item.key] = item.value
   }
+  const turnstileEnabled = items.find(item => item.key === 'comments.turnstile_enabled')
+  if (turnstileEnabled) map[turnstileEnabled.key] = turnstileEnabled.value
+  const siteKey = process.env.TURNSTILE_SITE_KEY
+    ?? items.find(item => item.key === 'comments.turnstile_site_key')?.value
+  if (typeof siteKey === 'string' && siteKey.trim()) map['comments.turnstile_site_key'] = siteKey
   return map
 }
 
@@ -215,7 +222,8 @@ const DEFAULT_SETTINGS: Array<Omit<Parameters<typeof upsertRow>[0], never>> = [
   { key: 'SMTP_PASSWORD', value: '', type: 'secret', group: 'Email', publicFlag: false, description: 'Never exposed by the public settings endpoint.' },
   { key: 'CACHE_DRIVER', value: 'memory', type: 'string', group: 'Cache', publicFlag: false },
   { key: 'PAGE_CACHE_ENABLED', value: 'true', type: 'boolean', group: 'Cache', publicFlag: false, description: 'WP-style page cache switch.' },
-  { key: 'ADVERTISING_PURCHASE_ENABLED', value: 'true', type: 'boolean', group: 'Advertising', publicFlag: true, description: 'Enable the public ad purchase page.' }
+  { key: 'ADVERTISING_PURCHASE_ENABLED', value: 'true', type: 'boolean', group: 'Advertising', publicFlag: true, description: 'Enable the public ad purchase page.' },
+  { key: 'ADVERTISING_REVIEW_ENABLED', value: 'true', type: 'boolean', group: 'Advertising', publicFlag: false, description: 'Require administrator review before an advertising campaign goes live.' }
 ]
 
 export async function seedDefaultSettings(): Promise<void> {

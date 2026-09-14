@@ -3,10 +3,10 @@ import { listPublicSidebarCards } from '../../modules/sidebar/sidebar-card.servi
 
 /** public sidebar cards for the resolved content locale (no cross-locale fallback) */
 export default defineEventHandler(async (event) => {
-  const locale = await resolveLocale(
-    event.path,
-    getRequestHeader(event, 'accept-language')
-  )
+  const query = getQuery(event) as { locale?: string }
+  const locale = query.locale
+    ? { code: query.locale }
+    : await resolveLocale(event.path, getRequestHeader(event, 'accept-language'))
   const cards = await listPublicSidebarCards(locale.code)
   return { locale: locale.code, cards }
 })

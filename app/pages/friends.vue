@@ -6,7 +6,7 @@ import FriendLinksPage from '~/components/public/FriendLinksPage.vue'
    blogroll grid + submission form. Kept as a static route so the
    full-width layout works on first SSR render. */
 
-definePageMeta({ layout: 'public-full' })
+definePageMeta({ layout: 'public-full', alias: ['/en/friends'] })
 
 const route = useRoute()
 const { localeCode } = useLocale()

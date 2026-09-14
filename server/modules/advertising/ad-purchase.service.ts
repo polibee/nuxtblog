@@ -8,6 +8,7 @@ import { listPaymentAttemptsForOrder } from '../../repositories/payment.reposito
 import { getSettingValue, listSettings, updateSettingValue } from '../settings/settings.service'
 import { listLocales } from '../../repositories/locale.repository'
 import { createOrder } from '../store/order.service'
+import { findOrderByNumber } from '../../repositories/order.repository'
 import { ensureShadowProduct } from '../membership/membership.service'
 
 /* P21 ad purchase: a campaign is bought through the standard order /
@@ -41,6 +42,8 @@ export async function purchaseCampaign(
 
   const alias = await ensureShadowProduct('ad_campaign', campaign.id, campaign.name, budgetMinor, currency)
   const created = await createOrder({ productAlias: alias, quantity: 1, currency }, buyer)
+  const order = await findOrderByNumber(created.orderNumber)
+  if (order) await db.update(adCampaigns).set({ orderId: order.id }).where(eq(adCampaigns.id, campaign.id))
   return { orderNumber: created.orderNumber }
 }
 
@@ -124,6 +127,8 @@ export interface AdApplyInput {
   materialSlotKey: string
   contactEmail: string
   budgetMinor: number
+  billingUnit?: 'day' | 'month'
+  billingUnits?: number
 }
 
 /** public self-serve application: create a draft campaign with the
@@ -139,6 +144,10 @@ export async function applyForAd(input: AdApplyInput): Promise<{ campaignId: num
   const slotKey = String(input.materialSlotKey ?? '').trim()
   const email = String(input.contactEmail ?? '').trim()
   const budgetMinor = Math.floor(Number(input.budgetMinor) || 0)
+  const billingUnit = input.billingUnit === 'month' ? 'month' : 'day'
+  const billingUnits = Math.min(365, Math.max(1, Math.floor(Number(input.billingUnits) || 1)))
+  const startAt = new Date()
+  const endAt = new Date(startAt.getTime() + billingUnits * (billingUnit === 'month' ? 30 : 1) * 24 * 60 * 60 * 1000)
   const imageMediaId = Number(input.materialImageMediaId) || 0
 
   if (!title || title.length > 200) throw createError({ statusCode: 422, statusMessage: 'Material title is required (max 200 chars)' })
@@ -148,14 +157,23 @@ export async function applyForAd(input: AdApplyInput): Promise<{ campaignId: num
   if (!imageMediaId) throw createError({ statusCode: 422, statusMessage: 'A banner image is required' })
 
   const db = getDb()
-  const [slot] = await db.select({ key: adSlots.key }).from(adSlots)
+  const [slot] = await db.select({ key: adSlots.key, priceMinor: adSlots.priceMinor }).from(adSlots)
     .where(and(eq(adSlots.key, slotKey), eq(adSlots.enabled, true))).limit(1)
   if (!slot) throw createError({ statusCode: 422, statusMessage: 'Unknown ad slot' })
+  const minimumBudget = Math.max(0, Number(slot.priceMinor ?? 0)) * billingUnits
+  if (minimumBudget > 0 && budgetMinor < minimumBudget) {
+    throw createError({ statusCode: 422, statusMessage: `Budget must be at least ${minimumBudget} minor units for this slot and period` })
+  }
 
   const [result] = await db.insert(adCampaigns).values({
     name: title,
     status: 'draft',
+    startAt,
+    endAt,
     budgetMinor,
+    billingUnit,
+    billingUnits,
+    unitPriceMinor: Number(slot.priceMinor ?? 0),
     currency: 'USD',
     materialTitle: title,
     materialDescription: description || null,
@@ -168,6 +186,8 @@ export async function applyForAd(input: AdApplyInput): Promise<{ campaignId: num
 
   const alias = await ensureShadowProduct('ad_campaign', campaignId, title, budgetMinor, 'USD')
   const created = await createOrder({ productAlias: alias, quantity: 1, currency: 'USD', email }, null)
+  const order = await findOrderByNumber(created.orderNumber)
+  if (order) await db.update(adCampaigns).set({ orderId: order.id }).where(eq(adCampaigns.id, campaignId))
   return { campaignId, orderNumber: created.orderNumber }
 }
 
@@ -231,6 +251,17 @@ export async function getPurchaseEnabled(): Promise<boolean> {
 export async function setPurchaseEnabled(enabled: boolean): Promise<void> {
   const items = await listSettings()
   const item = items.find(i => i.key === 'ADVERTISING_PURCHASE_ENABLED')
+  if (!item) throw createError({ statusCode: 404, statusMessage: 'Setting not found' })
+  await updateSettingValue(item.id, enabled)
+}
+
+export async function getReviewEnabled(): Promise<boolean> {
+  return String(await getSettingValue('ADVERTISING_REVIEW_ENABLED', 'true')) !== 'false'
+}
+
+export async function setReviewEnabled(enabled: boolean): Promise<void> {
+  const items = await listSettings()
+  const item = items.find(i => i.key === 'ADVERTISING_REVIEW_ENABLED')
   if (!item) throw createError({ statusCode: 404, statusMessage: 'Setting not found' })
   await updateSettingValue(item.id, enabled)
 }

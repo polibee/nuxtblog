@@ -2,6 +2,7 @@
    Same object references as the individual modules (no duplication). */
 
 export * from './advertising'
+export * from './author-card'
 export * from './backup'
 export * from './comments'
 export * from './exports'

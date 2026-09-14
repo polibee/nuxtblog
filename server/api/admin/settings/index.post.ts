@@ -1,8 +1,10 @@
 import { requirePermission } from '../../../utils/auth'
 import { createSetting } from '../../../modules/settings/settings.runtime.service'
+import { maskSettingValue } from '../../../utils/setting-secrets'
 
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'settings.create')
   const body = await readBody(event)
-  return createSetting(body)
+  const created = await createSetting(body)
+  return { ...created, value: maskSettingValue(created.value, created.type) }
 })

@@ -123,6 +123,7 @@ export const navigationItemTranslations = pgTable(
     itemId: bigint('navigation_item_id', { mode: 'number' }).notNull(),
     localeId: bigint('locale_id', { mode: 'number' }).notNull(),
     label: varchar('label', { length: 120 }).notNull(),
+    alias: varchar('alias', { length: 120 }),
     // custom link URL is per-locale (variant locale enforced by service)
     customUrl: varchar('custom_url', { length: 500 }),
     titleAttribute: varchar('title_attribute', { length: 255 }),

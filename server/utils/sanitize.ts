@@ -15,9 +15,10 @@ const OPTIONS: sanitizeHtml.IOptions = {
     'mark'
   ],
   allowedAttributes: {
-    a: ['href', 'target', 'rel'],
+    a: ['href', 'target', 'rel', 'class'],
     img: ['src', 'alt', 'title'],
-    span: ['style', 'data-type'],
+    span: ['style', 'data-type', 'class'],
+    blockquote: ['class'],
     td: ['colspan', 'rowspan'],
     th: ['colspan', 'rowspan'],
     p: ['style', 'data-placeholder'],
@@ -27,6 +28,9 @@ const OPTIONS: sanitizeHtml.IOptions = {
     '*': { 'text-align': [/^(left|center|right|justify)$/], 'color': [/^#[0-9a-fA-F]{3,8}$/] }
   },
   allowedSchemes: ['http', 'https', 'mailto'],
+  allowedSchemesByTag: {
+    img: ['https']
+  },
   transformTags: {
     a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer nofollow', target: '_blank' })
   },

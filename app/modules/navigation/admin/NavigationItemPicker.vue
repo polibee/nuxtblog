@@ -14,17 +14,32 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const activeTab = ref<'pages' | 'custom' | 'categories' | 'posts'>('pages')
+const activeTab = ref<'system' | 'pages' | 'custom' | 'categories' | 'tags' | 'posts'>('system')
 const search = ref('')
 
 interface PickOption {
   id: number
   label: string
+  url?: string
 }
 
 const pages = ref<PickOption[]>([])
 const categories = ref<PickOption[]>([])
+const tags = ref<PickOption[]>([])
 const posts = ref<PickOption[]>([])
+const systemPages = computed<PickOption[]>(() => [
+  { id: -1, label: t('public.nav.home'), url: '/' },
+  { id: -2, label: t('public.nav.posts'), url: '/posts' },
+  { id: -3, label: t('public.nav.categories'), url: '/categories' },
+  { id: -4, label: t('public.nav.tags'), url: '/tags' },
+  { id: -5, label: t('public.nav.archive'), url: '/archive' },
+  { id: -6, label: t('public.nav.friends'), url: '/friends' },
+  { id: -7, label: t('public.nav.profile'), url: '/profile' },
+  { id: -8, label: t('public.nav.store'), url: '/store' },
+  { id: -9, label: t('public.nav.membership'), url: '/membership' },
+  { id: -10, label: t('auth.account.title'), url: '/account' },
+  { id: -11, label: t('public.nav.advertising'), url: '/advertising' }
+])
 const checked = ref<number[]>([])
 
 const customUrl = ref('')
@@ -32,20 +47,24 @@ const customLabel = ref('')
 
 async function loadOptions(): Promise<void> {
   try {
-    const [pageRes, catRes, postRes] = await Promise.all([
-      $fetch<{ items: Array<{ id: number, title: string }> }>('/api/admin/pages', {
+    const [pageRes, catRes, tagRes, postRes] = await Promise.all([
+      $fetch<{ items: Array<{ id: number, title?: string, name?: string, alias?: string }> }>('/api/admin/pages', {
+        query: { perPage: 200, status: 'published' }
+      }),
+      $fetch<{ items: Array<{ id: number, title?: string, name?: string, alias?: string }> }>('/api/admin/categories', {
         query: { perPage: 200 }
       }),
-      $fetch<{ items: Array<{ id: number, title: string }> }>('/api/admin/categories', {
+      $fetch<{ items: Array<{ id: number, title?: string, name?: string, alias?: string }> }>('/api/admin/tags', {
         query: { perPage: 200 }
       }),
-      $fetch<{ items: Array<{ id: number, title: string }> }>('/api/admin/posts', {
+      $fetch<{ items: Array<{ id: number, title?: string, name?: string, alias?: string }> }>('/api/admin/posts', {
         query: { perPage: 200, status: 'published' }
       })
     ])
-    pages.value = pageRes.items.map(p => ({ id: p.id, label: p.title }))
-    categories.value = catRes.items.map(c => ({ id: c.id, label: c.title }))
-    posts.value = postRes.items.map(p => ({ id: p.id, label: p.title }))
+    pages.value = pageRes.items.map(p => ({ id: p.id, label: p.title || p.name || p.alias || `Page #${p.id}` }))
+    categories.value = catRes.items.map(c => ({ id: c.id, label: c.title || c.name || c.alias || `Category #${c.id}` }))
+    tags.value = tagRes.items.map(tag => ({ id: tag.id, label: tag.title || tag.name || tag.alias || `Tag #${tag.id}` }))
+    posts.value = postRes.items.map(p => ({ id: p.id, label: p.title || p.name || p.alias || `Post #${p.id}` }))
   } catch {
     // picker stays empty on failure
   }
@@ -66,6 +85,9 @@ onMounted(() => {
   void loadOptions()
   window.addEventListener('focus', onFocusReload)
   onAdminEvent('posts:refresh', () => void loadOptions())
+  onAdminEvent('pages:refresh', () => void loadOptions())
+  onAdminEvent('categories:refresh', () => void loadOptions())
+  onAdminEvent('taxonomy:refresh', () => void loadOptions())
 })
 onUnmounted(() => {
   window.removeEventListener('focus', onFocusReload)
@@ -74,13 +96,17 @@ watch(activeTab, () => void loadOptions())
 watch(() => props.menuLocale, loadOptions)
 
 const filtered = computed<PickOption[]>(() => {
-  const source = activeTab.value === 'pages'
-    ? pages.value
-    : activeTab.value === 'categories'
-      ? categories.value
-      : activeTab.value === 'posts'
-        ? posts.value
-        : []
+  const source = activeTab.value === 'system'
+    ? systemPages.value
+    : activeTab.value === 'pages'
+      ? pages.value
+      : activeTab.value === 'categories'
+        ? categories.value
+        : activeTab.value === 'tags'
+          ? tags.value
+          : activeTab.value === 'posts'
+            ? posts.value
+            : []
   const term = search.value.trim().toLowerCase()
   return term ? source.filter(o => o.label.toLowerCase().includes(term)) : source
 })
@@ -90,8 +116,25 @@ function uid(): string {
 }
 
 function addChecked(): void {
-  const type = activeTab.value === 'pages' ? 'page' : activeTab.value === 'categories' ? 'category' : 'post'
-  const source = activeTab.value === 'pages' ? pages.value : activeTab.value === 'categories' ? categories.value : posts.value
+  if (activeTab.value === 'system') {
+    const items = checked.value
+      .map(id => systemPages.value.find(option => option.id === id))
+      .filter((option): option is PickOption & { url: string } => Boolean(option?.url))
+      .map(option => ({
+        uid: uid(),
+        label: option.label,
+        type: 'custom' as const,
+        customUrl: option.url,
+        targetSummary: option.url,
+        enabled: true,
+        children: []
+      }))
+    if (items.length > 0) emit('add', items)
+    checked.value = []
+    return
+  }
+  const type = activeTab.value === 'pages' ? 'page' : activeTab.value === 'categories' ? 'category' : activeTab.value === 'tags' ? 'tag' : 'post'
+  const source = activeTab.value === 'pages' ? pages.value : activeTab.value === 'categories' ? categories.value : activeTab.value === 'tags' ? tags.value : posts.value
   const items = checked.value
     .map(id => source.find(o => o.id === id))
     .filter((o): o is PickOption => o !== undefined)
@@ -99,7 +142,7 @@ function addChecked(): void {
       uid: uid(),
       label: option.label,
       type: type as EditorItem['type'],
-      targetEntityType: type as 'page' | 'post' | 'category',
+      targetEntityType: type as 'page' | 'post' | 'category' | 'tag',
       targetEntityId: option.id,
       targetSummary: option.label,
       enabled: true,
@@ -129,9 +172,11 @@ function addCustom(): void {
     <UiTabs
       v-model="activeTab"
       :tabs="[
+        { value: 'system', label: t('res.navigation.picker.system') },
         { value: 'pages', label: t('res.navigation.picker.pages') },
         { value: 'custom', label: t('res.navigation.picker.custom') },
         { value: 'categories', label: t('res.navigation.picker.categories') },
+        { value: 'tags', label: t('res.navigation.picker.tags') },
         { value: 'posts', label: t('res.navigation.picker.posts') }
       ]"
     />

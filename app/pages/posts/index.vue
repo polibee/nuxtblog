@@ -68,7 +68,7 @@
                 class="font-medium text-primary/90"
               >{{ post.categories[0].name }}</span>
               <span class="text-muted-foreground/60">·</span>
-              <time class="text-muted-foreground">{{ formatDate(post.publishedAt) }}</time>
+              <time class="text-muted-foreground">{{ formatDate(post.publishedAt, localeCode) }}</time>
             </p>
             <h2 class="text-xl font-semibold leading-snug tracking-tight group-hover:text-primary">
               {{ post.title }}

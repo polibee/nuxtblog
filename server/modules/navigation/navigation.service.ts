@@ -134,6 +134,7 @@ export async function saveNavigationTree(variantId: number, body: unknown): Prom
     customUrl: string | null
     titleAttribute: string | null
     nofollow: boolean
+    alias: string | null
   }> = []
   let seq = 0
   async function walk(nodes: NavigationTreeItemInput[], parentTempKey: number | null): Promise<void> {
@@ -150,6 +151,7 @@ export async function saveNavigationTree(variantId: number, body: unknown): Prom
         openInNewTab: item.openInNewTab ?? false,
         rel: item.rel ?? null,
         label: item.label,
+        alias: item.alias ?? null,
         customUrl: item.type === 'custom' ? item.customUrl ?? null : null,
         titleAttribute: item.titleAttribute ?? null,
         nofollow: item.nofollow ?? false
@@ -303,7 +305,7 @@ async function resolveNavigationUncached(location: string, localeCode: string): 
   if (variant.status === 'disabled') return { ...empty, fallbackUsed }
 
   const items = await listVariantItems(variant.id)
-  const resolved = await resolveItems(items, null, (localeId ?? defaultLocaleId) as number, localeCode)
+  const resolved = await resolveItems(items, null, (localeId ?? defaultLocaleId) as number, localeCode, fallbackUsed)
   return { location, locale: localeCode, fallbackUsed, items: resolved }
 }
 
@@ -311,23 +313,24 @@ async function resolveItems(
   items: Awaited<ReturnType<typeof listVariantItems>>,
   parentId: number | null,
   localeId: number,
-  localeCode: string
+  localeCode: string,
+  fallbackUsed: boolean
 ): Promise<PublicNavigationItem[]> {
   const result: PublicNavigationItem[] = []
   for (const item of items.filter(i => i.parentId === parentId)) {
-    const resolved = await resolveItem(item, localeId, localeCode)
+    const resolved = await resolveItem(item, localeId, localeCode, fallbackUsed)
     if (!resolved) continue
-    result.push({ ...resolved, children: await resolveItems(items, item.id, localeId, localeCode) })
+    result.push({ ...resolved, children: await resolveItems(items, item.id, localeId, localeCode, fallbackUsed) })
   }
   return result
 }
 
-async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[number], localeId: number, localeCode: string): Promise<PublicNavigationItem | undefined> {
+async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[number], localeId: number, localeCode: string, fallbackUsed: boolean): Promise<PublicNavigationItem | undefined> {
   let url: string | null = null
   let alias: string | null = null
   if (item.type === 'group') {
     return {
-      label: resolveDisplayLabel({ locale: localeCode, defaultLabel: item.label ?? '', localizedLabel: item.label, systemKey: `group-${item.id}` }),
+      label: resolveDisplayLabel({ locale: localeCode, defaultLabel: item.label ?? '', localizedLabel: fallbackUsed ? '' : item.label, alias: item.alias, systemKey: `group-${item.id}` }),
       url: '#',
       titleAttribute: item.titleAttribute,
       target: null,
@@ -338,6 +341,7 @@ async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[nu
   if (item.type === 'custom') {
     url = item.customUrl
     if (!url) return undefined
+    alias = customUrlAlias(url) ?? null
   } else if (item.targetEntityType && item.targetEntityId) {
     if (item.targetEntityType === 'page') {
       alias = await findPublishedPageAliasById(item.targetEntityId, localeId)
@@ -356,13 +360,24 @@ async function resolveItem(item: Awaited<ReturnType<typeof listVariantItems>>[nu
 
   const relParts = [item.rel, item.nofollow ? 'nofollow' : null].filter(Boolean)
   return {
-    label: resolveDisplayLabel({ locale: localeCode, defaultLabel: item.label ?? '', localizedLabel: item.label, alias: alias ?? undefined, systemKey: `${item.type}-${item.targetEntityId ?? item.id}` }),
+    label: resolveDisplayLabel({ locale: localeCode, defaultLabel: item.label ?? '', localizedLabel: fallbackUsed ? '' : item.label, alias: alias ?? undefined, systemKey: `${item.type}-${item.targetEntityId ?? item.id}` }),
     url,
     titleAttribute: item.titleAttribute,
     target: item.type === 'custom' ? null : { type: item.targetEntityType ?? '', alias },
     rel: relParts.length > 0 ? relParts.join(' ') : null,
     children: []
   }
+}
+
+/** Internal custom links have no entity row to provide an alias. Derive the
+ * stable last path segment so English navigation can use `about`, `posts`,
+ * or `home` when its optional English label is empty. External URLs keep the
+ * configured label because their host is not a project alias. */
+function customUrlAlias(url: string): string | undefined {
+  if (!url.startsWith('/') || url.startsWith('//')) return undefined
+  const path = url.split(/[?#]/u, 1)[0]?.replace(/^\/+|\/+$/gu, '') ?? ''
+  if (!path) return 'home'
+  return path.split('/').filter(Boolean).at(-1)
 }
 
 /* ---------------- seed ---------------- */
@@ -387,7 +402,7 @@ export async function ensureDefaultNavigations(): Promise<void> {
       const variantId = await insertVariant({ navigationId: navigation.id, localeId: defaultLocale.id, isDefault: true })
       createdDefaultVariant = true
       await replaceVariantItems(variantId, defaultLocale.id, [
-        { tempKey: 1, parentTempKey: null, sortOrder: 0, type: 'custom', targetEntityType: null, targetEntityId: null, enabled: true, openInNewTab: false, rel: null, label: '首页', customUrl: '/', titleAttribute: null, nofollow: false }
+        { tempKey: 1, parentTempKey: null, sortOrder: 0, type: 'custom', targetEntityType: null, targetEntityId: null, enabled: true, openInNewTab: false, rel: null, label: '首页', alias: 'home', customUrl: '/', titleAttribute: null, nofollow: false }
       ])
     }
     const variant = await findVariant(navigation.id, defaultLocale.id)
@@ -415,6 +430,7 @@ async function ensureAdvertisingMenuItem(variantId: number, localeCode: string):
       openInNewTab: item.openInNewTab,
       rel: item.rel,
       label: item.label ?? '',
+      alias: item.alias ?? null,
       customUrl: item.customUrl,
       titleAttribute: item.titleAttribute,
       nofollow: item.nofollow
@@ -431,6 +447,7 @@ async function ensureAdvertisingMenuItem(variantId: number, localeCode: string):
     openInNewTab: false,
     rel: null,
     label: localeCode.toLowerCase().startsWith('en') ? 'Advertise' : '广告位购买',
+    alias: 'advertising',
     customUrl: '/advertising',
     titleAttribute: null,
     nofollow: false

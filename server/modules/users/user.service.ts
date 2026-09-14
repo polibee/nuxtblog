@@ -20,6 +20,7 @@ import {
   updateUserRow
 } from '../../repositories/user.runtime.repository'
 import { hashPassword } from '../../utils/password'
+import { grantBadge, revokeBadge } from '../../repositories/badge.repository'
 
 /* User domain service (P01): validation, uniqueness, password
    hashing and the "never remove the last active admin" invariant. */
@@ -84,7 +85,14 @@ export async function updateUser(id: number, body: unknown): Promise<UserRecord>
     patch.passwordHash = await hashPassword(input.password)
     await deleteSessionsForUser(id)
   }
-  await updateUserRow(id, patch)
+  if (Object.keys(patch).length > 0) {
+    await updateUserRow(id, patch)
+  }
+  if (input.badgeKey && input.badgeAction === 'grant') {
+    await grantBadge({ userId: id, badgeKey: input.badgeKey, sourceType: 'admin' })
+  } else if (input.badgeKey && input.badgeAction === 'revoke') {
+    await revokeBadge(id, input.badgeKey)
+  }
   const updated = await findUserById(id)
   if (!updated) {
     throw createError({ statusCode: 404, statusMessage: `User #${id} not found` })

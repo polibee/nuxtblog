@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useI18n } from '#imports'
+import { useI18n } from '~/admin/i18n'
 import { ExternalLinkIcon, CopyIcon, CheckIcon } from 'lucide-vue-next'
 import FriendLinkCard from './FriendLinkCard.vue'
 
@@ -90,7 +90,7 @@ void cardRel
 
 <template>
   <div class="space-y-10">
-    <section class="space-y-3">
+    <section class="space-y-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-3xl font-bold tracking-tight">
@@ -107,6 +107,21 @@ void cardRel
         >
           {{ t('public.friendlinks.apply') }}
         </UiButton>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-3">
+        <div class="rounded-xl border bg-card/70 p-4">
+          <p class="text-xs text-muted-foreground">{{ t('public.friendlinks.featured') }}</p>
+          <p class="mt-1 text-2xl font-semibold tracking-tight">{{ featuredLinks.length }}</p>
+        </div>
+        <div class="rounded-xl border bg-card/70 p-4">
+          <p class="text-xs text-muted-foreground">{{ t('public.friendlinks.all') }}</p>
+          <p class="mt-1 text-2xl font-semibold tracking-tight">{{ visibleLinks.length }}</p>
+        </div>
+        <div class="rounded-xl border bg-card/70 p-4">
+          <p class="text-xs text-muted-foreground">{{ t('public.friendlinks.categories') }}</p>
+          <p class="mt-1 text-2xl font-semibold tracking-tight">{{ categories.length }}</p>
+        </div>
       </div>
 
       <!-- §8 category filter -->
@@ -248,7 +263,7 @@ void cardRel
       </ul>
 
       <form
-        class="max-w-2xl space-y-3"
+        class="max-w-3xl space-y-5 rounded-2xl border bg-card p-4 shadow-sm sm:p-6"
         @submit.prevent="submit"
       >
         <input
@@ -259,13 +274,15 @@ void cardRel
           class="hidden"
           aria-hidden="true"
         >
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           <label class="block space-y-1 text-sm">
             <span class="text-muted-foreground">{{ t('public.friendlinks.formName') }} *</span>
             <input
               v-model="form.siteName"
               required
               maxlength="120"
+              autocomplete="organization"
+              :placeholder="t('public.friendlinks.formNameHint')"
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
           </label>
@@ -274,27 +291,32 @@ void cardRel
             <input
               v-model="form.siteUrl"
               required
+              type="url"
               placeholder="https://example.com"
+              autocomplete="url"
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
           </label>
         </div>
         <label class="block space-y-1 text-sm">
-          <span class="text-muted-foreground">{{ t('public.friendlinks.formDescription') }} *</span>
+            <span class="text-muted-foreground">{{ t('public.friendlinks.formDescription') }} *</span>
           <textarea
             v-model="form.description"
             required
-            rows="2"
+            rows="4"
             maxlength="500"
+            :placeholder="t('public.friendlinks.formDescriptionHint')"
             class="w-full rounded-md border bg-background px-3 py-2 text-sm"
           />
         </label>
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2">
           <label class="block space-y-1 text-sm">
             <span class="text-muted-foreground">{{ t('public.friendlinks.formLogo') }}</span>
             <input
               v-model="form.logoUrl"
+              type="url"
               placeholder="https://…/logo.png"
+              autocomplete="url"
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
           </label>
@@ -302,7 +324,9 @@ void cardRel
             <span class="text-muted-foreground">{{ t('public.friendlinks.formBacklink') }}</span>
             <input
               v-model="form.backlinkUrl"
+              type="url"
               :placeholder="t('public.friendlinks.formBacklinkHint')"
+              autocomplete="url"
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
             >
           </label>
@@ -312,6 +336,8 @@ void cardRel
           <input
             v-model="form.contactEmail"
             type="email"
+            autocomplete="email"
+            :placeholder="t('public.friendlinks.formEmailHint')"
             class="h-9 w-full rounded-md border bg-background px-3 text-sm"
           >
         </label>

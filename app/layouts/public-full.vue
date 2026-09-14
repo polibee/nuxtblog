@@ -5,12 +5,7 @@
       :items="headerItems"
     >
       <LanguageSwitcher class="ml-3" />
-      <NuxtLink
-        to="/admin"
-        class="ml-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        {{ t('public.nav.admin') }}
-      </NuxtLink>
+      <UserMenu />
     </SiteHeader>
 
     <!-- full-width layout: no sidebar; used by the store grid pages -->
@@ -21,9 +16,7 @@
     <SiteFooter
       :site-name="siteName"
       :items="footerItems"
-    >
-      <LanguageSwitcher />
-    </SiteFooter>
+    />
   </div>
 </template>
 
@@ -33,21 +26,45 @@ import SiteFooter from '~/components/public/SiteFooter.vue'
 import LanguageSwitcher from '~/components/public/LanguageSwitcher.vue'
 import type { PublicNavigationItem } from '#shared/schemas/navigation'
 
-const { t } = useI18n()
 const { localeCode } = useLocale()
 const { siteName } = useSiteSettings()
+const route = useRoute()
 
-const { data: headerData } = useFetch<{ location: string, items: PublicNavigationItem[] }>(
+const { data: headerData, refresh: refreshHeader } = useFetch<{ location: string, items: PublicNavigationItem[] }>(
   '/api/public/navigation',
-  { key: `navigation-header-${localeCode.value}`, query: { location: 'header', locale: localeCode.value }, lazy: true }
+  {
+    key: computed(() => `navigation-header-${localeCode.value}`),
+    query: computed(() => ({ location: 'header', locale: localeCode.value })),
+    lazy: true
+  }
 )
-const { data: footerData } = useFetch<{ location: string, items: PublicNavigationItem[] }>(
+const { data: footerData, refresh: refreshFooter } = useFetch<{ location: string, items: PublicNavigationItem[] }>(
   '/api/public/navigation',
-  { key: `navigation-footer-${localeCode.value}`, query: { location: 'footer', locale: localeCode.value }, lazy: true }
+  {
+    key: computed(() => `navigation-footer-${localeCode.value}`),
+    query: computed(() => ({ location: 'footer', locale: localeCode.value })),
+    lazy: true
+  }
 )
 
 const headerItems = computed(() => headerData.value?.items ?? [])
 const footerItems = computed(() => footerData.value?.items ?? [])
+
+function refreshNavigation(): void {
+  void Promise.all([refreshHeader(), refreshFooter()])
+}
+
+function onNavigationStorage(event: StorageEvent): void {
+  if (event.key === 'public-navigation-updated') refreshNavigation()
+}
+
+onMounted(() => window.addEventListener('focus', refreshNavigation))
+onMounted(() => window.addEventListener('storage', onNavigationStorage))
+onUnmounted(() => {
+  window.removeEventListener('focus', refreshNavigation)
+  window.removeEventListener('storage', onNavigationStorage)
+})
+watch(() => route.fullPath, refreshNavigation)
 
 useHead({
   htmlAttrs: { lang: () => localeCode.value }

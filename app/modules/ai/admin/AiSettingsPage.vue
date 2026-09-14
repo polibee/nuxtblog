@@ -3,15 +3,13 @@ import { useI18n } from '~/admin/i18n'
 import { notify, notifyError } from '~/admin/notifications/notify'
 
 /* AI settings (AI 集成文档 §118/122): provider config + connection
-   test + recent usage. API keys are AES-256-GCM encrypted at rest and
-   only ever shown masked. */
+   test. API keys are AES-256-GCM encrypted at rest and only ever shown masked. */
 
 defineProps<{ resource: { name: string } }>()
 
 const { t } = useI18n()
 
 const providers = ref<AiProvider[]>([])
-const requests = ref<AiRequest[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
@@ -28,21 +26,10 @@ interface AiProvider {
   apiKeyHint: string
   hasKey: boolean
   defaultModel: string
+  inputPricePerMillion: number
+  outputPricePerMillion: number
+  cacheHitPricePerMillion: number
   enabled: boolean
-}
-
-interface AiRequest {
-  id: number
-  feature: string
-  model: string
-  status: string
-  inputTokens: number | null
-  outputTokens: number | null
-  latencyMs: number | null
-  errorCode: string | null
-  cacheStatus?: string
-  savedTokens?: number | null
-  createdAt: string
 }
 
 const form = ref({
@@ -52,6 +39,9 @@ const form = ref({
   baseUrl: 'https://api.openai.com/v1',
   apiKey: '',
   defaultModel: 'gpt-4o-mini',
+  inputPricePerMillion: 0,
+  outputPricePerMillion: 0,
+  cacheHitPricePerMillion: 0,
   enabled: true
 })
 
@@ -69,6 +59,9 @@ function editProvider(provider: AiProvider): void {
     baseUrl: provider.baseUrl,
     apiKey: '',
     defaultModel: provider.defaultModel,
+    inputPricePerMillion: provider.inputPricePerMillion,
+    outputPricePerMillion: provider.outputPricePerMillion,
+    cacheHitPricePerMillion: provider.cacheHitPricePerMillion,
     enabled: provider.enabled
   }
 }
@@ -81,6 +74,9 @@ function newProvider(): void {
     baseUrl: '',
     apiKey: '',
     defaultModel: '',
+    inputPricePerMillion: 0,
+    outputPricePerMillion: 0,
+    cacheHitPricePerMillion: 0,
     enabled: true
   }
 }
@@ -94,12 +90,8 @@ function onTypeChange(): void {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const [providerRes, usageRes] = await Promise.all([
-      $fetch<{ providers: AiProvider[] }>('/api/admin/ai/settings'),
-      $fetch<{ requests: AiRequest[] }>('/api/admin/ai/requests')
-    ])
+    const providerRes = await $fetch<{ providers: AiProvider[] }>('/api/admin/ai/settings')
     providers.value = providerRes.providers
-    requests.value = usageRes.requests
     if (providers.value.length > 0 && !form.value.id) {
       editProvider(providers.value[0]!)
     }
@@ -233,6 +225,46 @@ onMounted(load)
             placeholder="gpt-4o-mini"
           >
         </label>
+        <div class="sm:col-span-2 rounded-lg border border-dashed p-3">
+          <p class="text-xs font-medium">
+            {{ t('res.ai.pricingTitle') }}
+          </p>
+          <p class="mt-1 text-xs text-muted-foreground">
+            {{ t('res.ai.pricingHint') }}
+          </p>
+          <div class="mt-3 grid gap-3 sm:grid-cols-3">
+            <label class="block space-y-1 text-sm">
+              <span class="text-xs text-muted-foreground">{{ t('res.ai.inputPrice') }}</span>
+              <input
+                v-model.number="form.inputPricePerMillion"
+                type="number"
+                min="0"
+                step="0.000001"
+                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+            </label>
+            <label class="block space-y-1 text-sm">
+              <span class="text-xs text-muted-foreground">{{ t('res.ai.outputPrice') }}</span>
+              <input
+                v-model.number="form.outputPricePerMillion"
+                type="number"
+                min="0"
+                step="0.000001"
+                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+            </label>
+            <label class="block space-y-1 text-sm">
+              <span class="text-xs text-muted-foreground">{{ t('res.ai.cacheHitPrice') }}</span>
+              <input
+                v-model.number="form.cacheHitPricePerMillion"
+                type="number"
+                min="0"
+                step="0.000001"
+                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+              >
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -330,43 +362,6 @@ onMounted(load)
           </tr>
         </tbody>
       </table>
-    </div>
-
-    <!-- recent usage -->
-    <div class="rounded-xl border p-5">
-      <h2 class="mb-3 text-sm font-semibold">
-        {{ t('res.ai.usage') }}
-      </h2>
-      <p
-        v-if="requests.length === 0"
-        class="text-xs text-muted-foreground"
-      >
-        {{ t('res.ai.noUsage') }}
-      </p>
-      <ul class="space-y-1 text-xs text-muted-foreground">
-        <li
-          v-for="request in requests"
-          :key="request.id"
-          class="flex flex-wrap justify-between gap-2 border-b py-1 last:border-b-0"
-        >
-          <span class="font-medium text-foreground">{{ request.feature }}</span>
-          <span>
-            {{ request.status }} · {{ request.model }}
-            <template v-if="request.inputTokens">
-              · {{ request.inputTokens }}/{{ request.outputTokens ?? 0 }} tok
-            </template>
-            <template v-if="request.cacheStatus && request.cacheStatus !== 'MISS'">
-              · <span class="font-medium text-primary">{{ request.cacheStatus }} −{{ request.savedTokens ?? 0 }} tok</span>
-            </template>
-            <template v-if="request.latencyMs">
-              · {{ request.latencyMs }}ms
-            </template>
-            <template v-if="request.errorCode">
-              · {{ request.errorCode }}
-            </template>
-          </span>
-        </li>
-      </ul>
     </div>
   </div>
 </template>

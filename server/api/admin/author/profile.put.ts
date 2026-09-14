@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
   const asArray = (v: unknown): Record<string, unknown>[] => Array.isArray(v) ? v as Record<string, unknown>[] : []
   await saveProfileBundle({
     profile: (body.profile ?? {}) as Record<string, unknown>,
+    translations: (body.translations ?? {}) as Record<string, { displayName: string, headline: string, bio: string, location: string }>,
     socials: asArray(body.socials),
     sections: asArray(body.sections),
     experiences: asArray(body.experiences),

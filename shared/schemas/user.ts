@@ -19,9 +19,14 @@ export const userUpdateSchema = z
     name: z.string().trim().min(1).max(80).optional(),
     role: userRoleSchema.optional(),
     status: userStatusSchema.optional(),
-    password: z.string().min(8).max(128).optional()
+    password: z.string().min(8).max(128).optional(),
+    badgeKey: z.string().trim().min(1).max(60).optional(),
+    badgeAction: z.enum(['grant', 'revoke']).optional()
   })
   .strict()
+  .refine(input => Boolean(input.badgeKey) === Boolean(input.badgeAction), {
+    message: 'badgeKey and badgeAction must be provided together'
+  })
 
 export type UserCreateInput = z.infer<typeof userCreateSchema>
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>

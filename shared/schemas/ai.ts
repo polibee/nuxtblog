@@ -9,6 +9,9 @@ export const aiProviderSchema = z.object({
   /* empty = keep the existing key on update */
   apiKey: z.string().trim().max(300).optional().default(''),
   defaultModel: z.string().trim().min(1).max(100),
+  inputPricePerMillion: z.coerce.number().finite().min(0).max(100000).default(0),
+  outputPricePerMillion: z.coerce.number().finite().min(0).max(100000).default(0),
+  cacheHitPricePerMillion: z.coerce.number().finite().min(0).max(100000).default(0),
   enabled: z.boolean().default(true)
 })
 

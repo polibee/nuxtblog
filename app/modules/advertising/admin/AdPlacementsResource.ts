@@ -1,5 +1,5 @@
 import type { Translator } from '~/admin/core/types'
-import { numberInput, switchInput } from '~/admin/schemas/builders/fields'
+import { relationInput, numberInput, switchInput } from '~/admin/schemas/builders/fields'
 
 export default (t: Translator) => {
   return defineResource({
@@ -26,7 +26,10 @@ export default (t: Translator) => {
             required: true,
             helpText: t('res.adslots.help.key')
           }),
-          numberInput('campaignId', t('res.adcampaigns.label'), { required: true, min: 1 })
+          relationInput('campaignId', t('res.adcampaigns.label'), {
+            resource: 'advertising/campaigns',
+            labelKey: 'name'
+          })
         ]),
         grid(2, [
           numberInput('priority', t('res.sidebar.col.sort'), { defaultValue: 0 }),

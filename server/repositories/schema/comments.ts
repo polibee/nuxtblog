@@ -23,9 +23,20 @@ export const comments = mysqlTable(
     userId: bigint('user_id', { mode: 'number' }),
     authorName: varchar('author_name', { length: 80 }).notNull(),
     authorEmail: varchar('author_email', { length: 255 }).notNull(),
+    authorUrl: varchar('author_url', { length: 500 }),
+    gravatarHash: varchar('gravatar_hash', { length: 32 }),
+    browserName: varchar('browser_name', { length: 40 }),
+    browserVersion: varchar('browser_version', { length: 40 }),
+    osName: varchar('os_name', { length: 40 }),
+    osVersion: varchar('os_version', { length: 40 }),
+    deviceType: varchar('device_type', { length: 16 }),
+    ipHash: varchar('ip_hash', { length: 64 }),
     content: text('content').notNull(),
     // pending | approved | spam
     status: varchar('status', { length: 20 }).notNull().default('pending'),
+    moderationReason: varchar('moderation_reason', { length: 500 }),
+    approvedAt: datetime('approved_at', { fsp: 6, mode: 'date' }),
+    approvedBy: bigint('approved_by', { mode: 'number' }),
     createdAt: datetime('created_at', { fsp: 6, mode: 'date' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -51,6 +62,11 @@ export const comments = mysqlTable(
     foreignKey({
       name: 'comments_user_id_fk',
       columns: [table.userId],
+      foreignColumns: [users.id]
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'comments_approved_by_fk',
+      columns: [table.approvedBy],
       foreignColumns: [users.id]
     }).onDelete('set null')
   ]

@@ -27,6 +27,10 @@ export const aiProviders = mysqlTable(
     apiKeyEncrypted: text('api_key_encrypted'),
     apiKeyHint: varchar('api_key_hint', { length: 60 }).notNull().default(''),
     defaultModel: varchar('default_model', { length: 100 }).notNull(),
+    /* USD per one million tokens, stored as integer micro-dollars. */
+    inputPriceMicrosPerMillion: bigint('input_price_micros_per_million', { mode: 'number' }).notNull().default(0),
+    outputPriceMicrosPerMillion: bigint('output_price_micros_per_million', { mode: 'number' }).notNull().default(0),
+    cacheHitPriceMicrosPerMillion: bigint('cache_hit_price_micros_per_million', { mode: 'number' }).notNull().default(0),
     enabled: boolean('enabled').notNull().default(true),
     createdAt: datetime('created_at', { fsp: 6, mode: 'date' })
       .notNull()
@@ -58,6 +62,9 @@ export const aiRequests = mysqlTable(
     cacheStatus: varchar('cache_status', { length: 40 }).notNull().default('MISS'),
     cachedInputTokens: int('cached_input_tokens'),
     savedTokens: int('saved_tokens'),
+    /* estimated USD cost in micro-dollars; pricing is configurable and
+       deliberately marked as an estimate in the admin UI */
+    estimatedCostMicros: bigint('estimated_cost_micros', { mode: 'number' }).notNull().default(0),
     createdAt: datetime('created_at', { fsp: 6, mode: 'date' })
       .notNull()
       .$defaultFn(() => new Date())

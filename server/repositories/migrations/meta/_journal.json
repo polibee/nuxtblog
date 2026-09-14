@@ -246,6 +246,76 @@
       "when": 1789183770000,
       "tag": "0034_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789185600000,
+      "tag": "0035_profile-translations",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1789186200000,
+      "tag": "0036_profile-translations-backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789230260000,
+      "tag": "0037_auth_profile_comments",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789231200000,
+      "tag": "0038_ai-usage-cost",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789231800000,
+      "tag": "0039_comments-metadata-repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789232400000,
+      "tag": "0040_ai-provider-pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789233000000,
+      "tag": "0041_badges-repair",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789233600000,
+      "tag": "0042_ad-slot-pricing-budget",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789320000000,
+      "tag": "0043_navigation-group-alias",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789320600000,
+      "tag": "0044_author-card-translations",
+      "breakpoints": true
     }
   ]
 }

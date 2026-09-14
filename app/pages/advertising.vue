@@ -49,31 +49,47 @@
           class="h-10 w-full rounded-md border bg-background px-3 text-sm"
         >
       </label>
-      <label class="block space-y-1 text-sm">
-        <span class="text-muted-foreground">{{ t('public.adapply.slot') }}</span>
-        <select
-          v-model="form.materialSlotKey"
-          required
-          class="h-10 w-full rounded-md border bg-background px-2 text-sm"
-        >
-          <option
+      <fieldset class="space-y-2">
+        <legend class="text-sm text-muted-foreground">
+          {{ t('public.adapply.slot') }}
+        </legend>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <button
             v-for="slot in slots"
             :key="slot.key"
-            :value="slot.key"
+            type="button"
+            class="rounded-lg border px-3 py-3 text-left text-sm transition-colors"
+            :class="form.materialSlotKey === slot.key ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'"
+            @click="form.materialSlotKey = slot.key"
           >
-            {{ slot.name }}
-          </option>
-        </select>
-      </label>
+            <span class="block font-medium">{{ slot.name }}</span>
+            <span class="mt-1 block text-xs text-muted-foreground">{{ slot.key }}</span>
+          </button>
+        </div>
+      </fieldset>
       <div class="grid gap-4 sm:grid-cols-2">
+        <label class="block space-y-1 text-sm">
+          <span class="text-muted-foreground">{{ t('public.adapply.duration') }}</span>
+          <input
+            v-model.number="billingUnits"
+            required
+            type="number"
+            min="1"
+            max="365"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm"
+          >
+          <span class="text-xs text-muted-foreground">
+            {{ selectedSlot ? `${t('public.adapply.price')}: ${selectedSlot.priceMinor / 100} ${selectedSlot.currency} / ${selectedSlot.billingUnit === 'month' ? t('public.adapply.month') : t('public.adapply.day')}` : '' }}
+          </span>
+        </label>
         <label class="block space-y-1 text-sm">
           <span class="text-muted-foreground">{{ t('public.adapply.budget') }} (USD)</span>
           <input
             v-model="budgetDisplay"
             required
             type="number"
-            min="1"
             step="0.01"
+            :min="minimumBudgetMinor / 100 || 1"
             class="h-10 w-full rounded-md border bg-background px-3 text-sm"
           >
         </label>
@@ -130,7 +146,7 @@ definePageMeta({ layout: 'public' })
 const { t } = useI18n()
 const { localeCode } = useLocale()
 
-interface SlotOption { key: string, name: string }
+interface SlotOption { key: string, name: string, billingUnit: 'day' | 'month', priceMinor: number, currency: string }
 
 const enabled = ref(false)
 const slots = ref<SlotOption[]>([])
@@ -139,6 +155,7 @@ const error = ref('')
 const imagePreview = ref('')
 const imageId = ref(0)
 const budgetDisplay = ref('50')
+const billingUnits = ref(1)
 const uploading = ref(false)
 
 const form = reactive({
@@ -161,6 +178,13 @@ const { data: slotData } = await useFetch<{ slots: SlotOption[] }>(
 )
 slots.value = slotData.value?.slots ?? []
 form.materialSlotKey = slots.value[0]?.key ?? ''
+
+const selectedSlot = computed(() => slots.value.find(slot => slot.key === form.materialSlotKey))
+const minimumBudgetMinor = computed(() => (selectedSlot.value?.priceMinor ?? 0) * billingUnits.value)
+watch([() => form.materialSlotKey, billingUnits], () => {
+  const minimum = minimumBudgetMinor.value / 100
+  if (minimum > Number(budgetDisplay.value || 0)) budgetDisplay.value = minimum.toFixed(2)
+})
 
 async function onUpload(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
@@ -191,7 +215,9 @@ async function submit(): Promise<void> {
       body: {
         ...form,
         materialImageMediaId: imageId.value,
-        budgetMinor: Math.round(Number(budgetDisplay.value) * 100)
+        budgetMinor: Math.round(Number(budgetDisplay.value) * 100),
+        billingUnit: selectedSlot.value?.billingUnit ?? 'day',
+        billingUnits: billingUnits.value
       }
     })
     await navigateTo(`/checkout/${res.orderNumber}`)

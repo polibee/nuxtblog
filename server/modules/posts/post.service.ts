@@ -34,6 +34,9 @@ import { sanitizeRichText } from '../../utils/sanitize'
 import { readingMinutes } from '#shared/utils/reading'
 import { contentUrl, recordUrlRedirect } from '../../utils/contentUrl'
 import { invalidateAllNavigationCaches } from '../../utils/navigationCache'
+import { countApprovedCommentsByPostIds } from '../../repositories/comment.runtime.repository'
+import { resolvePostExcerpt } from '#shared/utils/post-excerpt'
+import { normalizeArticleEmbeds } from '#shared/utils/article-embed'
 
 /* Post domain service (P04). Splits translations[locale][field] into
    posts + post_translations and relations into post_categories /
@@ -68,10 +71,14 @@ async function localeMaps(): Promise<LocaleMaps> {
 }
 
 function previewTitle(record: PostRecord): string {
-  const primary = record.translations[record.primaryLocaleCode] as
-    | { title?: unknown }
-    | undefined
-  return String(primary?.title ?? Object.values(record.translations)[0]?.title ?? '')
+  const entries = Object.entries(record.translations)
+    .map(([code, value]) => ({ code, title: String((value as { title?: unknown }).title ?? '').trim() }))
+    .filter(entry => entry.title)
+  if (entries.length === 0) return ''
+  return entries
+    .sort((a, b) => (a.code === record.primaryLocaleCode ? -1 : b.code === record.primaryLocaleCode ? 1 : a.code.localeCompare(b.code)))
+    .map(entry => `${entry.code}: ${entry.title}`)
+    .join(' / ')
 }
 
 function parseInput(body: unknown): Partial<PostInput> {
@@ -109,7 +116,7 @@ async function buildTranslationRows(
       localeId,
       title: fields.title,
       excerpt: fields.excerpt ?? '',
-      content: sanitizeRichText(fields.content ?? ''),
+      content: sanitizeRichText(normalizeArticleEmbeds(fields.content ?? '')),
       seoTitle: fields.seoTitle ?? '',
       seoDescription: fields.seoDescription ?? '',
       canonicalUrl: fields.canonicalUrl ?? null,
@@ -377,14 +384,16 @@ export async function getPublicPosts(localeCode: string, options: {
   const terms = await taxonomyTermsForPosts(localeId, result.items.map(i => i.postId))
   const { listViewCounts } = await import('../../repositories/analytics.repository')
   const views = await listViewCounts(result.items.map(i => `/posts/${i.alias}`))
+  const commentCounts = await countApprovedCommentsByPostIds(result.items.map(i => i.postId))
   const items = await Promise.all(result.items.map(async row => ({
     alias: row.alias,
     title: row.title,
-    excerpt: row.excerpt,
+    excerpt: resolvePostExcerpt(row.excerpt, row.content),
     publishedAt: row.publishedAt.toISOString(),
     coverUrl: await coverUrlFor(row.coverMediaId),
     authorName: row.authorName,
     views: views.get(`/posts/${row.alias}`) ?? 0,
+    commentCount: commentCounts.get(row.postId) ?? 0,
     readingMinutes: readingMinutes(row.content),
     categories: terms.get(row.postId)?.categories ?? [],
     tags: terms.get(row.postId)?.tags ?? []
@@ -424,7 +433,9 @@ export async function getPublicPostByAlias(
   /* paywall (P15): content split on the [paid] ... [/paid] markers.
      free part always visible; the paid block ships only when the viewer
      has purchased the post or holds an active membership. */
-  let content = row.content
+  // Normalize legacy content on read as well as at write time so existing
+  // posts gain safe Markdown/BBCode image support without a data rewrite.
+  let content = sanitizeRichText(normalizeArticleEmbeds(row.content))
   let paidContent: string | null = null
   let locked = false
   let price: { priceMinor: number, currency: string, productAlias: string } | null = null
@@ -468,7 +479,7 @@ export async function getPublicPostByAlias(
     id: row.postId,
     alias: row.alias,
     title: row.title,
-    excerpt: row.excerpt,
+    excerpt: resolvePostExcerpt(row.excerpt, row.content),
     publishedAt: row.publishedAt.toISOString(),
     coverUrl: await coverUrlFor(row.coverMediaId),
     categories: terms.get(row.postId)?.categories ?? [],

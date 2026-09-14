@@ -18,7 +18,10 @@ export function useFormSchema(options: UseFormSchemaOptions) {
 
   const form = useForm<Record<string, unknown>>({
     validationSchema: zodSchema as never,
-    initialValues: options.initialValues as never
+    initialValues: options.initialValues as never,
+    // Localized tabs and conditional fields unmount inactive inputs. Keep
+    // their values in the form state so switching tabs never loses drafts.
+    keepValuesOnUnmount: true
   })
 
   const submitting = ref(false)

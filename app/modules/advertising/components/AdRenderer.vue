@@ -1,8 +1,7 @@
 <template>
-  <aside class="my-4 overflow-hidden rounded-xl border bg-card">
+  <div class="w-full min-w-0 overflow-hidden">
     <p
-      v-if="payload.title"
-      class="border-b bg-muted/40 px-4 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground"
+      class="border-b bg-muted/35 px-4 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground"
     >
       {{ t('public.ad.label') }}
     </p>
@@ -18,7 +17,7 @@
       v-else-if="payload.kind === 'adsense'"
       :payload="payload"
     />
-  </aside>
+  </div>
 </template>
 
 <script setup lang="ts">

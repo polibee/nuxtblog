@@ -15,7 +15,7 @@
       <NuxtLink
         v-for="tag in tags"
         :key="tag.alias"
-        :to="`/tag/${tag.alias}`"
+        :to="publicPath(`/tag/${tag.alias}`)"
         class="rounded-full border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
       >
         # {{ tag.name }}
@@ -27,10 +27,10 @@
 <script setup lang="ts">
 import type { PublicTaxonomyTerm } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/tags'] })
 
 const { t } = useI18n()
-const { localeCode } = useLocale()
+const { localeCode, publicPath } = useLocale()
 
 const { data } = await useFetch<{ tags: PublicTaxonomyTerm[] }>(
   '/api/public/tags',

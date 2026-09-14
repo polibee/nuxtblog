@@ -116,17 +116,60 @@ export async function findCreativeTranslation(creativeId: number, localeId: numb
 
 export async function findEnabledCreativeById(creativeId: number): Promise<{
   id: number
+  campaignId: number
   provider: string
   weight: number
   enabled: boolean
 } | undefined> {
   const rows = await getDb().select({
     id: adCreatives.id,
+    campaignId: adCreatives.campaignId,
     provider: adCreatives.provider,
     weight: adCreatives.weight,
     enabled: adCreatives.enabled
   }).from(adCreatives).where(and(eq(adCreatives.id, creativeId), eq(adCreatives.enabled, true))).limit(1)
   return rows[0]
+}
+
+/** Accrue time-based delivery spend atomically. A campaign with no budget
+ * keeps legacy unlimited behavior; exhausted campaigns are ended and all
+ * placements are disabled in the same transaction. */
+export async function chargeCampaignBudget(campaignId: number, now = new Date()): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const [campaign] = await tx.select({
+      status: adCampaigns.status,
+      budgetMinor: adCampaigns.budgetMinor,
+      spentMinor: adCampaigns.spentMinor,
+      billingUnit: adCampaigns.billingUnit,
+      unitPriceMinor: adCampaigns.unitPriceMinor,
+      lastBilledAt: adCampaigns.lastBilledAt,
+      startAt: adCampaigns.startAt,
+      endAt: adCampaigns.endAt
+    }).from(adCampaigns).where(eq(adCampaigns.id, campaignId)).limit(1)
+    if (!campaign || campaign.status !== 'active') return false
+    if (campaign.endAt && campaign.endAt <= now) {
+      await tx.update(adCampaigns).set({ status: 'ended' }).where(eq(adCampaigns.id, campaignId))
+      await tx.update(adPlacements).set({ enabled: false }).where(eq(adPlacements.campaignId, campaignId))
+      return false
+    }
+    if (campaign.budgetMinor <= 0 || campaign.unitPriceMinor <= 0) return true
+    const last = campaign.lastBilledAt ?? campaign.startAt ?? now
+    const unitMs = campaign.billingUnit === 'month' ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+    const elapsed = Math.max(0, now.getTime() - last.getTime())
+    const charge = Math.floor(campaign.unitPriceMinor * elapsed / unitMs)
+    if (charge <= 0) return true
+    const spent = campaign.spentMinor + charge
+    const exhausted = spent >= campaign.budgetMinor
+    await tx.update(adCampaigns).set({
+      spentMinor: Math.min(spent, campaign.budgetMinor),
+      lastBilledAt: now,
+      status: exhausted ? 'ended' : 'active'
+    }).where(eq(adCampaigns.id, campaignId))
+    if (exhausted) {
+      await tx.update(adPlacements).set({ enabled: false }).where(eq(adPlacements.campaignId, campaignId))
+    }
+    return !exhausted
+  })
 }
 
 export async function incrementImpressions(creativeId: number): Promise<void> {
@@ -153,6 +196,50 @@ export async function listAllCreatives() {
 }
 export async function listAllPlacements() {
   return getDb().select().from(adPlacements).orderBy(asc(adPlacements.id))
+}
+
+/** Narrow, read-only advertising projection for AI analysis. */
+export async function getAdvertisingAnalysis(): Promise<{
+  overview: { campaigns: number, activeCampaigns: number, impressions: number, clicks: number, ctr: number, budgetMinor: number, spentMinor: number }
+  campaigns: Array<{ id: number, name: string, status: string, budgetMinor: number, spentMinor: number, currency: string, impressions: number, clicks: number, ctr: number, placementCount: number }>
+}> {
+  const db = getDb()
+  const [campaignRows, creativeRows, placementRows] = await Promise.all([
+    db.select({ id: adCampaigns.id, name: adCampaigns.name, status: adCampaigns.status, budgetMinor: adCampaigns.budgetMinor, spentMinor: adCampaigns.spentMinor, currency: adCampaigns.currency }).from(adCampaigns).orderBy(asc(adCampaigns.id)),
+    db.select({ campaignId: adCreatives.campaignId, impressions: adCreatives.impressions, clicks: adCreatives.clicks }).from(adCreatives),
+    db.select({ campaignId: adPlacements.campaignId }).from(adPlacements).where(eq(adPlacements.enabled, true))
+  ])
+  const campaigns = campaignRows.map((campaign) => {
+    const creatives = creativeRows.filter(row => row.campaignId === campaign.id)
+    const impressions = creatives.reduce((sum, row) => sum + Number(row.impressions ?? 0), 0)
+    const clicks = creatives.reduce((sum, row) => sum + Number(row.clicks ?? 0), 0)
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      budgetMinor: Number(campaign.budgetMinor ?? 0),
+      spentMinor: Number(campaign.spentMinor ?? 0),
+      currency: campaign.currency,
+      impressions,
+      clicks,
+      ctr: impressions > 0 ? Number((clicks / impressions * 100).toFixed(2)) : 0,
+      placementCount: placementRows.filter(row => row.campaignId === campaign.id).length
+    }
+  })
+  const impressions = campaigns.reduce((sum, campaign) => sum + campaign.impressions, 0)
+  const clicks = campaigns.reduce((sum, campaign) => sum + campaign.clicks, 0)
+  return {
+    overview: {
+      campaigns: campaigns.length,
+      activeCampaigns: campaigns.filter(campaign => campaign.status === 'active').length,
+      impressions,
+      clicks,
+      ctr: impressions > 0 ? Number((clicks / impressions * 100).toFixed(2)) : 0,
+      budgetMinor: campaigns.reduce((sum, campaign) => sum + campaign.budgetMinor, 0),
+      spentMinor: campaigns.reduce((sum, campaign) => sum + campaign.spentMinor, 0)
+    },
+    campaigns
+  }
 }
 export async function listTranslationsByCreative(creativeId: number) {
   return getDb().select().from(adCreativeTranslations).where(eq(adCreativeTranslations.creativeId, creativeId))

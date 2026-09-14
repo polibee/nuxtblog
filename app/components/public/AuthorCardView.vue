@@ -13,11 +13,19 @@ const props = defineProps<{
   layout?: 'centered' | 'compact'
   socials?: AuthorSocial[]
   cta?: { label: string, url: string, external: boolean } | null
+  profileUrl?: string
 }>()
+
+const { t } = useI18n()
 
 const socials = computed(() => (props.socials ?? []).slice(0, 5))
 
 const compact = computed(() => props.layout === 'compact')
+
+const safeProfileUrl = computed(() => {
+  const value = props.profileUrl?.trim() ?? ''
+  return value.startsWith('/') && !value.startsWith('//') ? value : ''
+})
 
 const avatarClass = computed(() => [
   props.avatarStyle === 'rounded' ? 'rounded-xl' : 'rounded-full',
@@ -103,6 +111,14 @@ const avatarClass = computed(() => [
       class="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-accent"
     >
       {{ cta.label }} →
+    </NuxtLink>
+
+    <NuxtLink
+      v-if="safeProfileUrl"
+      :to="safeProfileUrl"
+      class="inline-flex h-8 items-center rounded-md border px-3 text-xs font-medium hover:bg-accent"
+    >
+      {{ t('public.profile.viewProfile') }} →
     </NuxtLink>
   </div>
 </template>

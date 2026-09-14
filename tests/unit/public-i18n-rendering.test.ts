@@ -5,6 +5,7 @@ import { useI18n } from '../../app/admin/i18n'
 import { useLocale } from '../../app/composables/useLocale'
 import { resolveDisplayLabel } from '../../shared/utils/display-label'
 import { localizedPath } from '../../shared/utils/locale-navigation'
+import { formatDate } from '../../app/utils/blog'
 
 interface StateBox<T = unknown> {
   value: T
@@ -38,6 +39,30 @@ describe('public i18n behavior', () => {
     expect(t('public.profile.loadFailed')).toBe('Failed to load profile')
     expect(t('public.profile.retry')).toBe('Retry')
     expect(t('public.profile.github')).toBe('GitHub')
+  })
+
+  it('uses the URL-aware public locale for public UI copy', () => {
+    const publicState = ref({ id: null, code: 'en', urlPrefix: 'en' })
+    vi.stubGlobal('useCookie', () => ({ value: 'zh-CN' }))
+    vi.stubGlobal('useRoute', () => ({ path: '/en', fullPath: '/en', query: {} }))
+    vi.stubGlobal('useState', () => publicState)
+    vi.stubGlobal('computed', computed)
+
+    const { t } = useI18n()
+
+    expect(t('public.home.layoutList')).toBe('List')
+    expect(t('public.profile.viewProfile')).toBe('View profile')
+  })
+
+  it('provides account tabs and formats public dates with the active locale', () => {
+    vi.stubGlobal('useCookie', () => ({ value: 'en' }))
+    const { t } = useI18n()
+
+    expect(t('auth.account.tab.overview')).toBe('Overview')
+    expect(t('auth.account.tab.profile')).toBe('Profile')
+    expect(t('auth.account.tab.security')).toBe('Security')
+    expect(formatDate('2026-01-05T00:00:00.000Z', 'en-US')).toBe('Jan 5, 2026')
+    expect(formatDate('2026-01-05T00:00:00.000Z', 'zh-CN')).toBe('2026年1月5日')
   })
 
   it('builds locale-aware paths through useLocale and preserves external URLs', () => {
@@ -87,7 +112,7 @@ describe('public i18n behavior', () => {
 
   it('uses English label, then alias, then system key for public navigation', () => {
     expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: 'Posts', alias: 'posts', systemKey: 'post-12' })).toBe('Posts')
-    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: '', alias: 'posts', systemKey: 'post-12' })).toBe('posts')
-    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: '', alias: '', systemKey: 'post-12' })).toBe('post-12')
+    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: '', alias: 'posts', systemKey: 'post-12' })).toBe('Posts')
+    expect(resolveDisplayLabel({ locale: 'en', defaultLabel: '文章', localizedLabel: '', alias: '', systemKey: 'post-12' })).toBe('Post-12')
   })
 })

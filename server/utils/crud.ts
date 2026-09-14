@@ -4,6 +4,7 @@ import { requirePermission } from './auth'
 import { emitCmsEvent } from './events'
 import { snapshotRevision } from './revisions'
 import { sanitizeRichText } from './sanitize'
+import { maskSettingValue } from './setting-secrets'
 
 type Evt = Parameters<typeof getQuery>[0]
 
@@ -51,7 +52,10 @@ export async function listResource(event: Evt, resource: string) {
 export async function readResource(event: Evt, resource: string, id: number) {
   const cfg = getConfig(resource)
   await requirePermission(event, `${cfg.permissionPrefix}.view`)
-  return findRow(resource, id)
+  const row = findRow(resource, id)
+  return resource === 'settings' && row.type === 'secret'
+    ? { ...row, value: maskSettingValue(String(row.value ?? ''), 'secret') }
+    : row
 }
 
 export async function createResource(event: Evt, resource: string, body: Record<string, unknown>) {
@@ -93,7 +97,9 @@ export async function createResource(event: Evt, resource: string, body: Record<
   sanitizeRichTextValues(resource, result.data)
   const row = insertRow(resource, result.data)
   await emitCmsEvent('content.afterCreate', { resource, record: row })
-  return row
+  return resource === 'settings' && row.type === 'secret'
+    ? { ...row, value: maskSettingValue(String(row.value ?? ''), 'secret') }
+    : row
 }
 
 export async function updateResource(event: Evt, resource: string, id: number, body: Record<string, unknown>) {
@@ -129,7 +135,9 @@ export async function updateResource(event: Evt, resource: string, id: number, b
   snapshotRevision(resource, before)
   const row = updateRow(resource, id, result.data)
   await emitCmsEvent('content.afterUpdate', { resource, id, record: row, patch: result.data })
-  return row
+  return resource === 'settings' && row.type === 'secret'
+    ? { ...row, value: maskSettingValue(String(row.value ?? ''), 'secret') }
+    : row
 }
 
 export async function deleteResource(event: Evt, resource: string, id: number) {

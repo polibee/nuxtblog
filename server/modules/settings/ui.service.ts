@@ -189,6 +189,9 @@ function validateValue(def: SettingDefinition, value: unknown): string | number 
     return num
   }
   const raw = String(value ?? '')
+  if (raw.length > (def.type === 'textarea' ? 12000 : 1000)) {
+    throw createError({ statusCode: 422, statusMessage: `${def.key}: value is too long` })
+  }
   if (def.required && !raw.trim()) throw createError({ statusCode: 422, statusMessage: `${def.key}: required` })
   if (def.type === 'select' && def.options && !def.options.some(o => o.value === raw)) {
     throw createError({ statusCode: 422, statusMessage: `${def.key}: invalid option` })

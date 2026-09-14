@@ -7,6 +7,7 @@ import { resolveAdminDisplayLabel } from '~/admin/i18n/display-label'
 export interface EditorItem {
   uid: string
   label: string
+  alias?: string
   type: 'page' | 'post' | 'category' | 'custom' | 'group'
   targetEntityType?: 'page' | 'post' | 'category' | 'tag'
   targetEntityId?: number
@@ -144,6 +145,18 @@ function onDrop(): void {
         <input
           v-model="item.label"
           class="h-8 w-full rounded-md border bg-background px-2 text-sm"
+        >
+      </label>
+      <label
+        v-if="item.type === 'group'"
+        class="space-y-1 text-xs"
+      >
+        <span>{{ t('res.navigation.field.alias') }}</span>
+        <input
+          v-model="item.alias"
+          pattern="[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*"
+          class="h-8 w-full rounded-md border bg-background px-2 text-sm"
+          :placeholder="t('res.navigation.help.alias')"
         >
       </label>
       <label

@@ -4,7 +4,8 @@ import {
   findEnabledCreativeById,
   findCreativeTranslation,
   incrementClicks,
-  incrementImpressions
+  incrementImpressions,
+  chargeCampaignBudget
 } from '../../repositories/advertising.repository'
 import { getSessionUser } from '../../utils/auth'
 import { decide } from './decision.service'
@@ -44,6 +45,7 @@ async function renderDecision(
   }
   const creative = await findEnabledCreativeById(decision.creativeId)
   if (!creative) return { kind: 'NO_AD', reason: 'no_campaign' }
+  if (!(await chargeCampaignBudget(creative.campaignId))) return { kind: 'NO_AD', reason: 'budget_exhausted' }
   const translation = await findCreativeTranslation(decision.creativeId, localeId)
     ?? await findCreativeTranslation(decision.creativeId, 1)
   if (!translation) return { kind: 'NO_AD', reason: 'no_translation' }

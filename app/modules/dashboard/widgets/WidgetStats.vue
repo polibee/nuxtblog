@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileTextIcon, MessageSquareIcon, UsersIcon, LayoutTemplateIcon } from 'lucide-vue-next'
+import { CheckCircle2Icon, Clock3Icon, FilePenLineIcon, FileTextIcon, LayoutTemplateIcon, UsersIcon } from 'lucide-vue-next'
 import { useI18n } from '~/admin/i18n'
 
 const { t } = useI18n()
@@ -32,20 +32,39 @@ const cards = computed(() => [
     icon: UsersIcon
   },
   {
-    label: t('widget.posts'),
-    value: (stats.value?.postsPublished ?? 0) + (stats.value?.postsDraft ?? 0),
-    sub: t('widget.published', { n: stats.value?.postsPublished ?? 0 }),
+    label: t('widget.activeUsers'),
+    value: stats.value?.usersActive,
+    sub: t('widget.activeUsersHint'),
+    icon: UsersIcon
+  },
+  {
+    label: t('status.published'),
+    value: stats.value?.postsPublished,
+    sub: t('widget.postsPublishedHint'),
     icon: FileTextIcon
   },
   {
-    label: t('widget.comments'),
-    value: (stats.value?.approvedComments ?? 0) + (stats.value?.pendingComments ?? 0),
+    label: t('status.draft'),
+    value: stats.value?.postsDraft,
+    sub: t('widget.postsDraftHint'),
+    icon: FilePenLineIcon
+  },
+  {
+    label: t('res.comments.status.pending'),
+    value: stats.value?.pendingComments,
     sub: t('widget.pendingComments', { n: stats.value?.pendingComments ?? 0 }),
-    icon: MessageSquareIcon
+    icon: Clock3Icon
+  },
+  {
+    label: t('res.comments.status.approved'),
+    value: stats.value?.approvedComments,
+    sub: t('widget.approvedCommentsHint'),
+    icon: CheckCircle2Icon
   },
   {
     label: t('widget.pages'),
     value: stats.value?.pagesPublished,
+    sub: t('widget.pagesPublishedHint'),
     icon: LayoutTemplateIcon
   }
 ])

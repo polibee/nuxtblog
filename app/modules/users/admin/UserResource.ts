@@ -32,13 +32,38 @@ export default (t: Translator) => {
     group: t('res.users.group'),
     sort: 10,
     searchable: ['name', 'email'],
+    permissionPrefix: 'users',
 
     table: () => [
       textColumn('name', t('res.users.col.name'), { sortable: true }),
       textColumn('email', t('res.users.col.email')),
       badgeColumn('role', t('res.users.col.role'), roleBadges()),
       badgeColumn('status', t('res.users.col.status'), statusBadges()),
-      dateColumn('createdAt', t('res.users.col.joined'), { sortable: true })
+      dateColumn('createdAt', t('res.users.col.joined'), { sortable: true }),
+      actionsColumn([
+        defineAction({
+          name: 'manage-badge',
+          label: t('res.users.badges'),
+          icon: 'badge-check',
+          permission: 'users.edit',
+          form: () => [
+            selectInput('badgeKey', t('res.users.badge'), [
+              { label: t('res.users.badge.member'), value: 'member' },
+              { label: t('res.users.badge.vip'), value: 'vip' },
+              { label: t('res.users.badge.supporter'), value: 'supporter' }
+            ], { required: true }),
+            selectInput('badgeAction', t('res.users.badgeAction'), [
+              { label: t('res.users.badgeGrant'), value: 'grant' },
+              { label: t('res.users.badgeRevoke'), value: 'revoke' }
+            ], { required: true })
+          ],
+          handler: async ({ record, values }) => {
+            await $fetch(`/api/admin/users/${record!.id}`, { method: 'PUT', body: values })
+            notify(t('toast.updated', { label: t('res.users.badges') }))
+            emitAdminEvent('users:refresh')
+          }
+        })
+      ])
     ],
 
     form: () => [

@@ -1,5 +1,5 @@
 import type { Translator } from '~/admin/core/types'
-import { textInput, switchInput } from '~/admin/schemas/builders/fields'
+import { numberInput, selectInput, textInput, switchInput } from '~/admin/schemas/builders/fields'
 
 export default (t: Translator) => {
   return defineResource({
@@ -16,6 +16,8 @@ export default (t: Translator) => {
     table: () => [
       textColumn('key', t('res.adslots.col.key'), { sortable: true }),
       textColumn('name', t('res.adslots.col.name')),
+      moneyColumn('priceMinor', t('res.adslots.col.price')),
+      textColumn('billingUnit', t('res.adslots.col.billingUnit')),
       booleanColumn('enabled', t('res.sidebar.col.enabled')),
       dateColumn('createdAt', t('res.posts.col.created'))
     ],
@@ -27,7 +29,13 @@ export default (t: Translator) => {
             required: true,
             helpText: t('res.adslots.help.key')
           }),
-          textInput('name', t('res.adslots.col.name'), { required: true })
+          textInput('name', t('res.adslots.col.name'), { required: true }),
+          numberInput('priceMinor', t('res.adslots.col.price'), { min: 0, defaultValue: 0 }),
+          selectInput('billingUnit', t('res.adslots.col.billingUnit'), [
+            { label: t('res.adslots.billing.day'), value: 'day' },
+            { label: t('res.adslots.billing.month'), value: 'month' }
+          ]),
+          textInput('currency', t('res.adslots.col.currency'), { defaultValue: 'USD' })
         ]),
         switchInput('enabled', t('res.sidebar.field.enabled'), { defaultValue: true })
       ])

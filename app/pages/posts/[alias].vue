@@ -96,7 +96,7 @@
           <p class="line-clamp-2 font-medium leading-snug group-hover:text-primary">
             {{ item.title }}
           </p>
-          <time class="mt-2 block text-xs text-muted-foreground">{{ formatDate(item.publishedAt) }}</time>
+          <time class="mt-2 block text-xs text-muted-foreground">{{ formatDate(item.publishedAt, localeCode) }}</time>
         </NuxtLink>
       </div>
     </section>

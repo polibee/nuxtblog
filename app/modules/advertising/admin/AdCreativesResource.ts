@@ -15,6 +15,7 @@ export default (t: Translator) => {
 
     table: () => [
       numberColumn('id', t('res.trans.col.number')),
+      textColumn('campaignName', t('res.adcampaigns.label'), { sortable: true }),
       badgeColumn('provider', t('res.adcreatives.col.provider'), {
         image: { label: 'Image', variant: 'success' },
         affiliate: { label: 'Affiliate', variant: 'secondary' },

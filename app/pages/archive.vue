@@ -42,7 +42,7 @@
             >
             <time class="shrink-0 font-mono text-xs text-muted-foreground">{{ month.month }}-{{ String(item.day).padStart(2, '0') }}</time>
             <NuxtLink
-              :to="`/posts/${item.alias}`"
+              :to="publicPath(`/posts/${item.alias}`)"
               class="truncate hover:text-primary hover:underline"
             >
               {{ item.title }}
@@ -57,10 +57,10 @@
 <script setup lang="ts">
 import type { PublicArchiveItem } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/archive'] })
 
 const { t } = useI18n()
-const { localeCode } = useLocale()
+const { localeCode, publicPath } = useLocale()
 
 const { data } = await useFetch<{ items: PublicArchiveItem[] }>(
   '/api/public/archive',

@@ -13,3 +13,14 @@ docs/dashboard/
 
 # local tooling state
 .mimosa/
+
+# local audit/build artifacts
+output/
+audit-i18n-task1-output.txt
+review-*-report.md
+task-*-report.md
+/review-*.md
+/task-*.md
+
+# superpowers isolated implementation worktrees
+.worktrees/

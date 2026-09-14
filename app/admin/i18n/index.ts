@@ -21,6 +21,7 @@ import zhCommon from '../../i18n/locales/zh-CN/common'
 import zhMedia from '../../i18n/locales/zh-CN/media'
 import zhPosts from '../../i18n/locales/zh-CN/posts'
 import zhSettings from '../../i18n/locales/zh-CN/settings'
+import { useLocale } from '../../composables/useLocale'
 
 type Locale = 'zh-CN' | 'en'
 
@@ -64,9 +65,20 @@ export const LOCALES: Array<{ value: Locale, label: string }> = [
 
 export function useI18n() {
   const locale = useCookie<Locale>('admin-locale', { default: () => 'zh-CN' })
+  // Public pages have a separate, URL-aware locale state. Keeping the admin
+  // preference isolated prevents `/en/...` from rendering English data with
+  // Chinese UI labels (or leaking the admin preference into the public site).
+  const route = typeof useRoute === 'function' ? useRoute() : null
+  const isAdminSurface = route?.path.startsWith('/admin') ?? true
+  const publicLocale = isAdminSurface ? null : useLocale().localeCode
 
   function t(key: string, params?: Record<string, string | number>): string {
-    let text = messages[locale.value]?.[key] ?? messages.en[key] ?? key
+    const activeLocale: Locale = publicLocale?.value === 'zh-CN'
+      ? 'zh-CN'
+      : publicLocale?.value === 'en'
+        ? 'en'
+        : locale.value
+    let text = messages[activeLocale]?.[key] ?? messages.en[key] ?? key
     if (params) {
       for (const [name, value] of Object.entries(params)) {
         text = text.replaceAll(`{${name}}`, String(value))

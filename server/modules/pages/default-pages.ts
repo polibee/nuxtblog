@@ -9,36 +9,50 @@ interface SeedPage {
   alias: string
   title: string
   content: string
+  template: string
+  enTitle?: string
+  enContent?: string
 }
 
 const SEED_PAGES: SeedPage[] = [
   {
     alias: 'privacy-policy',
     title: '隐私政策 Privacy Policy',
-    content: `<h2>我们收集哪些信息</h2>
-<p>在您注册账号、下单购买或提交评论时，我们会收集您的邮箱地址与必要的订单信息。我们不会收集任何不必要的个人数据。</p>
-<h2>数据用途</h2>
-<p>收集的信息仅用于：账号管理、订单与支付处理、交付虚拟商品、发送与服务相关的邮件通知。</p>
-<h2>数据留存</h2>
-<p>分析类原始事件默认保留 90 天，聚合统计数据保留 24 个月。账号数据在您请求注销前一直保留。</p>
-<h2>您的权利</h2>
-<p>您可以随时联系我们导出或删除您的个人数据。</p>`
+    template: 'privacy',
+    enTitle: 'Privacy Policy',
+    enContent: '<p>We collect only the information needed to operate accounts, orders, comments, and site services.</p><h2>Information we collect</h2><p>Registration, purchases, and comments may require an email address, order details, and limited security logs.</p><h2>How we use it</h2><p>Information is used for sign-in, payment processing, content delivery, moderation, and service notices.</p><h2>Your choices</h2><p>You may contact the administrator to export, correct, or delete personal data.</p>',
+    content: `<p>我们只收集运行账号、订单、评论和站点服务所必需的信息。</p>
+<h2>我们收集的信息</h2><p>注册、购买或评论时，可能会保存邮箱、订单信息和必要的安全日志。</p>
+<h2>信息如何使用</h2><p>这些信息用于登录、支付处理、内容交付、评论审核和服务通知，不会用于无关的用途。</p>
+<h2>保留与删除</h2><p>我们会在业务需要的期限内保留数据。您可以联系管理员申请导出、更正或删除个人数据。</p>`
   },
   {
     alias: 'terms-of-use',
     title: '使用条款 Terms of Use',
-    content: `<h2>服务说明</h2>
-<p>本站提供博客内容与虚拟商品（卡密、会员计划等）。虚拟商品在支付成功后自动交付。</p>
-<h2>购买与退款</h2>
-<p>虚拟商品一经交付，除商品本身存在无法使用等质量问题外，一般不支持无理由退款。如有问题请通过页面联系方式与我们沟通。</p>
-<h2>免责声明</h2>
-<p>本站内容按"现状"提供。对于因使用本站内容而产生的任何直接或间接损失，我们不承担责任。</p>`
+    template: 'terms',
+    enTitle: 'Terms of Use',
+    enContent: '<p>Welcome to the site, community, and digital services. By continuing to use them, you agree to these terms.</p><h2>Content and accounts</h2><p>Please use lawful content and keep your account credentials secure.</p><h2>Purchases and refunds</h2><p>Digital goods are delivered after successful payment. Include your order number when reporting a delivery or quality issue.</p><h2>Liability</h2><p>Site content is provided as-is and is not professional advice.</p>',
+    content: `<p>欢迎使用本站内容、社区和数字商品服务。继续访问或购买即表示您同意以下约定。</p>
+<h2>内容与账号</h2><p>请使用真实、合法且不侵犯他人权益的内容。账号持有人应妥善保管登录凭据。</p>
+<h2>购买与退款</h2><p>数字商品在支付成功后按商品说明交付。遇到交付或质量问题，请通过站点联系方式提交订单号。</p>
+<h2>责任范围</h2><p>本站内容按现状提供，文章观点不构成专业建议。我们会努力保持服务稳定，但不承诺永不中断。</p>`
   },
   {
     alias: 'about',
     title: '关于本站 About',
-    content: `<p>这是一个基于 NuxtAdmin 构建的博客框架演示站点，内置多语言内容、商城与会员体系。</p>
-<p>本页面为通用页面（Page），您可以在后台「页面」中编辑或新建类似页面。</p>`
+    template: 'about',
+    enTitle: 'About this site',
+    enContent: '<p>NuxtBlog is a content-first personal site where articles, projects, links, and digital services live together.</p><h2>What you can find here</h2><p>Read independent articles, browse topics, explore the author profile, and discover digital products.</p><h2>Always evolving</h2><p>This is a living workshop. Pages, navigation, and content are maintained independently from the admin panel.</p>',
+    content: `<p>NuxtBlog 是一个以内容为中心的个人站点：文章、作品、链接和数字服务都在同一个清晰的空间里呈现。</p>
+<h2>这里有什么</h2><p>你可以阅读独立文章、浏览分类、查看作者资料，也可以通过商城和会员模块探索数字产品。</p>
+<h2>持续更新</h2><p>这是一个可持续迭代的实验场。页面、导航和内容都可以在后台管理中独立维护。</p>`
+  },
+  {
+    alias: 'friends',
+    title: '友情链接',
+    template: 'friend_links',
+    content: `<p>这里收录本站认可的独立网站与创作者。欢迎维护原创内容、长期更新的网站申请交换链接。</p>
+<p>页面下方包含本站信息与申请友链表单，具体友链数据由后台「友链」模块统一维护。</p>`
   }
 ]
 
@@ -52,12 +66,12 @@ export async function ensureDefaultPages(): Promise<void> {
       await createPage({
         alias: seed.alias,
         status: 'published',
-        template: 'default',
+        template: seed.template ?? 'default',
         translations: {
-          'zh-CN': {
-            title: seed.title,
-            content: seed.content
-          }
+          'zh-CN': { title: seed.title, content: seed.content },
+          ...(seed.enTitle && seed.enContent
+            ? { en: { title: seed.enTitle, content: seed.enContent } }
+            : {})
         }
       }, 1)
     } catch (e) {

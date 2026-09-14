@@ -21,6 +21,9 @@ export const adSlots = mysqlTable(
     key: varchar('key', { length: 60 }).notNull(),
     name: varchar('name', { length: 120 }).notNull(),
     enabled: boolean('enabled').notNull().default(true),
+    billingUnit: varchar('billing_unit', { length: 10 }).notNull().default('day'),
+    priceMinor: bigint('price_minor', { mode: 'number' }).notNull().default(0),
+    currency: varchar('currency', { length: 8 }).notNull().default('USD'),
     createdAt: datetime('created_at', { fsp: 6, mode: 'date' })
       .notNull()
       .$defaultFn(() => new Date()),
@@ -45,6 +48,11 @@ export const adCampaigns = mysqlTable(
     /* P21 ad purchase: campaigns are bought through the standard
        order/payment chain via the ad-{id} shadow product */
     budgetMinor: bigint('budget_minor', { mode: 'number' }).notNull().default(0),
+    spentMinor: bigint('spent_minor', { mode: 'number' }).notNull().default(0),
+    billingUnit: varchar('billing_unit', { length: 10 }).notNull().default('day'),
+    billingUnits: int('billing_units').notNull().default(1),
+    unitPriceMinor: bigint('unit_price_minor', { mode: 'number' }).notNull().default(0),
+    lastBilledAt: datetime('last_billed_at', { fsp: 6, mode: 'date' }),
     currency: varchar('currency', { length: 8 }).notNull().default('USD'),
     paidAmountMinor: bigint('paid_amount_minor', { mode: 'number' }).notNull().default(0),
     orderId: bigint('order_id', { mode: 'number' }),

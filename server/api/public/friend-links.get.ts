@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     name: String(await getSettingValue('SITE_NAME', 'Blog Framework')),
     url: String(await getSettingValue('SITE_URL', '')),
     description: String(await getSettingValue('SITE_DESCRIPTION', '')),
-    friendsPagePath: '/pages/friends'
+    friendsPagePath: '/friends'
   }
   return { links, categories, site }
 })

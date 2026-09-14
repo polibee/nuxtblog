@@ -10,7 +10,7 @@
 import PublicTaxonomyArchive from '~/components/public/TaxonomyArchive.vue'
 import type { PublicPostSummary } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/category/:alias'] })
 
 const route = useRoute()
 const { localeCode } = useLocale()

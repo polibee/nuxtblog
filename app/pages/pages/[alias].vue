@@ -6,11 +6,13 @@
 import PublicPageDetail from '~/components/public/PageDetail.vue'
 import type { PublicPageDetail as PageDetailData } from '#shared/types/post'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', alias: ['/en/pages/:alias'] })
 
 const route = useRoute()
-const { localeCode } = useLocale()
+const { localeCode, publicPath } = useLocale()
 const { t } = useI18n()
+
+await navigateTo(publicPath(`/` + String(route.params.alias)), { redirectCode: 301 })
 
 const { data: page, error } = await useFetch<PageDetailData>(
   `/api/public/pages/${route.params.alias}`,

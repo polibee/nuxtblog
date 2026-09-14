@@ -86,6 +86,7 @@ describe('public navigation locale resolution', () => {
         parentId: null,
         type: 'group',
         label: '',
+        alias: 'updates',
         titleAttribute: null,
         enabled: true,
         sortOrder: 1
@@ -97,8 +98,47 @@ describe('public navigation locale resolution', () => {
     expect(findVariant).toHaveBeenCalledWith(4, 2)
     expect(findPublishedPostAliasById).toHaveBeenCalledWith(22, 2)
     expect(result.items).toEqual([
-      expect.objectContaining({ label: 'hello-world', url: '/posts/hello-world' }),
-      expect.objectContaining({ label: 'group-11', url: '#' })
+      expect.objectContaining({ label: 'Hello-world', url: '/posts/hello-world' }),
+      expect.objectContaining({ label: 'Updates', url: '#' })
     ])
+  })
+
+  it('uses the internal custom URL alias when an English label is unavailable', async () => {
+    findVariant.mockImplementation(async (_navigationId: number, localeId: number) =>
+      localeId === 2 ? undefined : { id: 8, status: 'published' })
+    listVariantItems.mockResolvedValue([
+      {
+        id: 12,
+        parentId: null,
+        type: 'custom',
+        targetEntityType: null,
+        targetEntityId: null,
+        label: '关于我们',
+        customUrl: '/about',
+        titleAttribute: null,
+        rel: null,
+        nofollow: false,
+        enabled: true,
+        sortOrder: 0
+      },
+      {
+        id: 13,
+        parentId: null,
+        type: 'custom',
+        targetEntityType: null,
+        targetEntityId: null,
+        label: '首页',
+        customUrl: '/',
+        titleAttribute: null,
+        rel: null,
+        nofollow: false,
+        enabled: true,
+        sortOrder: 1
+      }
+    ])
+
+    const result = await resolveNavigation('header', 'en')
+
+    expect(result.items.map(item => item.label)).toEqual(['About', 'Home'])
   })
 })

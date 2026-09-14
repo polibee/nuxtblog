@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
     post.id,
     post.commentStatus,
     body,
-    user ? { id: user.id, name: user.name, email: user.email } : null
+    user ? { id: user.id, name: user.name, email: user.email } : null,
+    { ip, userAgent: getRequestHeader(event, 'user-agent') ?? '' }
   )
 })

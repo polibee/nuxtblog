@@ -1,6 +1,26 @@
 <script setup lang="ts">
 import { MessageSquareIcon } from 'lucide-vue-next'
 import type { PublicComment } from '#shared/schemas/comment'
+import PostCommentNode from './PostCommentNode.vue'
+
+const TURNSTILE_SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+
+type TurnstileWidgetOptions = {
+  sitekey: string
+  callback: (token: string) => void
+  'expired-callback': () => void
+  'error-callback': () => void
+}
+
+type TurnstileApi = {
+  render: (container: HTMLElement, options: TurnstileWidgetOptions) => string | number
+}
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi
+  }
+}
 
 /* Modern comment section (前端评论区优化.txt P0): thread layout without
    cards, border-left connector, inline reply composers, collapsed root
@@ -21,6 +41,7 @@ const MAX_INDENT = 3
 
 const comments = ref<PublicComment[]>([])
 const loading = ref(true)
+const authReady = ref(false)
 
 const sort = ref<'newest' | 'oldest'>('newest')
 const visibleCount = ref(INITIAL_THREADS)
@@ -29,9 +50,17 @@ const visibleCount = ref(INITIAL_THREADS)
 const composerOpen = ref(false)
 const name = ref('')
 const email = ref('')
+const website = ref('')
+const turnstileToken = ref('')
+const turnstileSiteKey = ref('')
+const turnstileError = ref(false)
+const turnstileContainer = ref<HTMLElement | null>(null)
+const turnstileWidgetId = ref<string | number | null>(null)
 const content = ref('')
 const submitting = ref(false)
 const error = ref('')
+
+let turnstileScriptPromise: Promise<void> | null = null
 
 /* inline reply state */
 const replyTarget = ref<PublicComment | null>(null)
@@ -55,6 +84,8 @@ async function load(): Promise<void> {
 }
 
 onMounted(async () => {
+  await auth.fetchMe()
+  authReady.value = true
   await load()
   await nextTick()
   focusPermalink()
@@ -106,6 +137,84 @@ function indentClass(depth: number): string {
   return level === 1 ? 'ml-5 sm:ml-8' : 'ml-5 sm:ml-16'
 }
 
+function loadTurnstileScript(): Promise<void> {
+  if (!import.meta.client || window.turnstile) return Promise.resolve()
+  if (turnstileScriptPromise) return turnstileScriptPromise
+
+  turnstileScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${TURNSTILE_SCRIPT_URL}"]`)
+    const script = existing ?? document.createElement('script')
+    const cleanup = (): void => {
+      script.removeEventListener('load', handleLoad)
+      script.removeEventListener('error', handleError)
+    }
+    const handleLoad = (): void => {
+      cleanup()
+      if (window.turnstile) resolve()
+      else reject(new Error('Turnstile API unavailable'))
+    }
+    const handleError = (): void => {
+      cleanup()
+      reject(new Error('Turnstile script failed to load'))
+    }
+
+    script.addEventListener('load', handleLoad, { once: true })
+    script.addEventListener('error', handleError, { once: true })
+    if (!existing) {
+      script.src = TURNSTILE_SCRIPT_URL
+      script.async = true
+      script.defer = true
+      document.head.appendChild(script)
+    }
+  })
+
+  void turnstileScriptPromise.catch(() => {
+    turnstileScriptPromise = null
+  })
+  return turnstileScriptPromise
+}
+
+function setTurnstileError(): void {
+  turnstileToken.value = ''
+  turnstileError.value = true
+  error.value = t('public.comments.failed')
+}
+
+async function initializeTurnstile(): Promise<void> {
+  if (!import.meta.client || auth.user || turnstileWidgetId.value !== null) return
+
+  let settings: Record<string, string | number | boolean>
+  try {
+    settings = await $fetch<Record<string, string | number | boolean>>('/api/public-settings')
+  } catch {
+    return
+  }
+
+  const configuredSiteKey = settings['comments.turnstile_site_key']
+  const siteKey = typeof configuredSiteKey === 'string' ? configuredSiteKey.trim() : ''
+  if (!siteKey) return
+
+  turnstileSiteKey.value = siteKey
+  try {
+    await loadTurnstileScript()
+    await nextTick()
+    if (!turnstileContainer.value || !window.turnstile || turnstileWidgetId.value !== null) return
+
+    turnstileWidgetId.value = window.turnstile.render(turnstileContainer.value, {
+      sitekey: siteKey,
+      callback: (token) => {
+        turnstileToken.value = token
+        turnstileError.value = false
+        error.value = ''
+      },
+      'expired-callback': setTurnstileError,
+      'error-callback': setTurnstileError
+    })
+  } catch {
+    setTurnstileError()
+  }
+}
+
 /* ---------- root composer ---------- */
 
 async function submitRoot(): Promise<void> {
@@ -116,6 +225,8 @@ async function submitRoot(): Promise<void> {
     if (!auth.user) {
       body.name = name.value
       body.email = email.value
+      body.website = website.value
+      body.turnstileToken = turnstileToken.value
     }
     const res = await $fetch<{ status?: string }>(`/api/public/posts/${props.postAlias}/comments`, { method: 'POST', body })
     content.value = ''
@@ -152,6 +263,8 @@ async function submitReply(): Promise<void> {
     if (!auth.user) {
       body.name = name.value
       body.email = email.value
+      body.website = website.value
+      body.turnstileToken = turnstileToken.value
     }
     const res = await $fetch<{ status?: string }>(`/api/public/posts/${props.postAlias}/comments`, { method: 'POST', body })
     if (res.status && res.status !== 'approved') {
@@ -290,13 +403,13 @@ onMounted(() => {
             rows="3"
             maxlength="3000"
             class="min-h-9 w-full resize-y rounded-md border-0 bg-transparent px-1 py-1 text-sm leading-relaxed outline-none focus:ring-0"
-            @focus="composerOpen = true"
+            @focus="composerOpen = true; void initializeTurnstile()"
           />
         </div>
 
         <template v-if="composerOpen || content">
           <div
-            v-if="!auth.user"
+            v-if="authReady && !auth.user"
             class="mb-3 ml-12 grid gap-3 sm:grid-cols-2"
           >
             <input
@@ -312,6 +425,18 @@ onMounted(() => {
               required
               class="h-9 rounded-md border bg-background px-3 text-sm"
             >
+            <input
+              v-model="website"
+              type="url"
+              :placeholder="t('public.comments.website')"
+              autocomplete="url"
+              class="h-9 rounded-md border bg-background px-3 text-sm"
+            >
+            <div
+              v-if="turnstileSiteKey"
+              ref="turnstileContainer"
+              class="sm:col-span-2"
+            />
           </div>
           <div class="flex items-center justify-end gap-3 border-t pt-3">
             <span class="mr-auto text-xs text-muted-foreground">
@@ -404,12 +529,36 @@ onMounted(() => {
             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
             :class="avatarClass(thread.authorName)"
           >
-            {{ thread.authorName.slice(0, 1).toUpperCase() }}
+            <img
+              v-if="thread.avatarUrl"
+              :src="thread.avatarUrl"
+              alt=""
+              class="h-full w-full rounded-full object-cover"
+            >
+            <template v-else>{{ thread.authorName.slice(0, 1).toUpperCase() }}</template>
           </div>
           <div class="min-w-0 flex-1">
             <p class="text-sm">
-              <span class="font-semibold">{{ thread.authorName }}</span>
+              <a
+                v-if="thread.websiteUrl"
+                :href="thread.websiteUrl"
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                class="font-semibold hover:underline"
+              >{{ thread.authorName }}</a>
+              <span v-else class="font-semibold">{{ thread.authorName }}</span>
+              <span
+                v-for="badge in thread.badges"
+                :key="`${thread.id}-${badge.key}`"
+                class="ml-1.5 inline-flex items-center rounded-full bg-primary/10 px-1.5 py-0.5 align-middle text-[10px] font-medium text-primary"
+                :title="badge.description"
+              >
+                {{ badge.name }}
+              </span>
               <span class="ml-1.5 text-xs text-muted-foreground">{{ relativeTime(thread.createdAt) }}</span>
+              <span v-if="thread.browserName || thread.osName" class="ml-1.5 text-xs text-muted-foreground">
+                · {{ [thread.browserName, thread.osName].filter(Boolean).join(' / ') }}
+              </span>
             </p>
             <p class="mt-1 text-[15px] leading-[1.7]">
               {{ thread.content }}
@@ -437,107 +586,30 @@ onMounted(() => {
         <!-- replies: thread line (§14/15) -->
         <div
           v-if="thread.children.length"
-          class="ml-5 space-y-4 border-l border-muted pl-5 sm:ml-8"
+          :class="[indentClass(1), 'space-y-4 border-l border-muted pl-5']"
         >
-          <template
+          <PostCommentNode
             v-for="reply in visibleReplies(thread)"
             :key="reply.id"
-          >
-            <div
-              :id="`comment-${reply.id}`"
-              class="flex gap-3 transition-all duration-700"
-              :class="highlightedId === reply.id ? 'rounded-lg bg-muted/40 ring-1 ring-primary/20' : ''"
-            >
-              <div
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-                :class="avatarClass(reply.authorName)"
-              >
-                {{ reply.authorName.slice(0, 1).toUpperCase() }}
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="text-sm">
-                  <span class="font-semibold">{{ reply.authorName }}</span>
-                  <span class="ml-1.5 text-xs text-muted-foreground">{{ relativeTime(reply.createdAt) }}</span>
-                </p>
-                <p class="mt-1 text-[15px] leading-[1.7]">
-                  {{ reply.content }}
-                </p>
-                <div class="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
-                  <button
-                    type="button"
-                    class="hover:text-foreground"
-                    @click="openReply(reply)"
-                  >
-                    {{ t('public.comments.reply') }}
-                  </button>
-                  <button
-                    type="button"
-                    class="hover:text-foreground"
-                    :title="t('public.comments.copyLink')"
-                    @click="copyPermalink(reply)"
-                  >
-                    ···
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- inline reply composer (§32/33) -->
-            <div
-              v-if="replyTarget?.id === reply.id"
-              :id="`reply-composer-${reply.id}`"
-              class="ml-11 rounded-lg border p-3"
-            >
-              <p class="mb-2 text-xs text-muted-foreground">
-                {{ t('public.comments.replyingToName', { name: reply.authorName }) }}
-                <button
-                  type="button"
-                  class="ml-1 text-destructive hover:underline"
-                  @click="replyTarget = null"
-                >
-                  {{ t('common.cancel') }}
-                </button>
-              </p>
-              <form
-                class="space-y-2"
-                @submit.prevent="submitReply"
-              >
-                <textarea
-                  v-model="replyContent"
-                  rows="2"
-                  maxlength="3000"
-                  :placeholder="t('public.comments.replyPlaceholder', { name: reply.authorName })"
-                  class="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                  required
-                />
-                <div class="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    class="h-8 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent"
-                    @click="replyTarget = null"
-                  >
-                    {{ t('common.cancel') }}
-                  </button>
-                  <button
-                    type="submit"
-                    class="h-8 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                    :disabled="replySubmitting || !replyContent.trim()"
-                  >
-                    {{ replySubmitting ? t('public.comments.submitting') : t('public.comments.reply') }}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </template>
-
-          <button
-            v-if="hiddenReplyCount(thread) > 0"
-            type="button"
-            class="text-xs text-muted-foreground hover:text-primary"
-            @click="toggleThread(thread)"
-          >
-            ↳ {{ expandedThreads.has(thread.id) ? t('public.comments.collapseReplies') : t('public.comments.moreReplies', { n: hiddenReplyCount(thread) }) }}
-          </button>
+            :comment="reply"
+            :depth="1"
+            :highlighted-id="highlightedId"
+            :reply-target="replyTarget"
+            :reply-content="replyContent"
+            :reply-submitting="replySubmitting"
+            :expanded-threads="expandedThreads"
+            :indent-class="indentClass"
+            :avatar-class="avatarClass"
+            :relative-time="relativeTime"
+            :visible-replies="visibleReplies"
+            :hidden-reply-count="hiddenReplyCount"
+            :open-reply="openReply"
+            :copy-permalink="copyPermalink"
+            :toggle-thread="toggleThread"
+            :submit-reply="submitReply"
+            @update:reply-content="replyContent = $event"
+            @cancel-reply="replyTarget = null"
+          />
         </div>
 
         <!-- inline reply composer for the thread root -->

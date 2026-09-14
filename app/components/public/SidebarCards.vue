@@ -4,6 +4,7 @@ import PublicArticleToc from '~/components/public/ArticleToc.vue'
 import PublicAuthorCard from '~/components/public/AuthorCardView.vue'
 import { extractToc } from '~/utils/blog'
 import type { PublicSidebarCard } from '#shared/schemas/sidebar-card'
+const { localeCode, publicPath } = useLocale()
 
 /* Renders admin-managed sidebar cards for the current locale.
    Card HTML is whitelisted by sanitize-html on the server; fetch
@@ -11,7 +12,11 @@ import type { PublicSidebarCard } from '#shared/schemas/sidebar-card'
 
 const { data, status } = await useFetch<{ locale: string, cards: PublicSidebarCard[] }>(
   '/api/public/sidebar',
-  { lazy: true }
+  {
+    key: computed(() => `public-sidebar-${localeCode.value}`),
+    query: computed(() => ({ locale: localeCode.value })),
+    lazy: true
+  }
 )
 
 import { NuxtLink } from '#components'
@@ -32,7 +37,8 @@ const tocItems = useState<ReturnType<typeof extractToc>['toc'] | null>('article-
     <UiCard
       v-for="card in cards"
       :key="card.id"
-      class="overflow-hidden p-5"
+      class="overflow-hidden"
+      :class="card.type === 'ad_slot' ? 'p-0' : 'p-5'"
     >
       <template v-if="card.type === 'article_toc' && tocItems?.length">
         <PublicArticleToc :items="tocItems" />
@@ -48,6 +54,7 @@ const tocItems = useState<ReturnType<typeof extractToc>['toc'] | null>('article-
           :layout="card.author.layout"
           :socials="card.author.socials"
           :cta="card.author.cta"
+          :profile-url="card.author.profileUrl"
         />
       </template>
 
@@ -105,7 +112,7 @@ const tocItems = useState<ReturnType<typeof extractToc>['toc'] | null>('article-
               :key="item.alias"
             >
               <NuxtLink
-                :to="`/posts/${item.alias}`"
+                :to="publicPath(`/posts/${item.alias}`)"
                 class="text-muted-foreground hover:text-primary hover:underline"
               >
                 {{ item.title }}

@@ -13,6 +13,7 @@ export interface PublicPostSummary {
   coverUrl: string | null
   authorName?: string | null
   views?: number
+  commentCount?: number
   readingMinutes?: number
   categories: PublicTaxonomyTerm[]
   tags: PublicTaxonomyTerm[]

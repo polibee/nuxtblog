@@ -182,11 +182,11 @@ async function save(): Promise<void> {
     }
     if (Object.keys(values).length > 0) {
       await $fetch(`/api/admin/settings-ui/${page.value.page.id}`, { method: 'PATCH', body: { values } })
-      notify(t('res.settingsui.saved'))
+      notify(t('settings.ui.saved'))
     }
     await loadPage(page.value.page.id)
   } catch (e) {
-    notifyError(t('res.settingsui.saveFailed'), (e as Error).message)
+    notifyError(t('settings.ui.saveFailed'), (e as Error).message)
   } finally {
     saving.value = false
   }
@@ -203,15 +203,15 @@ async function resetField(key: string): Promise<void> {
   try {
     await $fetch(`/api/admin/settings-ui/${page.value.page.id}/reset`, { method: 'POST', body: { keys: [key] } })
     await loadPage(page.value.page.id)
-    notify(t('res.settingsui.resetDone'))
+    notify(t('settings.ui.resetDone'))
   } catch (e) {
-    notifyError(t('res.settingsui.saveFailed'), (e as Error).message)
+    notifyError(t('settings.ui.saveFailed'), (e as Error).message)
   }
 }
 
 /* §7: unsaved-changes route guard */
 onBeforeRouteLeave(() => {
-  if (dirty.value && !window.confirm(t('res.settingsui.unsavedConfirm'))) {
+  if (dirty.value && !window.confirm(t('settings.ui.unsavedConfirm'))) {
     return false
   }
   return true
@@ -256,7 +256,7 @@ async function jumpTo(item: SearchItem): Promise<void> {
     <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">
-          {{ t('res.settings.label') }}
+          {{ t('settings.title') }}
         </h1>
         <p class="mt-0.5 text-sm text-muted-foreground">
           {{ t('settings.ui.subtitle') }}
@@ -288,31 +288,32 @@ async function jumpTo(item: SearchItem): Promise<void> {
       </div>
     </div>
 
-    <div class="grid gap-8 lg:grid-cols-[240px,minmax(0,1fr)]">
-      <!-- left navigation (§5/9): generated from the registry -->
-      <nav class="max-lg:hidden">
-        <div
-          v-for="group in navGroups"
-          :key="group.id"
-          class="mb-4"
-        >
-          <p class="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            {{ label(group.label) }}
-          </p>
-          <NuxtLink
-            v-for="item in group.pages"
-            :key="item.id"
-            :to="`/admin/settings/${item.id}`"
-            class="block rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent"
-            :class="item.id === pageId ? 'bg-accent font-medium' : 'text-muted-foreground'"
+    <div class="space-y-5">
+      <!-- unified settings navigation: one horizontally scrollable row on every screen -->
+      <nav class="overflow-x-auto rounded-2xl border bg-card p-1.5 shadow-sm">
+        <div class="flex min-w-max items-center gap-1">
+          <template
+            v-for="group in navGroups"
+            :key="group.id"
           >
-            {{ label(item.title) }}
-          </NuxtLink>
+            <span class="px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              {{ label(group.label) }}
+            </span>
+            <NuxtLink
+              v-for="item in group.pages"
+              :key="item.id"
+              :to="`/admin/settings/${item.id}`"
+              class="rounded-xl px-3 py-2 text-sm transition-colors hover:bg-accent"
+              :class="item.id === pageId ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground'"
+            >
+              {{ label(item.title) }}
+            </NuxtLink>
+          </template>
         </div>
       </nav>
 
       <!-- page content (§65: sections + separators, not giant cards) -->
-      <div class="min-w-0 space-y-8">
+      <div class="min-w-0 space-y-5">
         <div
           v-if="loading && !page"
           class="text-sm text-muted-foreground"
@@ -348,24 +349,51 @@ async function jumpTo(item: SearchItem): Promise<void> {
             v-if="si > 0"
             class="border-t"
           />
-          <section class="space-y-4">
-            <div>
-              <h2 class="text-sm font-semibold">
-                {{ label(section.title) }}
-              </h2>
-              <p
-                v-if="section.description"
-                class="mt-0.5 text-xs text-muted-foreground"
-              >
-                {{ label(section.description) }}
-              </p>
+          <section class="space-y-5 rounded-2xl border bg-card p-5 shadow-sm">
+            <div class="border-b pb-4">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 class="text-sm font-semibold">
+                    {{ label(section.title) }}
+                  </h2>
+                  <p
+                    v-if="section.description"
+                    class="mt-0.5 text-xs text-muted-foreground"
+                  >
+                    {{ label(section.description) }}
+                  </p>
+                </div>
+                <div
+                  v-if="page?.page.id === 'seo' && section.id === 'sitemap'"
+                  class="flex flex-wrap gap-2"
+                >
+                  <a
+                    href="/sitemap"
+                    target="_blank"
+                    rel="noopener"
+                    class="rounded-md border px-2.5 py-1 text-xs hover:bg-accent"
+                  >{{ t('settings.ui.openSitemap') }}</a>
+                  <a
+                    href="/sitemap.xml"
+                    target="_blank"
+                    rel="noopener"
+                    class="rounded-md border px-2.5 py-1 text-xs hover:bg-accent"
+                  >{{ t('settings.ui.openSitemapXml') }}</a>
+                  <a
+                    href="/robots.txt"
+                    target="_blank"
+                    rel="noopener"
+                    class="rounded-md border px-2.5 py-1 text-xs hover:bg-accent"
+                  >{{ t('settings.ui.openRobots') }}</a>
+                </div>
+              </div>
             </div>
             <div
               v-for="field in section.fields"
               v-show="isFieldVisible(field)"
               :id="`setting-${field.key}`"
               :key="field.key"
-              class="rounded-lg p-1 transition-colors"
+              class="rounded-lg p-1 transition-colors sm:grid sm:grid-cols-2 sm:gap-5"
               :class="highlightKey === field.key ? 'bg-primary/10 ring-1 ring-primary/40' : ''"
             >
               <div class="flex items-start justify-between gap-4">
@@ -380,10 +408,10 @@ async function jumpTo(item: SearchItem): Promise<void> {
                   v-if="canEdit && field.source === 'database' && field.type !== 'secret'"
                   type="button"
                   class="mt-5 shrink-0 text-xs text-muted-foreground hover:text-foreground"
-                  :title="t('res.settingsui.resetField')"
+                  :title="t('settings.ui.resetField')"
                   @click="resetField(field.key)"
                 >
-                  {{ t('res.settingsui.resetField') }}
+                  {{ t('settings.ui.resetField') }}
                 </button>
               </div>
             </div>

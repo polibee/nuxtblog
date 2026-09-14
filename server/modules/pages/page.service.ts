@@ -119,18 +119,23 @@ async function buildTranslationRows(
   })
 }
 
-function checkStatus(status: PageInput['status'], translations: PageTranslationRow[] | undefined, primaryLocaleId: number): void {
+function checkStatus(
+  status: PageInput['status'],
+  translations: PageTranslationRow[] | undefined,
+  primaryLocaleId: number,
+  existingTranslations?: PageRecord['translations']
+): void {
   if (status !== 'published') return
   const primary = translations?.find(t => t.localeId === primaryLocaleId)
+    ?? existingTranslations?.[String(primaryLocaleId)] as PageTranslationRow | undefined
   const complete = Boolean(
     primary
     && primary.title.trim()
-    && primary.content.replace(/<[^>]*>/g, '').trim()
   )
   if (!complete) {
     throw createError({
       statusCode: 422,
-      statusMessage: 'Publishing requires a complete primary-locale translation (title/content)'
+      statusMessage: 'Publishing requires a primary-locale title'
     })
   }
 }
@@ -181,7 +186,7 @@ export async function updatePage(id: number, body: unknown): Promise<AdminPage> 
   const maps = await localeMaps()
   const status = input.status ?? existing.status
   const translations = await buildTranslationRows(input.translations, maps, 'update')
-  checkStatus(status, translations, maps.defaultId)
+  checkStatus(status, translations, maps.defaultId, existing.translations)
 
   let alias = existing.alias
   if (input.alias !== undefined && input.alias !== existing.alias) {

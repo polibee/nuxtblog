@@ -242,7 +242,7 @@ import StoreProductCard from '~/components/store/ProductCard.vue'
 import { formatMoney } from '~/utils/money'
 import type { StoreProduct } from '#shared/types/store'
 
-definePageMeta({ layout: 'public-full' })
+definePageMeta({ layout: 'public-full', alias: ['/en/store/:alias'] })
 
 const { t } = useI18n()
 const { localeCode } = useLocale()

@@ -35,6 +35,7 @@ export interface NavigationItemRow {
   openInNewTab: boolean
   rel: string | null
   label: string | null
+  alias: string | null
   customUrl: string | null
   titleAttribute: string | null
   nofollow: boolean
@@ -188,10 +189,11 @@ export async function listVariantItems(variantId: number): Promise<NavigationIte
     .select()
     .from(navigationItemTranslations)
     .where(inArray(navigationItemTranslations.itemId, items.map(i => i.id)))
-  const labels = new Map<number, { label: string, customUrl: string | null, titleAttribute: string | null, nofollow: boolean }>()
+  const labels = new Map<number, { label: string, alias: string | null, customUrl: string | null, titleAttribute: string | null, nofollow: boolean }>()
   for (const row of labelRows) {
     labels.set(row.itemId, {
       label: row.label,
+      alias: row.alias,
       customUrl: row.customUrl,
       titleAttribute: row.titleAttribute,
       nofollow: row.nofollow
@@ -210,6 +212,7 @@ export async function listVariantItems(variantId: number): Promise<NavigationIte
       openInNewTab: item.openInNewTab,
       rel: item.rel,
       label: translation?.label ?? null,
+      alias: translation?.alias ?? null,
       customUrl: translation?.customUrl ?? null,
       titleAttribute: translation?.titleAttribute ?? null,
       nofollow: translation?.nofollow ?? false
@@ -229,6 +232,7 @@ export interface ItemInsertRow {
   openInNewTab: boolean
   rel: string | null
   label: string
+  alias: string | null
   customUrl: string | null
   titleAttribute: string | null
   nofollow: boolean
@@ -262,6 +266,7 @@ export async function replaceVariantItems(
         itemId: inserted.id,
         localeId,
         label: row.label,
+        alias: row.alias,
         customUrl: row.customUrl,
         titleAttribute: row.titleAttribute,
         nofollow: row.nofollow
@@ -271,7 +276,7 @@ export async function replaceVariantItems(
 }
 
 /** copy the item tree of a source variant into a target variant */
-export async function copyVariantItems(fromVariantId: number, toVariantId: number, toLocaleId: number): Promise<void> {
+export async function copyVariantItems(fromVariantId: number, toVariantId: number, toLocaleId: number, copyLabels = true): Promise<void> {
   const source = await listVariantItems(fromVariantId)
   const sourceIds = source.map(item => item.id)
   const sourceLabels = sourceIds.length > 0
@@ -284,11 +289,11 @@ export async function copyVariantItems(fromVariantId: number, toVariantId: numbe
 
   await getPostgresDb().transaction(async (tx) => {
     await tx.delete(navigationItems).where(eq(navigationItems.navigationVariantId, toVariantId))
-    const sourceIdToKey = new Map(source.map((item, index) => [item.id, index]))
+    const sourceIdToNewId = new Map<number, number>()
     for (const item of source) {
       const [inserted] = await tx.insert(navigationItems).values({
         navigationVariantId: toVariantId,
-        parentId: item.parentId ? sourceIdToKey.get(item.parentId) ?? null : null,
+        parentId: item.parentId ? sourceIdToNewId.get(item.parentId) ?? null : null,
         sortOrder: item.sortOrder,
         type: item.type,
         targetEntityType: item.targetEntityType,
@@ -298,11 +303,13 @@ export async function copyVariantItems(fromVariantId: number, toVariantId: numbe
         rel: item.rel
       }).returning({ id: navigationItems.id })
       if (!inserted) continue
+      sourceIdToNewId.set(item.id, inserted.id)
       const sourceTranslation = labelByItem.get(item.id)
       await tx.insert(navigationItemTranslations).values({
         itemId: inserted.id,
         localeId: toLocaleId,
-        label: sourceTranslation?.label ?? '',
+        label: copyLabels ? sourceTranslation?.label ?? '' : '',
+        alias: sourceTranslation?.alias ?? null,
         customUrl: sourceTranslation?.customUrl ?? null,
         titleAttribute: sourceTranslation?.titleAttribute ?? null,
         nofollow: sourceTranslation?.nofollow ?? false

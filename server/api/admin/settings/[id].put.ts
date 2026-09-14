@@ -1,6 +1,7 @@
 import { requirePermission } from '../../../utils/auth'
 import { invalidatePageCache } from '../../../utils/pageCache'
 import { updateSettingValue } from '../../../modules/settings/settings.service'
+import { maskSettingValue } from '../../../utils/setting-secrets'
 
 export default defineEventHandler(async (event) => {
   await requirePermission(event, 'settings.edit')
@@ -15,5 +16,5 @@ export default defineEventHandler(async (event) => {
   const updated = await updateSettingValue(id, body.value)
   // page cache keys are locale-scoped; purge all on settings writes
   await invalidatePageCache()
-  return updated
+  return { ...updated, value: maskSettingValue(updated.value, updated.type) }
 })
